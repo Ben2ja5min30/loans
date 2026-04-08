@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Loan Management System</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --blue:#1F3864;--mid:#2F5496;--light:#D6E4F0;--accent:#EBF5FB;
@@ -378,14 +379,14 @@ tbody td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:m
     <div class="card">
       <div class="card-title">Important notes about data storage</div>
       <div class="alert alert-amber" style="margin-bottom:8px">
-        <strong>Data is stored in your browser (localStorage).</strong><br>
-        If you clear browser data or switch browsers, data resets. Use the backup feature below.
+        <strong>Data is now synced through Supabase when the database tables exist.</strong><br>
+        Changes from one device can reflect on another device using the same live link.
       </div>
       <div style="font-size:12px;line-height:1.8;color:var(--muted);margin-bottom:12px">
         For a shared system where multiple people add data:<br>
-        — Each person maintains their own copy<br>
-        — Use Export/Import to sync between devices<br>
-        — Or upgrade to a hosted version for real-time sync
+        — All users share the same live database<br>
+        — New loans and payments sync across devices<br>
+        — Export/Import is still available as a backup
       </div>
       <div class="btn-row">
         <button class="btn btn-primary" onclick="exportData()">Export Data (JSON)</button>
@@ -487,6 +488,11 @@ const addMonths = (d,n) => { const r=new Date(d); r.setMonth(r.getMonth()+n); re
 const diffMonths = (a,b) => (b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth());
 const diffDays = (a,b) => Math.floor((b-a)/(1000*60*60*24));
 
+const SUPABASE_URL = "https://pjcanxkfvpbnacuvpduo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_9wXCwpxEvTJKsSR4dDSFuA_ZPtZc1G7";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const USE_SUPABASE = true;
+
 // ── SEED DATA ──────────────────────────────────────────────────────────────
 const SEED_LOANS = [
   {id:'LN-001',name:'Gororo Irvine',phone:'1',date:'2025-01-15',term:6,rate:10,amount:1500,type:'Interest Only',notes:'Pays $150/month interest only. Principal $1,500 outstanding. Extended to Dec-2026.'},
@@ -528,15 +534,46 @@ SEED_PAYMENTS.push({lid:'LN-010',inst:1,due:'2026-04-11',amtDue:420,datePaid:'20
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 let loans, payments;
-function loadState(){
+async function loadState(){
+  if(!USE_SUPABASE){
+    try{
+      const sl=localStorage.getItem('lms_loans');
+      const sp=localStorage.getItem('lms_payments');
+      loans = sl ? JSON.parse(sl) : JSON.parse(JSON.stringify(SEED_LOANS));
+      payments = sp ? JSON.parse(sp) : JSON.parse(JSON.stringify(SEED_PAYMENTS));
+    }catch(e){ loans=[...SEED_LOANS]; payments=[...SEED_PAYMENTS]; }
+    return;
+  }
   try{
-    const sl=localStorage.getItem('lms_loans');
-    const sp=localStorage.getItem('lms_payments');
-    loans = sl ? JSON.parse(sl) : JSON.parse(JSON.stringify(SEED_LOANS));
-    payments = sp ? JSON.parse(sp) : JSON.parse(JSON.stringify(SEED_PAYMENTS));
-  }catch(e){ loans=[...SEED_LOANS]; payments=[...SEED_PAYMENTS]; }
+    const [{data: dbLoans, error: loanErr}, {data: dbPayments, error: payErr}] = await Promise.all([
+      supabaseClient.from('loans').select('*').order('date', {ascending: true}),
+      supabaseClient.from('payments').select('*').order('lid', {ascending: true}).order('inst', {ascending: true})
+    ]);
+    if(loanErr) throw loanErr;
+    if(payErr) throw payErr;
+    loans = (dbLoans && dbLoans.length) ? dbLoans.map(r=>({
+      id:r.id,name:r.name,phone:r.phone,date:r.date,term:parseInt(r.term),rate:parseFloat(r.rate),
+      amount:parseFloat(r.amount),type:r.type,notes:r.notes||''
+    })) : JSON.parse(JSON.stringify(SEED_LOANS));
+    payments = (dbPayments && dbPayments.length) ? dbPayments.map(r=>({
+      lid:r.lid,inst:parseInt(r.inst),due:r.due,amtDue:parseFloat(r.amtDue||0),
+      datePaid:r.datePaid||'',amtPaid:parseFloat(r.amtPaid||0)
+    })) : JSON.parse(JSON.stringify(SEED_PAYMENTS));
+    if((!dbLoans || !dbLoans.length) && (!dbPayments || !dbPayments.length)){
+      await seedSupabaseFromDefaults();
+    }
+  }catch(e){
+    console.error('Falling back to local data:', e);
+    try{
+      const sl=localStorage.getItem('lms_loans');
+      const sp=localStorage.getItem('lms_payments');
+      loans = sl ? JSON.parse(sl) : JSON.parse(JSON.stringify(SEED_LOANS));
+      payments = sp ? JSON.parse(sp) : JSON.parse(JSON.stringify(SEED_PAYMENTS));
+    }catch(err){ loans=[...SEED_LOANS]; payments=[...SEED_PAYMENTS]; }
+    toast('Supabase unavailable. Using local data.', 'info');
+  }
 }
-function saveState(){
+async function saveState(){
   localStorage.setItem('lms_loans',JSON.stringify(loans));
   localStorage.setItem('lms_payments',JSON.stringify(payments));
 }
@@ -940,7 +977,7 @@ function renderRecommendations(data){
 }
 
 // ── ACTIONS ─────────────────────────────────────────────────────────────────
-function addClient(){
+async function addClient(){
   const name=document.getElementById('f-name').value.trim();
   const phone=document.getElementById('f-phone').value.trim();
   const date=document.getElementById('f-date').value;
@@ -951,29 +988,55 @@ function addClient(){
   const notes=document.getElementById('f-notes').value.trim();
   if(!name||!date||!amount||!term||!rate){toast('Please fill all required fields','error');return;}
   if(amount<100||amount>10000){toast('Loan amount must be $100–$10,000','error');return;}
-  const id='LN-'+String(loans.length+1).padStart(3,'0');
-  loans.push({id,name,phone,date,term,rate,amount,type,notes});
-  // Generate payment schedule
+  const maxNum=loans.length?Math.max(...loans.map(l=>parseInt((l.id||'').split('-')[1]||'0'))):0;
+  const id='LN-'+String(maxNum+1).padStart(3,'0');
+  const loan={id,name,phone,date,term,rate,amount,type,notes};
   const totalDue=amount+(amount*(rate/100)*term);
   const monthly=totalDue/term;
+  const newPayments=[];
   for(let i=1;i<=term;i++){
     const due=addMonths(new Date(date),i).toISOString().slice(0,10);
-    payments.push({lid:id,inst:i,due,amtDue:parseFloat(monthly.toFixed(2)),datePaid:'',amtPaid:0});
+    newPayments.push({lid:id,inst:i,due,amtDue:parseFloat(monthly.toFixed(2)),datePaid:'',amtPaid:0});
   }
-  saveState();
-  closeModal('addModal');
-  // Reset form
-  ['f-name','f-phone','f-date','f-amount','f-term','f-notes'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('f-rate').value='10';
-  renderAll();
-  toast(name+' added successfully!','success');
+  try{
+    if(USE_SUPABASE){
+      const {error: loanErr}=await supabaseClient.from('loans').insert([loan]);
+      if(loanErr) throw loanErr;
+      const {error: payErr}=await supabaseClient.from('payments').insert(newPayments);
+      if(payErr) throw payErr;
+    }
+    loans.push(loan);
+    payments.push(...newPayments);
+    await saveState();
+    closeModal('addModal');
+    ['f-name','f-phone','f-date','f-amount','f-term','f-notes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-rate').value='10';
+    renderAll();
+    toast(name+' added successfully!','success');
+  }catch(e){
+    console.error(e);
+    toast('Could not save client','error');
+  }
 }
 
-function deleteClient(id){
+async function deleteClient(id){
   if(!confirm('Delete this client and all payment records?')) return;
-  loans=loans.filter(l=>l.id!==id);
-  payments=payments.filter(p=>p.lid!==id);
-  saveState();renderAll();toast('Client deleted.','info');
+  try{
+    if(USE_SUPABASE){
+      const {error: payErr}=await supabaseClient.from('payments').delete().eq('lid',id);
+      if(payErr) throw payErr;
+      const {error: loanErr}=await supabaseClient.from('loans').delete().eq('id',id);
+      if(loanErr) throw loanErr;
+    }
+    loans=loans.filter(l=>l.id!==id);
+    payments=payments.filter(p=>p.lid!==id);
+    await saveState();
+    renderAll();
+    toast('Client deleted.','info');
+  }catch(e){
+    console.error(e);
+    toast('Could not delete client','error');
+  }
 }
 
 function openPayModal(){
@@ -994,7 +1057,7 @@ function fillPaymentDefaults(){
   if(d.nextDue) document.getElementById('p-due').value=d.nextDue.toISOString().slice(0,10);
 }
 
-function recordPayment(){
+async function recordPayment(){
   const lid=document.getElementById('p-client').value;
   const inst=parseInt(document.getElementById('p-inst').value);
   const due=document.getElementById('p-due').value;
@@ -1003,10 +1066,27 @@ function recordPayment(){
   const amtPaid=parseFloat(document.getElementById('p-paid-amt').value||0);
   if(!lid||!datePaid||!amtPaid){toast('Please fill Date Paid and Amount Paid','error');return;}
   const existing=payments.find(p=>p.lid===lid&&p.inst===inst);
-  if(existing){existing.datePaid=datePaid;existing.amtPaid=amtPaid;}
-  else payments.push({lid,inst,due,amtDue,datePaid,amtPaid});
-  saveState();closeModal('payModal');renderAll();
-  toast('Payment recorded successfully!','success');
+  const payload={lid,inst,due,amtDue,datePaid,amtPaid};
+  try{
+    if(USE_SUPABASE){
+      if(existing){
+        const {error}=await supabaseClient.from('payments').update({due,amtDue,datePaid,amtPaid}).eq('lid',lid).eq('inst',inst);
+        if(error) throw error;
+      } else {
+        const {error}=await supabaseClient.from('payments').insert([payload]);
+        if(error) throw error;
+      }
+    }
+    if(existing){existing.datePaid=datePaid;existing.amtPaid=amtPaid; existing.due=due; existing.amtDue=amtDue;}
+    else payments.push(payload);
+    await saveState();
+    closeModal('payModal');
+    renderAll();
+    toast('Payment recorded successfully!','success');
+  }catch(e){
+    console.error(e);
+    toast('Could not record payment','error');
+  }
 }
 
 // ── UI HELPERS ───────────────────────────────────────────────────────────────
@@ -1043,7 +1123,26 @@ function importData(e){
     }catch{toast('Could not read file','error');}
   };reader.readAsText(file);
 }
-function resetData(){loans=JSON.parse(JSON.stringify(SEED_LOANS));payments=JSON.parse(JSON.stringify(SEED_PAYMENTS));saveState();renderAll();toast('Data reset to defaults','info');}
+async function resetData(){
+  try{
+    if(USE_SUPABASE){
+      await supabaseClient.from('payments').delete().neq('lid','__none__');
+      await supabaseClient.from('loans').delete().neq('id','__none__');
+      const {error: loanErr}=await supabaseClient.from('loans').insert(SEED_LOANS);
+      if(loanErr) throw loanErr;
+      const {error: payErr}=await supabaseClient.from('payments').insert(SEED_PAYMENTS);
+      if(payErr) throw payErr;
+    }
+    loans=JSON.parse(JSON.stringify(SEED_LOANS));
+    payments=JSON.parse(JSON.stringify(SEED_PAYMENTS));
+    await saveState();
+    renderAll();
+    toast('Data reset to defaults','info');
+  }catch(e){
+    console.error(e);
+    toast('Could not reset data','error');
+  }
+}
 
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
@@ -1152,8 +1251,35 @@ function setProfitScenario(s) {
 }
 
 
+
+async function seedSupabaseFromDefaults(){
+  try{
+    const {error: loanErr}=await supabaseClient.from('loans').insert(SEED_LOANS);
+    if(loanErr && !String(loanErr.message||'').includes('duplicate')) throw loanErr;
+    const {error: payErr}=await supabaseClient.from('payments').insert(SEED_PAYMENTS);
+    if(payErr && !String(payErr.message||'').includes('duplicate')) throw payErr;
+    loans = JSON.parse(JSON.stringify(SEED_LOANS));
+    payments = JSON.parse(JSON.stringify(SEED_PAYMENTS));
+  }catch(e){
+    console.error('Seed error:', e);
+  }
+}
+
+async function initApp(){
+  await loadState();
+  renderAll();
+  try{
+    const chan = supabaseClient.channel('loantrack-live')
+      .on('postgres_changes',{event:'*',schema:'public',table:'loans'}, async ()=>{await loadState(); renderAll();})
+      .on('postgres_changes',{event:'*',schema:'public',table:'payments'}, async ()=>{await loadState(); renderAll();})
+      .subscribe();
+  }catch(e){
+    console.error('Realtime subscribe failed:', e);
+  }
+}
+
 // ── INIT ─────────────────────────────────────────────────────────────────────
-renderAll();
+initApp();
 </script>
 </body>
 </html>
