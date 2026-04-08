@@ -1154,6 +1154,34 @@ function setProfitScenario(s) {
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 renderAll();
+</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+// =======================
+// SUPABASE CONNECTION
+// =======================
+const supabaseUrl = "https://pjcanxkfvpbnacuvpduo.supabase.co";
+const supabaseKey = "sb_publishable_9wXCwpxEvTJKsSR4dDSFuA_ZPtZc1G7";
+
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+// =======================
+// TEST CONNECTION
+// =======================
+async function testSupabase() {
+    const { data, error } = await supabaseClient
+        .from('borrowers')
+        .select('*');
+
+    if (error) {
+        console.error("❌ Supabase connection error:", error);
+    } else {
+        console.log("✅ Supabase connected successfully!", data);
+    }
+}
+
+// Run test
+testSupabase();
 </script>
 </body>
 </html>
