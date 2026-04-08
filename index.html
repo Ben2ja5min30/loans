@@ -556,8 +556,12 @@ async function loadState(){
       amount:parseFloat(r.amount),type:r.type,notes:r.notes||''
     })) : JSON.parse(JSON.stringify(SEED_LOANS));
     payments = (dbPayments && dbPayments.length) ? dbPayments.map(r=>({
-      lid:r.lid,inst:parseInt(r.inst),due:r.due,amtDue:parseFloat(r.amtDue||0),
-      datePaid:r.datePaid||'',amtPaid:parseFloat(r.amtPaid||0)
+      lid:r.lid,
+      inst:parseInt(r.inst),
+      due:r.due,
+      amtDue:parseFloat(r.amt_due||0),
+      datePaid:r.date_paid||'',
+      amtPaid:parseFloat(r.amt_paid||0)
     })) : JSON.parse(JSON.stringify(SEED_PAYMENTS));
     if((!dbLoans || !dbLoans.length) && (!dbPayments || !dbPayments.length)){
       await seedSupabaseFromDefaults();
@@ -1254,9 +1258,28 @@ function setProfitScenario(s) {
 
 async function seedSupabaseFromDefaults(){
   try{
-    const {error: loanErr}=await supabaseClient.from('loans').insert(SEED_LOANS);
+    const loanRows = SEED_LOANS.map(l => ({
+      id: l.id,
+      name: l.name,
+      phone: l.phone || '',
+      date: l.date,
+      term: parseInt(l.term),
+      rate: parseFloat(l.rate),
+      amount: parseFloat(l.amount),
+      type: l.type || 'Standard',
+      notes: l.notes || ''
+    }));
+    const paymentRows = SEED_PAYMENTS.map(p => ({
+      lid: p.lid,
+      inst: parseInt(p.inst),
+      due: p.due,
+      amt_due: parseFloat(p.amtDue || 0),
+      date_paid: p.datePaid || null,
+      amt_paid: parseFloat(p.amtPaid || 0)
+    }));
+    const {error: loanErr}=await supabaseClient.from('loans').insert(loanRows);
     if(loanErr && !String(loanErr.message||'').includes('duplicate')) throw loanErr;
-    const {error: payErr}=await supabaseClient.from('payments').insert(SEED_PAYMENTS);
+    const {error: payErr}=await supabaseClient.from('payments').insert(paymentRows);
     if(payErr && !String(payErr.message||'').includes('duplicate')) throw payErr;
     loans = JSON.parse(JSON.stringify(SEED_LOANS));
     payments = JSON.parse(JSON.stringify(SEED_PAYMENTS));
