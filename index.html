@@ -1,131 +1,153 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>LoanTrack</title>
+  <title>LoanTrack</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<style>
-body {
-  font-family: Arial;
-  margin: 0;
-  background: #f4f6f8;
-}
+  <style>
+    body {
+      font-family: Arial;
+      margin: 0;
+      background: #f4f6f8;
+    }
 
-/* SAGE GREEN THEME */
-.nav {
-  background: #6B8E73;
-  color: white;
-  padding: 15px;
-  display: flex;
-  gap: 10px;
-}
+    .nav {
+      background: #6b8f71;
+      color: white;
+      padding: 15px;
+      display: flex;
+      gap: 10px;
+    }
 
-.nav button {
-  background: transparent;
-  border: none;
-  color: white;
-  cursor: pointer;
-  font-weight: bold;
-}
+    .nav button {
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
 
-/* PAGES */
-.page {
-  display: none;
-  padding: 20px;
-}
+    .container {
+      padding: 20px;
+    }
 
-.active {
-  display: block;
-}
+    .card {
+      background: white;
+      padding: 15px;
+      margin: 10px;
+      border-radius: 8px;
+      display: inline-block;
+      width: 200px;
+    }
 
-/* CARD */
-.card {
-  background: white;
-  padding: 15px;
-  margin: 10px;
-  border-radius: 8px;
-}
-</style>
+    .hidden {
+      display: none;
+    }
+
+    table {
+      width: 100%;
+      background: white;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+  </style>
 </head>
 
 <body>
 
 <div class="nav">
   <button onclick="showPage('dashboard')">Dashboard</button>
-  <button onclick="showPage('register')">Register</button>
   <button onclick="showPage('payments')">Payments</button>
   <button onclick="showPage('arrears')">Arrears</button>
   <button onclick="showPage('disbursements')">Disbursements</button>
   <button onclick="showPage('search')">Search</button>
 </div>
 
-<!-- DASHBOARD -->
-<div id="dashboard" class="page active">
-  <h2>Dashboard</h2>
+<div class="container">
 
-  <div class="card">
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+    <div class="card">Total Portfolio<br><b>$11,750</b></div>
+    <div class="card">Collected<br><b>$11,853</b></div>
+    <div class="card">Arrears<br><b>$4,859</b></div>
+  </div>
+
+  <!-- PAYMENTS -->
+  <div id="payments" class="hidden">
+    <h3>Payments</h3>
+    <table>
+      <tr><th>Name</th><th>Amount</th><th>Action</th></tr>
+      <tr>
+        <td>Java</td>
+        <td>$200</td>
+        <td><button onclick="deleteRow(this)">Delete</button></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ARREARS -->
+  <div id="arrears" class="hidden">
     <h3>Accounts in Arrears</h3>
-    <p>Tagaza – Missed 04 April</p>
-    <p>Mamhanya – $466 outstanding</p>
+    <ul>
+      <li>Tagaza – Due 4 April & 4 May</li>
+      <li>Mamhanya – $466 overdue (Jan 2026)</li>
+    </ul>
+
+    <h3>Upcoming This Week</h3>
+    <ul>
+      <li>Pukuta – 10 April</li>
+      <li>Ororo – 11 April</li>
+    </ul>
   </div>
 
-  <div class="card">
-    <h3>Weekly Upcoming Due Loans</h3>
-    <p>Bukuta – 10 April</p>
-    <p>Ororo – 11 April</p>
+  <!-- DISBURSEMENTS -->
+  <div id="disbursements" class="hidden">
+    <h3>Disbursements</h3>
+    Weekly: $0 <br>
+    Monthly: $0
   </div>
-</div>
 
-<!-- REGISTER -->
-<div id="register" class="page">
-  <h2>Register Client</h2>
+  <!-- SEARCH -->
+  <div id="search" class="hidden">
+    <h3>Search Client</h3>
+    <input type="text" id="searchBox" placeholder="Enter name">
+    <button onclick="searchClient()">Search</button>
 
-  <input placeholder="Client Name"><br><br>
-  <input placeholder="Phone"><br><br>
-
-  <!-- NEW FIELD -->
-  <input placeholder="Next of Kin Name (Optional)"><br><br>
-  <input placeholder="Next of Kin Phone (Optional)"><br><br>
-
-  <button>Add Client</button>
-</div>
-
-<!-- PAYMENTS -->
-<div id="payments" class="page">
-  <h2>Payments</h2>
-
-  <div class="card">
-    <p>Client: Tagaza – $100</p>
-    <button onclick="deletePayment(this)">Delete</button>
+    <div id="result"></div>
   </div>
-</div>
 
-<!-- ARREARS -->
-<div id="arrears" class="page">
-  <h2>Arrears</h2>
-  <p>List of overdue clients</p>
-</div>
-
-<!-- DISBURSEMENTS -->
-<div id="disbursements" class="page">
-  <h2>Disbursements</h2>
-  <p>Weekly & Monthly disbursements</p>
-</div>
-
-<!-- SEARCH -->
-<div id="search" class="page">
-  <h2>Search Client</h2>
-  <input placeholder="Search name">
 </div>
 
 <script>
+
 function showPage(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(page).classList.add('active');
+  document.querySelectorAll('.container > div').forEach(div => {
+    div.classList.add('hidden');
+  });
+  document.getElementById(page).classList.remove('hidden');
 }
 
-function deletePayment(btn) {
-  btn.parentElement.remove();
+function deleteRow(btn) {
+  btn.parentElement.parentElement.remove();
 }
+
+function searchClient() {
+  let name = document.getElementById("searchBox").value;
+
+  let data = {
+    "Java": "Loan: $1000 | Balance: $400",
+    "Tagaza": "Loan: $1500 | Arrears: Yes",
+    "Mamhanya": "Loan: $2000 | Arrears: $466"
+  };
+
+  document.getElementById("result").innerHTML =
+    data[name] || "Client not found";
+}
+
 </script>
 
 </body>
