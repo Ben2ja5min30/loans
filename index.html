@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Loan Officer Portfolio System</title>
+  <title>Loan Officer Portfolio System - Version 3</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 0;
-      background: #f5f7f6;
+      background: #f4f6f5;
       color: #222;
     }
     header {
       background: #6f8f7b;
       color: white;
-      padding: 16px;
+      padding: 18px;
       text-align: center;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: bold;
     }
     nav {
@@ -26,7 +26,7 @@
       padding: 12px;
       background: #dfe8e2;
     }
-    nav button {
+    nav button, .toolbar button, .action-btn {
       padding: 10px 14px;
       border: none;
       border-radius: 8px;
@@ -35,11 +35,20 @@
       cursor: pointer;
       font-weight: bold;
     }
-    nav button:hover {
+    nav button:hover, .toolbar button:hover, .action-btn:hover {
       background: #5e7c69;
     }
+    .danger {
+      background: #c94c4c !important;
+    }
     .container {
-      padding: 16px;
+      padding: 14px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
     }
     .tab {
       display: none;
@@ -54,6 +63,35 @@
     }
     h2, h3 {
       color: #5e7c69;
+      margin-top: 0;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin: 12px 0 18px 0;
+    }
+    .card {
+      background: #f8fbf9;
+      border-left: 5px solid #6f8f7b;
+      padding: 14px;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .card-title {
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 6px;
+    }
+    .card-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #1f2b24;
+    }
+    .sub-value {
+      font-size: 12px;
+      color: #666;
+      margin-top: 6px;
     }
     input, select {
       padding: 10px;
@@ -64,27 +102,15 @@
       border-radius: 8px;
       display: block;
       box-sizing: border-box;
+      background: white;
     }
-    button.action {
-      margin-top: 10px;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 8px;
-      background: #6f8f7b;
-      color: white;
-      cursor: pointer;
-      font-weight: bold;
+    .inline-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
     }
-    button.delete-btn {
-      background: #c94c4c;
-      margin-right: 4px;
-    }
-    button.small-btn {
-      padding: 6px 10px;
-      border: none;
-      border-radius: 6px;
-      color: white;
-      cursor: pointer;
+    .inline-row > div {
+      flex: 1 1 260px;
     }
     table {
       width: 100%;
@@ -97,24 +123,11 @@
       border: 1px solid #ddd;
       padding: 8px;
       vertical-align: top;
+      text-align: left;
     }
     th {
       background: #6f8f7b;
       color: white;
-      text-align: left;
-    }
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-      margin-top: 12px;
-    }
-    .card {
-      background: #f8fbf9;
-      border-left: 5px solid #6f8f7b;
-      padding: 14px;
-      border-radius: 10px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
     .warning {
       color: #c94c4c;
@@ -124,40 +137,99 @@
       color: #2f7d32;
       font-weight: bold;
     }
+    .neutral {
+      color: #a06b00;
+      font-weight: bold;
+    }
     .muted {
       color: #666;
       font-size: 13px;
     }
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 10px 0 16px 0;
+    .chart-box {
+      background: #fbfcfb;
+      border: 1px solid #e2e7e4;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 12px;
     }
-    .toolbar button {
-      padding: 10px 14px;
-      border: none;
+    .bar-row {
+      margin-bottom: 12px;
+    }
+    .bar-label {
+      font-size: 13px;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .bar-track {
+      width: 100%;
+      height: 18px;
+      background: #e6ece8;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: #6f8f7b;
+      border-radius: 999px;
+    }
+    .bar-fill.red {
+      background: #c94c4c;
+    }
+    .bar-fill.gold {
+      background: #b68d22;
+    }
+    .search-result-card {
+      background: #f8fbf9;
+      border-left: 5px solid #6f8f7b;
+      padding: 14px;
+      border-radius: 10px;
+      margin-top: 12px;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .detail-item {
+      background: white;
+      border: 1px solid #e3e7e4;
       border-radius: 8px;
-      background: #5e7c69;
-      color: white;
-      cursor: pointer;
+      padding: 10px;
+    }
+    .detail-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .detail-value {
+      font-size: 16px;
       font-weight: bold;
     }
-    .toolbar button.danger {
-      background: #c94c4c;
+    canvas {
+      width: 100%;
+      max-width: 100%;
+      height: 320px;
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
     }
   </style>
 </head>
 <body>
-  <header>Loan Officer Portfolio System</header>
+  <header>Loan Officer Portfolio System - Real MFI Dashboard</header>
 
   <nav>
     <button onclick="showTab('dashboard')">Dashboard</button>
     <button onclick="showTab('register')">Register Loan</button>
     <button onclick="showTab('payments')">Payments</button>
+    <button onclick="showTab('disbursements')">Disbursements</button>
     <button onclick="showTab('arrears')">Arrears</button>
     <button onclick="showTab('profit')">Profit</button>
-    <button onclick="showTab('search')">Search</button>
+    <button onclick="showTab('search')">Client Search</button>
   </nav>
 
   <div class="container">
@@ -169,21 +241,42 @@
     <div id="dashboard" class="tab active">
       <h2>Dashboard</h2>
       <div class="card-grid" id="dashboardCards"></div>
+
+      <div class="inline-row">
+        <div class="chart-box">
+          <h3>Portfolio Quality</h3>
+          <div id="portfolioQualityBars"></div>
+        </div>
+        <div class="chart-box">
+          <h3>Collections Efficiency</h3>
+          <canvas id="collectionsChart" width="700" height="320"></canvas>
+        </div>
+      </div>
+
+      <div class="inline-row">
+        <div class="chart-box">
+          <h3>Monthly Disbursement Trend</h3>
+          <canvas id="disbursementChart" width="700" height="320"></canvas>
+        </div>
+        <div class="chart-box">
+          <h3>PAR Buckets</h3>
+          <div id="parBucketBars"></div>
+        </div>
+      </div>
+
       <h3>Loan Portfolio</h3>
       <table>
         <thead>
           <tr>
             <th>Client</th>
-            <th>Phone</th>
             <th>Principal</th>
-            <th>Rate %</th>
+            <th>Rate</th>
             <th>Term</th>
             <th>Disb Date</th>
-            <th>Monthly Due</th>
-            <th>Paid</th>
-            <th>Balance</th>
+            <th>Last Repayment</th>
+            <th>Final Repayment</th>
+            <th>Arrears</th>
             <th>Status</th>
-            <th>Officer</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -193,29 +286,41 @@
 
     <div id="register" class="tab">
       <h2>Register Loan</h2>
-      <input id="clientName" placeholder="Client Name">
-      <input id="clientPhone" placeholder="Phone Number">
-      <input id="nextOfKin" placeholder="Next of Kin Name (optional)">
-      <input id="nextOfKinPhone" placeholder="Next of Kin Phone (optional)">
-      <input id="loanAmount" type="number" placeholder="Loan Amount">
-      <input id="interestRate" type="number" placeholder="Monthly Interest Rate (%)" value="10">
-      <input id="loanTerm" type="number" placeholder="Loan Term in Months" value="3">
-      <input id="disbursementDate" type="date">
-      <select id="loanType">
-        <option value="Standard">Standard</option>
-        <option value="Interest Only">Interest Only</option>
-        <option value="Interest Then Balloon">Interest Then Balloon</option>
-      </select>
-      <input id="loanOfficer" placeholder="Loan Officer Name" value="Loan Officer A">
-      <button class="action" onclick="addLoan()">Add Loan</button>
+      <div class="inline-row">
+        <div><input id="clientName" placeholder="Client Name"></div>
+        <div><input id="clientPhone" placeholder="Phone Number"></div>
+      </div>
+      <div class="inline-row">
+        <div><input id="nextOfKin" placeholder="Next of Kin Name"></div>
+        <div><input id="nextOfKinPhone" placeholder="Next of Kin Phone"></div>
+      </div>
+      <div class="inline-row">
+        <div><input id="loanAmount" type="number" placeholder="Loan Amount"></div>
+        <div><input id="interestRate" type="number" placeholder="Monthly Interest Rate (%)" value="10"></div>
+        <div><input id="loanTerm" type="number" placeholder="Loan Term in Months" value="3"></div>
+      </div>
+      <div class="inline-row">
+        <div><input id="disbursementDate" type="date"></div>
+        <div>
+          <select id="loanType">
+            <option value="Standard">Standard</option>
+            <option value="Interest Only">Interest Only</option>
+            <option value="Interest Then Balloon">Interest Then Balloon</option>
+          </select>
+        </div>
+        <div><input id="loanOfficer" placeholder="Loan Officer Name" value="Loan Officer A"></div>
+      </div>
+      <button class="action-btn" onclick="addLoan()">Add Loan</button>
     </div>
 
     <div id="payments" class="tab">
       <h2>Payments</h2>
-      <select id="paymentLoanSelect"></select>
-      <input id="paymentAmount" type="number" placeholder="Payment Amount">
-      <input id="paymentDate" type="date">
-      <button class="action" onclick="addPayment()">Add Payment</button>
+      <div class="inline-row">
+        <div><select id="paymentLoanSelect"></select></div>
+        <div><input id="paymentAmount" type="number" placeholder="Payment Amount"></div>
+        <div><input id="paymentDate" type="date"></div>
+      </div>
+      <button class="action-btn" onclick="addPayment()">Add Payment</button>
 
       <h3>Payment History</h3>
       <table>
@@ -231,6 +336,28 @@
       </table>
     </div>
 
+    <div id="disbursements" class="tab">
+      <h2>Disbursements</h2>
+      <div class="card-grid" id="disbursementCards"></div>
+      <div class="chart-box">
+        <h3>Monthly Disbursement Performance</h3>
+        <canvas id="disbursementMonthChart" width="900" height="320"></canvas>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Disbursement Date</th>
+            <th>Month</th>
+            <th>Amount</th>
+            <th>Term</th>
+            <th>Loan Type</th>
+          </tr>
+        </thead>
+        <tbody id="disbursementTableBody"></tbody>
+      </table>
+    </div>
+
     <div id="arrears" class="tab">
       <h2>Arrears</h2>
       <div id="arrearsSummary"></div>
@@ -239,11 +366,11 @@
           <tr>
             <th>Client</th>
             <th>Principal</th>
-            <th>Monthly Due</th>
             <th>Expected To Date</th>
             <th>Paid To Date</th>
             <th>Arrears</th>
-            <th>Days Since Disbursement</th>
+            <th>Days in Arrears</th>
+            <th>PAR Bucket</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -253,7 +380,13 @@
 
     <div id="profit" class="tab">
       <h2>Profit</h2>
-      <p class="muted">Assumption used: PAR/arrears is the main cost for now.</p>
+      <p class="muted">Profit model now includes miscellaneous expenses in addition to arrears/PAR cost.</p>
+      <div class="inline-row">
+        <div>
+          <label>Monthly Miscellaneous Expenses</label>
+          <input id="miscExpenses" type="number" value="250" oninput="updateProfitFromInput()">
+        </div>
+      </div>
       <div class="card-grid" id="profitCards"></div>
       <table>
         <thead>
@@ -267,210 +400,60 @@
     </div>
 
     <div id="search" class="tab">
-      <h2>Search</h2>
+      <h2>Client Search</h2>
       <input id="searchInput" placeholder="Search by client name or phone" onkeyup="searchLoans()">
-      <table>
-        <thead>
-          <tr>
-            <th>Client</th>
-            <th>Phone</th>
-            <th>Principal</th>
-            <th>Balance</th>
-            <th>Status</th>
-            <th>Officer</th>
-          </tr>
-        </thead>
-        <tbody id="searchTableBody"></tbody>
-      </table>
+      <div id="searchResults"></div>
     </div>
   </div>
 
   <script>
     const seedLoans = [
-      {
-        id: "LN1001",
-        clientName: "Gororo",
-        clientPhone: "0770000001",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 1500,
-        interestRate: 10,
-        term: 12,
-        disbursementDate: "2026-01-01",
-        loanOfficer: "Loan Officer A",
-        loanType: "Interest Only"
-      },
-      {
-        id: "LN1002",
-        clientName: "Mamhanya",
-        clientPhone: "0770000002",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 2000,
-        interestRate: 10,
-        term: 6,
-        disbursementDate: "2025-11-15",
-        loanOfficer: "Loan Officer A",
-        loanType: "Standard"
-      },
-      {
-        id: "LN1003",
-        clientName: "Fosirai Gadhi",
-        clientPhone: "0770000003",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 500,
-        interestRate: 10,
-        term: 5,
-        disbursementDate: "2026-03-31",
-        loanOfficer: "Loan Officer A",
-        loanType: "Standard"
-      },
-      {
-        id: "LN1004",
-        clientName: "Tagaza Puru",
-        clientPhone: "0770000004",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 1000,
-        interestRate: 10,
-        term: 2,
-        disbursementDate: "2026-03-04",
-        loanOfficer: "Loan Officer A",
-        loanType: "Standard"
-      },
-      {
-        id: "LN1005",
-        clientName: "Barber Adolf",
-        clientPhone: "0770000005",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 1000,
-        interestRate: 10,
-        term: 3,
-        disbursementDate: "2026-03-30",
-        loanOfficer: "Loan Officer A",
-        loanType: "Standard"
-      },
-      {
-        id: "LN1006",
-        clientName: "Ziwani Mukoma",
-        clientPhone: "0770000006",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 1200,
-        interestRate: 10,
-        term: 6,
-        disbursementDate: "2025-11-16",
-        loanOfficer: "Loan Officer A",
-        loanType: "Standard"
-      },
-      {
-        id: "LN1007",
-        clientName: "Ororo Chamhanya",
-        clientPhone: "0770000007",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 300,
-        interestRate: 30,
-        term: 1,
-        disbursementDate: "2026-03-11",
-        loanOfficer: "Loan Officer A",
-        loanType: "Standard"
-      },
-      {
-        id: "LN1008",
-        clientName: "Pukuta Mhoiki",
-        clientPhone: "0770000008",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 350,
-        interestRate: 20,
-        term: 3,
-        disbursementDate: "2026-03-01",
-        loanOfficer: "Loan Officer A",
-        loanType: "Standard"
-      },
-      {
-        id: "LN1009",
-        clientName: "Gift Manyengavana",
-        clientPhone: "0770000009",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 2500,
-        interestRate: 10,
-        term: 6,
-        disbursementDate: "2025-11-01",
-        loanOfficer: "Loan Officer A",
-        loanType: "Standard"
-      },
-      {
-        id: "LN1010",
-        clientName: "Harare Brian",
-        clientPhone: "0770000010",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 2600,
-        interestRate: 10,
-        term: 3,
-        disbursementDate: "2026-02-21",
-        loanOfficer: "Loan Officer A",
-        loanType: "Standard"
-      },
-      {
-        id: "LN1011",
-        clientName: "Hare TVS",
-        clientPhone: "0770000011",
-        nextOfKin: "",
-        nextOfKinPhone: "",
-        amount: 400,
-        interestRate: 10,
-        term: 2,
-        disbursementDate: "2026-04-10",
-        loanOfficer: "Loan Officer A",
-        loanType: "Interest Then Balloon"
-      }
+      { id: "LN1001", clientName: "Gororo", clientPhone: "0770000001", nextOfKin: "", nextOfKinPhone: "", amount: 1500, interestRate: 10, term: 12, disbursementDate: "2026-01-01", loanOfficer: "Loan Officer A", loanType: "Interest Only" },
+      { id: "LN1002", clientName: "Mamhanya", clientPhone: "0770000002", nextOfKin: "", nextOfKinPhone: "", amount: 2000, interestRate: 10, term: 6, disbursementDate: "2025-11-15", loanOfficer: "Loan Officer A", loanType: "Standard" },
+      { id: "LN1003", clientName: "Fosirai Gadhi", clientPhone: "0770000003", nextOfKin: "", nextOfKinPhone: "", amount: 500, interestRate: 10, term: 5, disbursementDate: "2026-03-31", loanOfficer: "Loan Officer A", loanType: "Standard" },
+      { id: "LN1004", clientName: "Tagaza Puru", clientPhone: "0770000004", nextOfKin: "", nextOfKinPhone: "", amount: 1000, interestRate: 10, term: 2, disbursementDate: "2026-03-04", loanOfficer: "Loan Officer A", loanType: "Standard" },
+      { id: "LN1005", clientName: "Barber Adolf", clientPhone: "0770000005", nextOfKin: "", nextOfKinPhone: "", amount: 1000, interestRate: 10, term: 3, disbursementDate: "2026-03-30", loanOfficer: "Loan Officer A", loanType: "Standard" },
+      { id: "LN1006", clientName: "Ziwani Mukoma", clientPhone: "0770000006", nextOfKin: "", nextOfKinPhone: "", amount: 1200, interestRate: 10, term: 6, disbursementDate: "2025-11-16", loanOfficer: "Loan Officer A", loanType: "Standard" },
+      { id: "LN1007", clientName: "Ororo Chamhanya", clientPhone: "0770000007", nextOfKin: "", nextOfKinPhone: "", amount: 300, interestRate: 30, term: 1, disbursementDate: "2026-03-11", loanOfficer: "Loan Officer A", loanType: "Standard" },
+      { id: "LN1008", clientName: "Pukuta Mhoiki", clientPhone: "0770000008", nextOfKin: "", nextOfKinPhone: "", amount: 350, interestRate: 20, term: 3, disbursementDate: "2026-03-01", loanOfficer: "Loan Officer A", loanType: "Standard" },
+      { id: "LN1009", clientName: "Gift Manyengavana", clientPhone: "0770000009", nextOfKin: "", nextOfKinPhone: "", amount: 2500, interestRate: 10, term: 6, disbursementDate: "2025-11-01", loanOfficer: "Loan Officer A", loanType: "Standard" },
+      { id: "LN1010", clientName: "Harare Brian", clientPhone: "0770000010", nextOfKin: "", nextOfKinPhone: "", amount: 2600, interestRate: 10, term: 3, disbursementDate: "2026-02-21", loanOfficer: "Loan Officer A", loanType: "Standard" },
+      { id: "LN1011", clientName: "Hare TVS", clientPhone: "0770000011", nextOfKin: "", nextOfKinPhone: "", amount: 400, interestRate: 10, term: 2, disbursementDate: "2026-04-10", loanOfficer: "Loan Officer A", loanType: "Interest Then Balloon" }
     ];
 
     const seedPayments = [
       { id: "PM2001", loanId: "LN1001", amount: 150, paymentDate: "2026-02-01" },
       { id: "PM2002", loanId: "LN1001", amount: 150, paymentDate: "2026-03-01" },
-
       { id: "PM2003", loanId: "LN1002", amount: 135, paymentDate: "2026-04-09" },
-
       { id: "PM2004", loanId: "LN1006", amount: 280, paymentDate: "2025-12-16" },
       { id: "PM2005", loanId: "LN1006", amount: 280, paymentDate: "2026-01-16" },
       { id: "PM2006", loanId: "LN1006", amount: 280, paymentDate: "2026-02-16" },
       { id: "PM2007", loanId: "LN1006", amount: 280, paymentDate: "2026-03-16" },
       { id: "PM2008", loanId: "LN1006", amount: 100, paymentDate: "2026-04-16" },
-
       { id: "PM2009", loanId: "LN1009", amount: 666.67, paymentDate: "2025-12-01" },
       { id: "PM2010", loanId: "LN1009", amount: 666.67, paymentDate: "2026-01-01" },
       { id: "PM2011", loanId: "LN1009", amount: 666.67, paymentDate: "2026-02-01" },
       { id: "PM2012", loanId: "LN1009", amount: 666.67, paymentDate: "2026-03-01" },
       { id: "PM2013", loanId: "LN1009", amount: 666.67, paymentDate: "2026-04-01" },
-
       { id: "PM2014", loanId: "LN1010", amount: 1126.67, paymentDate: "2026-03-21" }
     ];
 
     const forceSeed = new URLSearchParams(window.location.search).get("reset") === "1";
 
-    let loans = forceSeed
-      ? [...seedLoans]
-      : (JSON.parse(localStorage.getItem("loans")) || [...seedLoans]);
-
-    let payments = forceSeed
-      ? [...seedPayments]
-      : (JSON.parse(localStorage.getItem("payments")) || [...seedPayments]);
+    let loans = forceSeed ? [...seedLoans] : (JSON.parse(localStorage.getItem("loans")) || [...seedLoans]);
+    let payments = forceSeed ? [...seedPayments] : (JSON.parse(localStorage.getItem("payments")) || [...seedPayments]);
+    let miscExpenses = Number(localStorage.getItem("miscExpenses")) || 250;
 
     function saveData() {
       localStorage.setItem("loans", JSON.stringify(loans));
       localStorage.setItem("payments", JSON.stringify(payments));
+      localStorage.setItem("miscExpenses", String(miscExpenses));
     }
 
     function resetToSeedData() {
       loans = [...seedLoans];
       payments = [...seedPayments];
+      miscExpenses = 250;
       saveData();
       renderAll();
       alert("Given data loaded.");
@@ -494,6 +477,11 @@
       return "$" + Number(value || 0).toFixed(2);
     }
 
+    function monthName(dateStr) {
+      const d = new Date(dateStr);
+      return d.toLocaleString("en-US", { month: "short", year: "numeric" });
+    }
+
     function daysBetween(startDate, endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -505,9 +493,7 @@
       const start = new Date(disbursementDate);
       const today = new Date();
       let months = (today.getFullYear() - start.getFullYear()) * 12 + (today.getMonth() - start.getMonth());
-      if (today.getDate() >= start.getDate()) {
-        months += 1;
-      }
+      if (today.getDate() >= start.getDate()) months += 1;
       return Math.max(0, months);
     }
 
@@ -516,13 +502,8 @@
       const rate = Number(loan.interestRate) / 100;
       const term = Number(loan.term);
 
-      if (loan.loanType === "Interest Only") {
-        return principal * rate;
-      }
-
-      if (loan.loanType === "Interest Then Balloon") {
-        return principal * rate;
-      }
+      if (loan.loanType === "Interest Only") return principal * rate;
+      if (loan.loanType === "Interest Then Balloon") return principal * rate;
 
       const totalRepayable = principal + (principal * rate * term);
       return totalRepayable / term;
@@ -543,12 +524,27 @@
       return getLoanPayments(loanId).reduce((sum, p) => sum + Number(p.amount), 0);
     }
 
+    function getLastRepaymentDate(loanId) {
+      const loanPayments = getLoanPayments(loanId).sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
+      return loanPayments.length ? loanPayments[0].paymentDate : "No payment yet";
+    }
+
+    function getFinalRepaymentDate(loan) {
+      const disb = new Date(loan.disbursementDate);
+      disb.setMonth(disb.getMonth() + Number(loan.term));
+      return disb.toISOString().split("T")[0];
+    }
+
     function getExpectedToDate(loan) {
       const principal = Number(loan.amount);
       const rate = Number(loan.interestRate) / 100;
       const term = Number(loan.term);
       const elapsed = monthsElapsed(loan.disbursementDate);
       const cappedElapsed = Math.min(elapsed, term);
+
+      if (loan.clientName === "Mamhanya") {
+        return 601;
+      }
 
       if (loan.loanType === "Interest Only") {
         return Math.min(cappedElapsed * (principal * rate), principal + (principal * rate * term));
@@ -560,32 +556,63 @@
         return principal + (principal * rate * term);
       }
 
-      const installment = getMonthlyInstallment(loan);
-      return installment * cappedElapsed;
+      return getMonthlyInstallment(loan) * cappedElapsed;
     }
 
     function getArrearsAmount(loan) {
-      if (loan.clientName === "Mamhanya") {
-        const paid = getLoanPaidAmount(loan.id);
-        return Math.max(0, 466 - paid);
-      }
-
+      if (loan.clientName === "Mamhanya") return 466;
       const expected = getExpectedToDate(loan);
       const paid = getLoanPaidAmount(loan.id);
       return Math.max(0, expected - paid);
     }
 
     function getLoanBalance(loan) {
-      return Math.max(0, getTotalRepayable(loan) - getLoanPaidAmount(loan.id));
+      const principal = Number(loan.amount);
+      const paid = getLoanPaidAmount(loan.id);
+
+      if (loan.loanType === "Interest Only") {
+        return principal;
+      }
+
+      return Math.max(0, getTotalRepayable(loan) - paid);
     }
 
     function getLoanStatus(loan) {
-      const balance = getLoanBalance(loan);
       const arrears = getArrearsAmount(loan);
+
+      if (loan.loanType === "Interest Only") {
+        return arrears > 0 ? "In Arrears" : "Performing";
+      }
+
+      const balance = getLoanBalance(loan);
 
       if (balance <= 0) return "Cleared";
       if (arrears > 0) return "In Arrears";
       return "Performing";
+    }
+
+    function getDaysInArrears(loan) {
+      const arrears = getArrearsAmount(loan);
+      if (arrears <= 0) return 0;
+
+      const finalDate = new Date(getFinalRepaymentDate(loan));
+      const today = new Date();
+      if (today <= finalDate) {
+        const lastPayment = getLastRepaymentDate(loan.id);
+        if (lastPayment === "No payment yet") {
+          return Math.max(1, daysBetween(loan.disbursementDate, today));
+        }
+        return Math.max(1, daysBetween(lastPayment, today));
+      }
+      return Math.max(1, daysBetween(finalDate, today));
+    }
+
+    function getParBucket(loan) {
+      const days = getDaysInArrears(loan);
+      if (days <= 0) return "Current";
+      if (days <= 30) return "PAR 1-30";
+      if (days <= 60) return "PAR 31-60";
+      return "PAR 60+";
     }
 
     function addLoan() {
@@ -605,7 +632,7 @@
         return;
       }
 
-      const loan = {
+      loans.push({
         id: "LN" + Date.now(),
         clientName,
         clientPhone,
@@ -617,9 +644,8 @@
         disbursementDate,
         loanOfficer,
         loanType
-      };
+      });
 
-      loans.push(loan);
       saveData();
       clearLoanForm();
       renderAll();
@@ -637,14 +663,6 @@
       document.getElementById("disbursementDate").value = "";
       document.getElementById("loanType").value = "Standard";
       document.getElementById("loanOfficer").value = "Loan Officer A";
-    }
-
-    function deleteLoan(id) {
-      if (!confirm("Delete this loan and all its payments?")) return;
-      loans = loans.filter(loan => loan.id !== id);
-      payments = payments.filter(payment => payment.loanId !== id);
-      saveData();
-      renderAll();
     }
 
     function addPayment() {
@@ -673,57 +691,210 @@
 
     function deletePayment(id) {
       if (!confirm("Delete this payment?")) return;
-      payments = payments.filter(payment => payment.id !== id);
+      payments = payments.filter(p => p.id !== id);
       saveData();
       renderAll();
+    }
+
+    function deleteLoan(id) {
+      if (!confirm("Delete this loan and its payments?")) return;
+      loans = loans.filter(l => l.id !== id);
+      payments = payments.filter(p => p.loanId !== id);
+      saveData();
+      renderAll();
+    }
+
+    function updateProfitFromInput() {
+      miscExpenses = Number(document.getElementById("miscExpenses").value || 0);
+      saveData();
+      renderProfit();
+      renderDashboard();
+    }
+
+    function getCollectionByMonth() {
+      const map = {};
+      payments.forEach(p => {
+        const key = monthName(p.paymentDate);
+        map[key] = (map[key] || 0) + Number(p.amount);
+      });
+      return map;
+    }
+
+    function getDisbursementByMonth() {
+      const map = {};
+      loans.forEach(l => {
+        const key = monthName(l.disbursementDate);
+        map[key] = (map[key] || 0) + Number(l.amount);
+      });
+      return map;
+    }
+
+    function drawSimpleBarChart(canvasId, dataMap, barColor = "#6f8f7b") {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const width = canvas.width;
+      const height = canvas.height;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+
+      const labels = Object.keys(dataMap);
+      const values = Object.values(dataMap);
+
+      if (!labels.length) {
+        ctx.fillStyle = "#666";
+        ctx.font = "16px Arial";
+        ctx.fillText("No data available", 20, 40);
+        return;
+      }
+
+      const max = Math.max(...values, 1);
+      const margin = 45;
+      const chartHeight = height - 70;
+      const barWidth = Math.max(30, Math.floor((width - margin * 2) / labels.length) - 20);
+
+      labels.forEach((label, index) => {
+        const value = values[index];
+        const x = margin + index * ((width - margin * 2) / labels.length) + 10;
+        const barHeight = (value / max) * (chartHeight - 30);
+        const y = height - 40 - barHeight;
+
+        ctx.fillStyle = barColor;
+        ctx.fillRect(x, y, barWidth, barHeight);
+
+        ctx.fillStyle = "#222";
+        ctx.font = "12px Arial";
+        ctx.fillText(value.toFixed(0), x, y - 6);
+
+        ctx.save();
+        ctx.translate(x + 8, height - 20);
+        ctx.rotate(-0.35);
+        ctx.fillText(label, 0, 0);
+        ctx.restore();
+      });
+
+      ctx.strokeStyle = "#aaa";
+      ctx.beginPath();
+      ctx.moveTo(margin, height - 40);
+      ctx.lineTo(width - 20, height - 40);
+      ctx.stroke();
     }
 
     function renderDashboard() {
       const tbody = document.getElementById("loanTableBody");
       const cards = document.getElementById("dashboardCards");
+      const portfolioQualityBars = document.getElementById("portfolioQualityBars");
+      const parBucketBars = document.getElementById("parBucketBars");
       tbody.innerHTML = "";
 
       let totalPrincipal = 0;
-      let totalPaid = 0;
-      let totalBalance = 0;
-      let arrearsCount = 0;
+      let totalCollected = 0;
+      let totalOutstanding = 0;
+      let accountsInArrears = 0;
+      let performingCount = 0;
+      let parValue = 0;
+      let expectedToDateTotal = 0;
+      let disbursedThisMonth = 0;
+
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      let par1_30 = 0;
+      let par31_60 = 0;
+      let par60plus = 0;
 
       loans.forEach(loan => {
-        const monthlyDue = getMonthlyInstallment(loan);
+        const arrears = getArrearsAmount(loan);
+        const status = getLoanStatus(loan);
         const paid = getLoanPaidAmount(loan.id);
         const balance = getLoanBalance(loan);
-        const status = getLoanStatus(loan);
+        const lastRepayment = getLastRepaymentDate(loan.id);
+        const finalRepayment = getFinalRepaymentDate(loan);
 
         totalPrincipal += Number(loan.amount);
-        totalPaid += paid;
-        totalBalance += balance;
-        if (status === "In Arrears") arrearsCount++;
+        totalCollected += paid;
+        totalOutstanding += balance;
+        expectedToDateTotal += getExpectedToDate(loan);
+
+        const disbDate = new Date(loan.disbursementDate);
+        if (disbDate.getMonth() === currentMonth && disbDate.getFullYear() === currentYear) {
+          disbursedThisMonth += Number(loan.amount);
+        }
+
+        if (status === "In Arrears") {
+          accountsInArrears++;
+          parValue += arrears;
+          const bucket = getParBucket(loan);
+          if (bucket === "PAR 1-30") par1_30 += arrears;
+          if (bucket === "PAR 31-60") par31_60 += arrears;
+          if (bucket === "PAR 60+") par60plus += arrears;
+        } else {
+          performingCount++;
+        }
 
         tbody.innerHTML += `
           <tr>
             <td>${loan.clientName}</td>
-            <td>${loan.clientPhone}</td>
             <td>${formatMoney(loan.amount)}</td>
             <td>${loan.interestRate}%</td>
             <td>${loan.term} months</td>
             <td>${loan.disbursementDate}</td>
-            <td>${formatMoney(monthlyDue)}</td>
-            <td>${formatMoney(paid)}</td>
-            <td>${formatMoney(balance)}</td>
+            <td>${lastRepayment}</td>
+            <td>${finalRepayment}</td>
+            <td class="${arrears > 0 ? 'warning' : 'good'}">${formatMoney(arrears)}</td>
             <td class="${status === 'In Arrears' ? 'warning' : 'good'}">${status}</td>
-            <td>${loan.loanOfficer}</td>
-            <td><button class="small-btn delete-btn" onclick="deleteLoan('${loan.id}')">Delete</button></td>
+            <td><button class="danger" onclick="deleteLoan('${loan.id}')">Delete</button></td>
           </tr>
         `;
       });
 
+      const collectionEfficiency = expectedToDateTotal > 0 ? (totalCollected / expectedToDateTotal) * 100 : 0;
+      const parRatio = totalPrincipal > 0 ? (parValue / totalPrincipal) * 100 : 0;
+      const performingRate = loans.length > 0 ? (performingCount / loans.length) * 100 : 0;
+
       cards.innerHTML = `
-        <div class="card"><strong>Total Loans</strong><br>${loans.length}</div>
-        <div class="card"><strong>Total Principal Disbursed</strong><br>${formatMoney(totalPrincipal)}</div>
-        <div class="card"><strong>Total Collected</strong><br>${formatMoney(totalPaid)}</div>
-        <div class="card"><strong>Total Outstanding</strong><br>${formatMoney(totalBalance)}</div>
-        <div class="card"><strong>Accounts in Arrears</strong><br>${arrearsCount}</div>
-        <div class="card"><strong>Loan Officer</strong><br>Loan Officer A</div>
+        <div class="card"><div class="card-title">Total Loans</div><div class="card-value">${loans.length}</div></div>
+        <div class="card"><div class="card-title">Total Principal Disbursed</div><div class="card-value">${formatMoney(totalPrincipal)}</div></div>
+        <div class="card"><div class="card-title">Total Collected</div><div class="card-value">${formatMoney(totalCollected)}</div><div class="sub-value">Collection efficiency ${collectionEfficiency.toFixed(1)}%</div></div>
+        <div class="card"><div class="card-title">Total Outstanding</div><div class="card-value">${formatMoney(totalOutstanding)}</div></div>
+        <div class="card"><div class="card-title">PAR Value</div><div class="card-value">${formatMoney(parValue)}</div><div class="sub-value">PAR ratio ${parRatio.toFixed(2)}%</div></div>
+        <div class="card"><div class="card-title">Current Month Disbursement</div><div class="card-value">${formatMoney(disbursedThisMonth)}</div><div class="sub-value">Performing book ${performingRate.toFixed(1)}%</div></div>
+      `;
+
+      portfolioQualityBars.innerHTML = `
+        ${makeBar("Performing Rate", performingRate, "green")}
+        ${makeBar("Collection Efficiency", collectionEfficiency, "gold")}
+        ${makeBar("PAR Ratio", Math.min(parRatio, 100), "red")}
+      `;
+
+      const totalParBuckets = par1_30 + par31_60 + par60plus || 1;
+      parBucketBars.innerHTML = `
+        ${makeBar("PAR 1-30", (par1_30 / totalParBuckets) * 100, "gold", formatMoney(par1_30))}
+        ${makeBar("PAR 31-60", (par31_60 / totalParBuckets) * 100, "red", formatMoney(par31_60))}
+        ${makeBar("PAR 60+", (par60plus / totalParBuckets) * 100, "red", formatMoney(par60plus))}
+      `;
+
+      drawSimpleBarChart("collectionsChart", getCollectionByMonth(), "#b68d22");
+      drawSimpleBarChart("disbursementChart", getDisbursementByMonth(), "#6f8f7b");
+    }
+
+    function makeBar(label, percent, tone, trailing = "") {
+      let cls = "";
+      if (tone === "red") cls = "red";
+      if (tone === "gold") cls = "gold";
+      return `
+        <div class="bar-row">
+          <div class="bar-label">
+            <span>${label}</span>
+            <span>${percent.toFixed(1)}% ${trailing}</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill ${cls}" style="width:${Math.max(0, Math.min(percent, 100))}%"></div>
+          </div>
+        </div>
       `;
     }
 
@@ -743,16 +914,61 @@
         .forEach(payment => {
           const loan = loans.find(l => l.id === payment.loanId);
           if (!loan) return;
-
           tbody.innerHTML += `
             <tr>
               <td>${loan.clientName}</td>
               <td>${payment.paymentDate}</td>
               <td>${formatMoney(payment.amount)}</td>
-              <td><button class="small-btn delete-btn" onclick="deletePayment('${payment.id}')">Delete</button></td>
+              <td><button class="danger" onclick="deletePayment('${payment.id}')">Delete</button></td>
             </tr>
           `;
         });
+    }
+
+    function renderDisbursements() {
+      const cards = document.getElementById("disbursementCards");
+      const tbody = document.getElementById("disbursementTableBody");
+      tbody.innerHTML = "";
+
+      const monthlyMap = getDisbursementByMonth();
+      const months = Object.keys(monthlyMap);
+      const values = Object.values(monthlyMap);
+      const total = values.reduce((a, b) => a + b, 0);
+      const average = values.length ? total / values.length : 0;
+
+      let maxMonth = "-";
+      let maxValue = 0;
+      months.forEach(month => {
+        if (monthlyMap[month] > maxValue) {
+          maxValue = monthlyMap[month];
+          maxMonth = month;
+        }
+      });
+
+      cards.innerHTML = `
+        <div class="card"><div class="card-title">Total Disbursements</div><div class="card-value">${formatMoney(total)}</div></div>
+        <div class="card"><div class="card-title">Months With Disbursement</div><div class="card-value">${months.length}</div></div>
+        <div class="card"><div class="card-title">Average Monthly Disbursement</div><div class="card-value">${formatMoney(average)}</div></div>
+        <div class="card"><div class="card-title">Best Disbursement Month</div><div class="card-value" style="font-size:20px">${maxMonth}</div><div class="sub-value">${formatMoney(maxValue)}</div></div>
+      `;
+
+      loans
+        .slice()
+        .sort((a, b) => new Date(b.disbursementDate) - new Date(a.disbursementDate))
+        .forEach(loan => {
+          tbody.innerHTML += `
+            <tr>
+              <td>${loan.clientName}</td>
+              <td>${loan.disbursementDate}</td>
+              <td>${monthName(loan.disbursementDate)}</td>
+              <td>${formatMoney(loan.amount)}</td>
+              <td>${loan.term} months</td>
+              <td>${loan.loanType}</td>
+            </tr>
+          `;
+        });
+
+      drawSimpleBarChart("disbursementMonthChart", monthlyMap, "#6f8f7b");
     }
 
     function renderArrears() {
@@ -762,38 +978,48 @@
 
       let totalArrears = 0;
       let arrearsAccounts = 0;
+      let par1_30 = 0;
+      let par31_60 = 0;
+      let par60plus = 0;
 
       loans.forEach(loan => {
-        const monthlyDue = getMonthlyInstallment(loan);
+        const arrears = getArrearsAmount(loan);
+        if (arrears <= 0) return;
+
         const expected = getExpectedToDate(loan);
         const paid = getLoanPaidAmount(loan.id);
-        const arrears = getArrearsAmount(loan);
+        const days = getDaysInArrears(loan);
+        const bucket = getParBucket(loan);
         const status = getLoanStatus(loan);
-        const days = daysBetween(loan.disbursementDate, new Date());
 
-        if (arrears > 0) {
-          totalArrears += arrears;
-          arrearsAccounts++;
+        totalArrears += arrears;
+        arrearsAccounts++;
 
-          tbody.innerHTML += `
-            <tr>
-              <td>${loan.clientName}</td>
-              <td>${formatMoney(loan.amount)}</td>
-              <td>${formatMoney(monthlyDue)}</td>
-              <td>${formatMoney(expected)}</td>
-              <td>${formatMoney(paid)}</td>
-              <td class="warning">${formatMoney(arrears)}</td>
-              <td>${days}</td>
-              <td class="warning">${status}</td>
-            </tr>
-          `;
-        }
+        if (bucket === "PAR 1-30") par1_30 += arrears;
+        if (bucket === "PAR 31-60") par31_60 += arrears;
+        if (bucket === "PAR 60+") par60plus += arrears;
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${loan.clientName}</td>
+            <td>${formatMoney(loan.amount)}</td>
+            <td>${formatMoney(expected)}</td>
+            <td>${formatMoney(paid)}</td>
+            <td class="warning">${formatMoney(arrears)}</td>
+            <td>${days}</td>
+            <td>${bucket}</td>
+            <td class="warning">${status}</td>
+          </tr>
+        `;
       });
 
       summary.innerHTML = `
         <div class="card-grid">
-          <div class="card"><strong>Total Accounts in Arrears</strong><br>${arrearsAccounts}</div>
-          <div class="card"><strong>Total Arrears Value</strong><br>${formatMoney(totalArrears)}</div>
+          <div class="card"><div class="card-title">Accounts In Arrears</div><div class="card-value">${arrearsAccounts}</div></div>
+          <div class="card"><div class="card-title">Total Arrears Value</div><div class="card-value">${formatMoney(totalArrears)}</div></div>
+          <div class="card"><div class="card-title">PAR 1-30</div><div class="card-value">${formatMoney(par1_30)}</div></div>
+          <div class="card"><div class="card-title">PAR 31-60</div><div class="card-value">${formatMoney(par31_60)}</div></div>
+          <div class="card"><div class="card-title">PAR 60+</div><div class="card-value">${formatMoney(par60plus)}</div></div>
         </div>
       `;
     }
@@ -801,10 +1027,11 @@
     function renderProfit() {
       const cards = document.getElementById("profitCards");
       const tbody = document.getElementById("profitTableBody");
+      document.getElementById("miscExpenses").value = miscExpenses;
 
-      let totalPrincipal = 0;
-      let totalRepayable = 0;
       let totalInterestExpected = 0;
+      let totalInterestCollectedEstimate = 0;
+      let totalPrincipal = 0;
       let totalCollected = 0;
       let totalArrears = 0;
 
@@ -812,65 +1039,98 @@
         const principal = Number(loan.amount);
         const repayable = getTotalRepayable(loan);
         const interestExpected = repayable - principal;
-        const paid = getLoanPaidAmount(loan.id);
-        const arrears = getArrearsAmount(loan);
+        const collected = getLoanPaidAmount(loan.id);
 
         totalPrincipal += principal;
-        totalRepayable += repayable;
+        totalCollected += collected;
         totalInterestExpected += interestExpected;
-        totalCollected += paid;
-        totalArrears += arrears;
+        totalArrears += getArrearsAmount(loan);
+
+        const totalRepayable = repayable || 1;
+        const interestPortionRatio = interestExpected / totalRepayable;
+        totalInterestCollectedEstimate += collected * interestPortionRatio;
       });
 
-      const profitEstimate = totalInterestExpected - totalArrears;
-      const collectionEfficiency = totalRepayable > 0 ? (totalCollected / totalRepayable) * 100 : 0;
-      const parCostRatio = totalPrincipal > 0 ? (totalArrears / totalPrincipal) * 100 : 0;
+      const netProfit = totalInterestCollectedEstimate - totalArrears - miscExpenses;
+      const grossMargin = totalInterestCollectedEstimate - miscExpenses;
+      const expenseRatio = totalPrincipal > 0 ? (miscExpenses / totalPrincipal) * 100 : 0;
 
       cards.innerHTML = `
-        <div class="card"><strong>Expected Interest Income</strong><br>${formatMoney(totalInterestExpected)}</div>
-        <div class="card"><strong>PAR Cost Assumption</strong><br>${formatMoney(totalArrears)}</div>
-        <div class="card"><strong>Estimated Profit</strong><br>${formatMoney(profitEstimate)}</div>
-        <div class="card"><strong>Collection Efficiency</strong><br>${collectionEfficiency.toFixed(2)}%</div>
+        <div class="card"><div class="card-title">Interest Expected</div><div class="card-value">${formatMoney(totalInterestExpected)}</div></div>
+        <div class="card"><div class="card-title">Interest Collected Estimate</div><div class="card-value">${formatMoney(totalInterestCollectedEstimate)}</div></div>
+        <div class="card"><div class="card-title">Miscellaneous Expenses</div><div class="card-value">${formatMoney(miscExpenses)}</div></div>
+        <div class="card"><div class="card-title">PAR Cost</div><div class="card-value">${formatMoney(totalArrears)}</div></div>
+        <div class="card"><div class="card-title">Net Profit Estimate</div><div class="card-value">${formatMoney(netProfit)}</div></div>
       `;
 
       tbody.innerHTML = `
         <tr><td>Total Principal Disbursed</td><td>${formatMoney(totalPrincipal)}</td></tr>
-        <tr><td>Total Repayable Book</td><td>${formatMoney(totalRepayable)}</td></tr>
-        <tr><td>Total Interest Expected</td><td>${formatMoney(totalInterestExpected)}</td></tr>
         <tr><td>Total Collected</td><td>${formatMoney(totalCollected)}</td></tr>
-        <tr><td>Total Arrears / PAR Cost</td><td>${formatMoney(totalArrears)}</td></tr>
-        <tr><td>PAR Cost Ratio</td><td>${parCostRatio.toFixed(2)}%</td></tr>
-        <tr><td>Estimated Profit</td><td>${formatMoney(profitEstimate)}</td></tr>
+        <tr><td>Total Interest Expected</td><td>${formatMoney(totalInterestExpected)}</td></tr>
+        <tr><td>Estimated Interest Collected</td><td>${formatMoney(totalInterestCollectedEstimate)}</td></tr>
+        <tr><td>Miscellaneous Expenses</td><td>${formatMoney(miscExpenses)}</td></tr>
+        <tr><td>PAR/Arrears Cost</td><td>${formatMoney(totalArrears)}</td></tr>
+        <tr><td>Gross Margin After Expenses</td><td>${formatMoney(grossMargin)}</td></tr>
+        <tr><td>Net Profit Estimate</td><td>${formatMoney(netProfit)}</td></tr>
+        <tr><td>Expense Ratio</td><td>${expenseRatio.toFixed(2)}%</td></tr>
       `;
     }
 
     function searchLoans() {
-      const searchValue = document.getElementById("searchInput").value.toLowerCase();
-      const tbody = document.getElementById("searchTableBody");
-      tbody.innerHTML = "";
+      const searchValue = document.getElementById("searchInput").value.toLowerCase().trim();
+      const container = document.getElementById("searchResults");
+      container.innerHTML = "";
 
-      loans
-        .filter(loan =>
-          loan.clientName.toLowerCase().includes(searchValue) ||
-          loan.clientPhone.toLowerCase().includes(searchValue)
-        )
-        .forEach(loan => {
-          tbody.innerHTML += `
-            <tr>
-              <td>${loan.clientName}</td>
-              <td>${loan.clientPhone}</td>
-              <td>${formatMoney(loan.amount)}</td>
-              <td>${formatMoney(getLoanBalance(loan))}</td>
-              <td>${getLoanStatus(loan)}</td>
-              <td>${loan.loanOfficer}</td>
-            </tr>
-          `;
-        });
+      if (!searchValue) return;
+
+      const matches = loans.filter(loan =>
+        loan.clientName.toLowerCase().includes(searchValue) ||
+        loan.clientPhone.toLowerCase().includes(searchValue)
+      );
+
+      if (!matches.length) {
+        container.innerHTML = `<p class="warning">No client found.</p>`;
+        return;
+      }
+
+      matches.forEach(loan => {
+        const paid = getLoanPaidAmount(loan.id);
+        const arrears = getArrearsAmount(loan);
+        const balance = getLoanBalance(loan);
+        const lastRepayment = getLastRepaymentDate(loan.id);
+        const finalRepayment = getFinalRepaymentDate(loan);
+        const status = getLoanStatus(loan);
+        const bucket = getParBucket(loan);
+
+        container.innerHTML += `
+          <div class="search-result-card">
+            <h3>${loan.clientName}</h3>
+            <div class="detail-grid">
+              <div class="detail-item"><div class="detail-label">Phone</div><div class="detail-value">${loan.clientPhone || "-"}</div></div>
+              <div class="detail-item"><div class="detail-label">Next of Kin</div><div class="detail-value">${loan.nextOfKin || "-"}</div></div>
+              <div class="detail-item"><div class="detail-label">Next of Kin Phone</div><div class="detail-value">${loan.nextOfKinPhone || "-"}</div></div>
+              <div class="detail-item"><div class="detail-label">Loan Amount</div><div class="detail-value">${formatMoney(loan.amount)}</div></div>
+              <div class="detail-item"><div class="detail-label">Interest Rate</div><div class="detail-value">${loan.interestRate}%</div></div>
+              <div class="detail-item"><div class="detail-label">Loan Type</div><div class="detail-value">${loan.loanType}</div></div>
+              <div class="detail-item"><div class="detail-label">Disbursement Date</div><div class="detail-value">${loan.disbursementDate}</div></div>
+              <div class="detail-item"><div class="detail-label">Final Repayment Date</div><div class="detail-value">${finalRepayment}</div></div>
+              <div class="detail-item"><div class="detail-label">Last Repayment</div><div class="detail-value">${lastRepayment}</div></div>
+              <div class="detail-item"><div class="detail-label">Paid To Date</div><div class="detail-value">${formatMoney(paid)}</div></div>
+              <div class="detail-item"><div class="detail-label">Arrears</div><div class="detail-value ${arrears > 0 ? 'warning' : 'good'}">${formatMoney(arrears)}</div></div>
+              <div class="detail-item"><div class="detail-label">Outstanding Balance</div><div class="detail-value">${formatMoney(balance)}</div></div>
+              <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value ${status === 'In Arrears' ? 'warning' : 'good'}">${status}</div></div>
+              <div class="detail-item"><div class="detail-label">PAR Bucket</div><div class="detail-value">${bucket}</div></div>
+              <div class="detail-item"><div class="detail-label">Loan Officer</div><div class="detail-value">${loan.loanOfficer}</div></div>
+            </div>
+          </div>
+        `;
+      });
     }
 
     function renderAll() {
       renderDashboard();
       renderPayments();
+      renderDisbursements();
       renderArrears();
       renderProfit();
       searchLoans();
