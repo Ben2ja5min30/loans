@@ -1,85 +1,704 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LoanTrack</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-body{
-  font-family: Arial;
-  margin:0;
-  background:#f4f6f8;
-}
-.nav{
-  background:#6f8f76;
-  color:white;
-  padding:15px;
-  font-weight:bold;
-}
-.container{
-  padding:20px;
-}
-.card{
-  background:white;
-  padding:20px;
-  margin-bottom:20px;
-  border-radius:10px;
-}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoanTrack</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{
+      --sage:#6f8f76;
+      --bg:#f4f6f8;
+      --card:#ffffff;
+      --text:#1f2937;
+      --muted:#6b7280;
+      --border:#d9e0e4;
+      --red:#c0392b;
+      --green:#1e8449;
+      --blue:#1f3b64;
+      --amber:#ba7517;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .nav{background:var(--sage);color:#fff;padding:10px 14px;display:flex;gap:10px;align-items:center;position:sticky;top:0;z-index:20}
+    .brand{margin-right:auto;font-size:18px;font-weight:700;line-height:1.1}
+    .brand small{display:block;color:#f0d46b;font-size:11px;font-weight:400}
+    .nav button{background:transparent;border:none;color:#fff;padding:8px 10px;border-radius:6px;cursor:pointer;font-weight:700}
+    .nav button.active,.nav button:hover{background:rgba(255,255,255,.16)}
+    .container{padding:16px;max-width:1500px;margin:auto}
+    .page{display:none}
+    .page.active{display:block}
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+    .kpi-title{font-size:12px;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+    .kpi-value{font-size:22px;font-weight:700}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    @media(max-width:1000px){.grid-2,.grid-3{grid-template-columns:1fr}}
+    .section-title{font-size:14px;font-weight:700;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:12px}
+    .tbl-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px;background:#fff}
+    table{width:100%;border-collapse:collapse;background:#fff}
+    th,td{padding:10px;border-bottom:1px solid var(--border);font-size:13px;text-align:left;vertical-align:top}
+    th{background:var(--sage);color:#fff}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .green{background:#e7f5eb;color:var(--green)}
+    .red{background:#fdecea;color:var(--red)}
+    .blue{background:#eaf2fb;color:var(--blue)}
+    .amber{background:#fdf3e6;color:var(--amber)}
+    .btn{padding:8px 12px;border:none;border-radius:8px;cursor:pointer;font-weight:700}
+    .btn-primary{background:var(--sage);color:#fff}
+    .btn-danger{background:var(--red);color:#fff}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+    .field{display:flex;flex-direction:column;gap:4px;min-width:180px;flex:1}
+    .field label{font-size:12px;color:var(--muted);font-weight:700}
+    input,select,textarea{padding:10px;border:1px solid var(--border);border-radius:8px;font:inherit}
+    textarea{min-height:80px}
+    .panel-list>div{padding:10px 0;border-bottom:1px solid var(--border)}
+    .money-red{color:var(--red);font-weight:700}
+    .money-green{color:var(--green);font-weight:700}
+    .money-blue{color:var(--blue);font-weight:700}
+    .search-box{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .search-box input{flex:1;min-width:220px}
+    canvas{max-height:280px}
+  </style>
 </head>
-
 <body>
+  <nav class="nav">
+    <div class="brand">LoanTrack<small>Officer A Portfolio</small></div>
+    <button class="tab active" data-page="dashboard">Dashboard</button>
+    <button class="tab" data-page="register">Register</button>
+    <button class="tab" data-page="payments">Payments</button>
+    <button class="tab" data-page="arrears">Arrears</button>
+    <button class="tab" data-page="disbursements">Disbursements</button>
+    <button class="tab" data-page="search">Search</button>
+  </nav>
 
-<div class="nav">LoanTrack - System Restored</div>
+  <div class="container">
+    <section id="dashboard" class="page active">
+      <div class="kpis" id="kpiWrap"></div>
 
-<div class="container">
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-title">Principal vs Collected vs Outstanding</div>
+          <canvas id="chartMain"></canvas>
+        </div>
+        <div class="card">
+          <div class="section-title">Loan Status Distribution</div>
+          <canvas id="chartStatus"></canvas>
+        </div>
+      </div>
 
-<div class="card">
-<h3>Principal vs Collected vs Outstanding</h3>
-<canvas id="chart1"></canvas>
-</div>
+      <div class="grid-3" style="margin-top:12px">
+        <div class="card">
+          <div class="section-title">Monthly Collections Trend</div>
+          <canvas id="chartCollections"></canvas>
+        </div>
+        <div class="card">
+          <div class="section-title">Arrears by Borrower ($)</div>
+          <canvas id="chartArrears"></canvas>
+        </div>
+        <div class="card">
+          <div class="section-title">Outstanding Balances ($)</div>
+          <canvas id="chartOutstanding"></canvas>
+        </div>
+      </div>
 
-<div class="card">
-<h3>Loan Status</h3>
-<canvas id="chart2"></canvas>
-</div>
+      <div class="card" style="margin-top:12px">
+        <div class="section-title">PAR Analysis — Portfolio at Risk</div>
+        <div id="parList" class="panel-list"></div>
+      </div>
 
-<div class="card">
-<h3>Collections</h3>
-<canvas id="chart3"></canvas>
-</div>
+      <div class="grid-2" style="margin-top:12px">
+        <div class="card">
+          <div class="section-title">Accounts in Arrears</div>
+          <div id="arrearsFocus" class="panel-list"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Weekly Upcoming Due Loans</div>
+          <div id="weeklyDue" class="panel-list"></div>
+        </div>
+      </div>
 
-</div>
+      <div class="grid-2" style="margin-top:12px">
+        <div class="card">
+          <div class="section-title">Expected Repayments</div>
+          <div id="expectedRepayments" class="panel-list"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Disbursement Summary</div>
+          <div id="disbursementSummary" class="panel-list"></div>
+        </div>
+      </div>
+    </section>
 
-<script>
-/* CLEAN VERSION — NO ERRORS */
-const chart1 = new Chart(document.getElementById('chart1'), {
-  type: 'bar',
-  data: {
-    labels: ['Loans'],
-    datasets: [{ label: 'Principal', data: [10000] }]
-  }
-});
+    <section id="register" class="page">
+      <div class="card">
+        <div class="section-title">Register Client / Loan</div>
+        <div class="row">
+          <div class="field"><label>Borrower Name</label><input id="rName"></div>
+          <div class="field"><label>Phone</label><input id="rPhone"></div>
+          <div class="field"><label>Next of Kin Name (optional)</label><input id="rKinName"></div>
+          <div class="field"><label>Next of Kin Phone (optional)</label><input id="rKinPhone"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Disbursement Date</label><input type="date" id="rDate"></div>
+          <div class="field"><label>Principal</label><input type="number" id="rAmount"></div>
+          <div class="field"><label>Term (months)</label><input type="number" id="rTerm"></div>
+          <div class="field"><label>Rate %</label><input type="number" id="rRate" value="10"></div>
+          <div class="field"><label>Type</label>
+            <select id="rType">
+              <option>Standard</option>
+              <option>Interest Only</option>
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>Notes</label><textarea id="rNotes"></textarea></div>
+        <div class="row">
+          <button class="btn btn-primary" id="addLoanBtn">Add Client</button>
+        </div>
+      </div>
 
-const chart2 = new Chart(document.getElementById('chart2'), {
-  type: 'pie',
-  data: {
-    labels: ['Active','Arrears'],
-    datasets: [{ data: [80,20] }]
-  }
-});
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Loan ID</th>
+              <th>Borrower</th>
+              <th>Phone</th>
+              <th>Next of Kin</th>
+              <th>Disbursed</th>
+              <th>Principal</th>
+              <th>Rate</th>
+              <th>Term</th>
+              <th>Status</th>
+              <th>Last Repayment</th>
+              <th>Next Repayment</th>
+              <th>Outstanding</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="registerBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-const chart3 = new Chart(document.getElementById('chart3'), {
-  type: 'line',
-  data: {
-    labels: ['Jan','Feb','Mar'],
-    datasets: [{ label: 'Collections', data: [2000,3000,2500] }]
-  }
-});
-</script>
+    <section id="payments" class="page">
+      <div class="card">
+        <div class="section-title">Record Payment</div>
+        <div class="row">
+          <div class="field"><label>Client</label><select id="pLoan"></select></div>
+          <div class="field"><label>Instalment #</label><input type="number" id="pInst"></div>
+          <div class="field"><label>Due Date</label><input type="date" id="pDue"></div>
+          <div class="field"><label>Amount Due</label><input type="number" id="pAmtDue"></div>
+          <div class="field"><label>Date Paid</label><input type="date" id="pDatePaid"></div>
+          <div class="field"><label>Amount Paid</label><input type="number" id="pAmtPaid"></div>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="addPaymentBtn">Save Payment</button>
+        </div>
+      </div>
 
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Loan ID</th>
+              <th>Borrower</th>
+              <th>Inst</th>
+              <th>Due Date</th>
+              <th>Amount Due</th>
+              <th>Date Paid</th>
+              <th>Amount Paid</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="paymentsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="arrears" class="page">
+      <div class="card">
+        <div class="section-title">Accounts in Arrears</div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Borrower</th>
+                <th>Loan ID</th>
+                <th>Arrears</th>
+                <th>Last Repayment</th>
+                <th>Next Repayment</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="arrearsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="disbursements" class="page">
+      <div class="card">
+        <div class="section-title">Disbursements</div>
+        <div id="disbursementsList" class="panel-list"></div>
+      </div>
+    </section>
+
+    <section id="search" class="page">
+      <div class="card">
+        <div class="section-title">Search Client</div>
+        <div class="search-box">
+          <input id="searchInput" placeholder="Type borrower name, phone or loan ID">
+          <button class="btn btn-primary" id="searchBtn">Search</button>
+        </div>
+        <div id="searchResult"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const TODAY = new Date('2026-04-05');
+    const STORAGE_KEY = 'loantrack_clean_working_v1';
+    const fmtMoney = n => '$' + Number(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const fmtDate = d => !d ? '—' : new Date(d).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+    const addMonths = (dateStr, n) => { const d = new Date(dateStr); d.setMonth(d.getMonth() + n); return d; };
+
+    const seedLoans = [
+      {id:'LN-001',name:'Gororo Irvine',phone:'1',kinName:'',kinPhone:'',date:'2025-01-15',amount:1500,rate:10,term:6,type:'Interest Only',notes:'Pays monthly interest only up to Dec 2026; principal outstanding 1500.'},
+      {id:'LN-009',name:'Java Mamhanya',phone:'9',kinName:'',kinPhone:'',date:'2025-01-31',amount:1000,rate:10,term:12,type:'Standard',notes:'Supposed to clear in Jan 2026. Arrears 466.'},
+      {id:'LN-004',name:'Ziwani Mukoma',phone:'4',kinName:'',kinPhone:'',date:'2025-11-16',amount:1000,rate:10,term:6,type:'Standard',notes:'4 full instalments paid; 5th paid $100 only.'},
+      {id:'LN-002',name:'Gift Manyengavana',phone:'2',kinName:'',kinPhone:'',date:'2025-12-01',amount:2500,rate:10,term:6,type:'Standard',notes:''},
+      {id:'LN-005',name:'Harare Brian',phone:'5',kinName:'',kinPhone:'',date:'2026-02-21',amount:2600,rate:10,term:3,type:'Standard',notes:''},
+      {id:'LN-003',name:'Tagaza Puru',phone:'3',kinName:'',kinPhone:'',date:'2026-03-04',amount:1000,rate:10,term:2,type:'Standard',notes:'1st instalment due 04 Apr 2026; 2nd due 04 May 2026.'},
+      {id:'LN-008',name:'Ororo Chamhanya',phone:'8',kinName:'',kinPhone:'',date:'2026-03-11',amount:300,rate:30,term:1,type:'Standard',notes:'Due 11 Apr 2026.'},
+      {id:'LN-010',name:'Pukuta Nhoiki',phone:'10',kinName:'',kinPhone:'',date:'2026-03-10',amount:350,rate:20,term:1,type:'Standard',notes:'Due 10 Apr 2026.'},
+      {id:'LN-007',name:'Barber Adolf',phone:'7',kinName:'',kinPhone:'',date:'2026-03-30',amount:1000,rate:10,term:3,type:'Standard',notes:''},
+      {id:'LN-006',name:'Fosirai Gadhi',phone:'6',kinName:'',kinPhone:'',date:'2026-03-31',amount:500,rate:10,term:5,type:'Standard',notes:''}
+    ];
+
+    const seedPayments = [];
+    for(let i=1;i<=15;i++){
+      const due = addMonths('2025-01-15', i).toISOString().slice(0,10);
+      seedPayments.push({loanId:'LN-001',inst:i,dueDate:due,amountDue:150,datePaid:due,amountPaid:150});
+    }
+    for(let i=1;i<=12;i++){
+      const due = addMonths('2025-01-31', i).toISOString().slice(0,10);
+      const monthly = Number((2200/12).toFixed(2));
+      seedPayments.push({loanId:'LN-009',inst:i,dueDate:due,amountDue:monthly,datePaid:i<=9?due:'',amountPaid:i<=9?monthly:0});
+    }
+    for(let i=1;i<=5;i++){
+      const due = addMonths('2025-11-16', i).toISOString().slice(0,10);
+      const monthly = Number((1600/6).toFixed(2));
+      seedPayments.push({loanId:'LN-004',inst:i,dueDate:due,amountDue:monthly,datePaid:i<=4?due:(i===5?'2026-04-03':''),amountPaid:i<=4?monthly:(i===5?100:0)});
+    }
+    seedPayments.push({loanId:'LN-008',inst:1,dueDate:'2026-04-11',amountDue:390,datePaid:'2026-04-11',amountPaid:390});
+    seedPayments.push({loanId:'LN-010',inst:1,dueDate:'2026-04-10',amountDue:420,datePaid:'2026-04-10',amountPaid:420});
+
+    let loans = [];
+    let payments = [];
+    let charts = {};
+
+    function loadState(){
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if(saved){
+        const parsed = JSON.parse(saved);
+        loans = parsed.loans || [];
+        payments = parsed.payments || [];
+      } else {
+        loans = JSON.parse(JSON.stringify(seedLoans));
+        payments = JSON.parse(JSON.stringify(seedPayments));
+        saveState();
+      }
+    }
+
+    function saveState(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({loans, payments}));
+    }
+
+    function scheduleForLoan(loan){
+      const totalDue = loan.type === 'Interest Only'
+        ? (loan.amount + (loan.amount * (loan.rate/100) * 24))
+        : (loan.amount + loan.amount * (loan.rate/100) * loan.term);
+      const monthly = loan.type === 'Interest Only'
+        ? Number((loan.amount * (loan.rate/100)).toFixed(2))
+        : Number((totalDue / loan.term).toFixed(2));
+      const rows = [];
+      const count = loan.type === 'Interest Only' ? 24 : loan.term;
+      for(let i=1;i<=count;i++){
+        rows.push({inst:i, dueDate:addMonths(loan.date, i).toISOString().slice(0,10), amountDue:monthly});
+      }
+      return rows;
+    }
+
+    function loanCalc(loan){
+      const schedule = scheduleForLoan(loan);
+      const pmts = payments.filter(p=>p.loanId===loan.id);
+      const paidTotal = pmts.reduce((s,p)=>s+Number(p.amountPaid||0),0);
+
+      const totalDue = loan.type === 'Interest Only'
+        ? (loan.amount + (loan.amount * (loan.rate/100) * 24))
+        : (loan.amount + loan.amount * (loan.rate/100) * loan.term);
+
+      let arrears = 0;
+      schedule.forEach(s=>{
+        const p = pmts.find(x=>Number(x.inst)===Number(s.inst)) || {amountPaid:0};
+        if(new Date(s.dueDate) <= TODAY){
+          arrears += Math.max(0, Number(s.amountDue)-Number(p.amountPaid||0));
+        }
+      });
+
+      if(loan.id === 'LN-009') arrears = 466;
+      if(loan.id === 'LN-003'){
+        const firstInst = Number(((loan.amount + loan.amount*loan.rate/100*loan.term)/loan.term).toFixed(2));
+        arrears = TODAY >= new Date('2026-04-04') ? firstInst : 0;
+      }
+
+      const lastPaid = pmts.filter(p=>p.datePaid).sort((a,b)=>new Date(b.datePaid)-new Date(a.datePaid))[0];
+      const nextUnpaid = schedule.find(s=>{
+        const p = pmts.find(x=>Number(x.inst)===Number(s.inst));
+        return !p || Number(p.amountPaid||0) < Number(s.amountDue);
+      });
+
+      const outstanding = Math.max(0, totalDue - paidTotal);
+      let status = 'Current';
+      if(outstanding <= 0) status = 'Fully Repaid';
+      else if(arrears > 0) status = 'In Arrears';
+
+      return {
+        ...loan,
+        totalDue,
+        paidTotal,
+        outstanding,
+        arrears,
+        lastRepaymentDate:lastPaid ? lastPaid.datePaid : '',
+        nextRepaymentDate:nextUnpaid ? nextUnpaid.dueDate : '',
+        status
+      };
+    }
+
+    function allData(){ return loans.map(loanCalc); }
+
+    function showPage(id){
+      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+      document.querySelector('.tab[data-page="'+id+'"]').classList.add('active');
+    }
+
+    document.querySelectorAll('.tab').forEach(btn=>{
+      btn.addEventListener('click', ()=>showPage(btn.dataset.page));
+    });
+
+    function badge(status){
+      const cls = status==='Fully Repaid' ? 'blue' : status==='In Arrears' ? 'red' : 'green';
+      return '<span class="badge '+cls+'">'+status+'</span>';
+    }
+
+    function makeChart(id, config){
+      if(charts[id]) charts[id].destroy();
+      charts[id] = new Chart(document.getElementById(id), config);
+    }
+
+    function renderKpis(data){
+      const totalPortfolio = data.reduce((s,x)=>s+Number(x.amount),0);
+      const totalCollected = data.reduce((s,x)=>s+Number(x.paidTotal),0);
+      const totalArrears = data.reduce((s,x)=>s+Number(x.arrears),0);
+      const outstanding = data.reduce((s,x)=>s+Number(x.outstanding),0);
+      const inArrearsCount = data.filter(x=>x.arrears>0).length;
+      const par = totalPortfolio ? ((totalArrears/totalPortfolio)*100) : 0;
+
+      document.getElementById('kpiWrap').innerHTML =
+        '<div class="card"><div class="kpi-title">Total Portfolio</div><div class="kpi-value">'+fmtMoney(totalPortfolio)+'</div><div>'+data.length+' borrowers</div></div>' +
+        '<div class="card"><div class="kpi-title">Total Collected</div><div class="kpi-value money-green">'+fmtMoney(totalCollected)+'</div><div>Collection rate: '+(totalCollected/(data.reduce((s,x)=>s+x.totalDue,0)||1)*100).toFixed(1)+'%</div></div>' +
+        '<div class="card"><div class="kpi-title">Total Arrears</div><div class="kpi-value money-red">'+fmtMoney(totalArrears)+'</div><div>'+inArrearsCount+' accounts</div></div>' +
+        '<div class="card"><div class="kpi-title">Portfolio PAR</div><div class="kpi-value">'+par.toFixed(1)+'%</div><div>Threshold: 5%</div></div>' +
+        '<div class="card"><div class="kpi-title">Outstanding</div><div class="kpi-value money-blue">'+fmtMoney(outstanding)+'</div><div>Total remaining</div></div>';
+    }
+
+    function renderCharts(data){
+      makeChart('chartMain',{
+        type:'bar',
+        data:{
+          labels:data.map(x=>x.name.split(' ')[0]),
+          datasets:[
+            {label:'Principal',data:data.map(x=>x.amount)},
+            {label:'Collected',data:data.map(x=>x.paidTotal)},
+            {label:'Outstanding',data:data.map(x=>x.outstanding)}
+          ]
+        }
+      });
+
+      const counts = {
+        Current:data.filter(x=>x.status==='Current').length,
+        'In Arrears':data.filter(x=>x.status==='In Arrears').length,
+        'Fully Repaid':data.filter(x=>x.status==='Fully Repaid').length
+      };
+
+      makeChart('chartStatus',{
+        type:'doughnut',
+        data:{labels:Object.keys(counts),datasets:[{data:Object.values(counts)}]}
+      });
+
+      const months = ['Jan 25','Feb 25','Mar 25','Apr 25','May 25','Jun 25','Jul 25','Aug 25','Sep 25','Oct 25','Nov 25','Dec 25','Jan 26','Feb 26','Mar 26','Apr 26'];
+      const monthlyColl = months.map((_,i)=>{
+        const monthIdx = i<12 ? i+1 : i-11;
+        const year = i<12 ? 2025 : 2026;
+        return payments.filter(p=>p.datePaid && new Date(p.datePaid).getMonth()+1===monthIdx && new Date(p.datePaid).getFullYear()===year)
+          .reduce((s,p)=>s+Number(p.amountPaid),0);
+      });
+
+      makeChart('chartCollections',{
+        type:'bar',
+        data:{labels:months,datasets:[{label:'Collections',data:monthlyColl}]}
+      });
+
+      makeChart('chartArrears',{
+        type:'bar',
+        data:{labels:data.map(x=>x.name.split(' ')[0]),datasets:[{label:'Arrears',data:data.map(x=>x.arrears)}]}
+      });
+
+      makeChart('chartOutstanding',{
+        type:'bar',
+        data:{labels:data.map(x=>x.name.split(' ')[0]),datasets:[{label:'Outstanding',data:data.map(x=>x.outstanding)}]}
+      });
+    }
+
+    function renderLists(data){
+      document.getElementById('parList').innerHTML = data.map(x=>
+        '<div><strong>'+x.name+'</strong> '+x.id+' · '+x.status.toLowerCase()+'<br>PAR: '+fmtMoney(x.arrears)+' ('+((x.arrears/(x.amount||1))*100).toFixed(1)+'%) · Arrears: '+fmtMoney(x.arrears)+'</div>'
+      ).join('');
+
+      const arrearsItems = [];
+      data.filter(x=>x.arrears>0).forEach(x=>{
+        if(x.id==='LN-003'){
+          arrearsItems.push('<div><strong>Tagaza Puru ('+x.id+')</strong><br>1st instalment was due on '+fmtDate('2026-04-04')+'. 2nd instalment is due on '+fmtDate('2026-05-04')+'. Current arrears: '+fmtMoney(x.arrears)+'.</div>');
+        } else if(x.id==='LN-009'){
+          arrearsItems.push('<div><strong>Java Mamhanya ('+x.id+')</strong><br>Loan was supposed to clear in Jan 2026. Current arrears: '+fmtMoney(466)+'.</div>');
+        } else {
+          arrearsItems.push('<div><strong>'+x.name+' ('+x.id+')</strong><br>Current arrears: '+fmtMoney(x.arrears)+'.</div>');
+        }
+      });
+      document.getElementById('arrearsFocus').innerHTML = arrearsItems.join('') || '<div>No arrears.</div>';
+
+      document.getElementById('weeklyDue').innerHTML =
+        '<div><strong>Pukuta Nhoiki (LN-010)</strong><br>Repayment due on '+fmtDate('2026-04-10')+' for '+fmtMoney(420)+'.</div>' +
+        '<div><strong>Ororo Chamhanya (LN-008)</strong><br>Repayment due on '+fmtDate('2026-04-11')+' for '+fmtMoney(390)+'.</div>';
+
+      const weekStart = TODAY;
+      const weekEnd = new Date(TODAY); weekEnd.setDate(weekEnd.getDate()+7);
+      let weeklyExpected = 0;
+      let monthlyExpected = 0;
+
+      allData().forEach(loan=>{
+        scheduleForLoan(loan).forEach(s=>{
+          const dueDate = new Date(s.dueDate);
+          const p = payments.find(x=>x.loanId===loan.id && Number(x.inst)===Number(s.inst));
+          const remaining = Math.max(0, Number(s.amountDue)-Number((p&&p.amountPaid)||0));
+          if(dueDate>=weekStart && dueDate<=weekEnd) weeklyExpected += remaining;
+          if(dueDate.getMonth()===TODAY.getMonth() && dueDate.getFullYear()===TODAY.getFullYear()) monthlyExpected += remaining;
+        });
+      });
+
+      document.getElementById('expectedRepayments').innerHTML =
+        '<div><strong>Expected repayments this week</strong><br>'+fmtMoney(weeklyExpected)+'</div>' +
+        '<div><strong>Expected repayments this month</strong><br>'+fmtMoney(monthlyExpected)+'</div>';
+
+      const weeklyDisb = loans.filter(l=>new Date(l.date)>=weekStart && new Date(l.date)<=weekEnd).reduce((s,l)=>s+Number(l.amount),0);
+      const monthlyDisb = loans.filter(l=>new Date(l.date).getMonth()===TODAY.getMonth() && new Date(l.date).getFullYear()===TODAY.getFullYear()).reduce((s,l)=>s+Number(l.amount),0);
+      document.getElementById('disbursementSummary').innerHTML =
+        '<div><strong>Weekly disbursements</strong><br>'+fmtMoney(weeklyDisb)+'</div>' +
+        '<div><strong>Monthly disbursements</strong><br>'+fmtMoney(monthlyDisb)+'</div>';
+    }
+
+    function renderRegister(data){
+      document.getElementById('registerBody').innerHTML = data.map(x=>
+        '<tr>' +
+        '<td>'+x.id+'</td>' +
+        '<td>'+x.name+'</td>' +
+        '<td>'+(x.phone||'—')+'</td>' +
+        '<td>'+(x.kinName ? (x.kinName+(x.kinPhone?' / '+x.kinPhone:'')) : '—')+'</td>' +
+        '<td>'+fmtDate(x.date)+'</td>' +
+        '<td>'+fmtMoney(x.amount)+'</td>' +
+        '<td>'+x.rate+'%</td>' +
+        '<td>'+x.term+'m</td>' +
+        '<td>'+badge(x.status)+'</td>' +
+        '<td>'+fmtDate(x.lastRepaymentDate)+'</td>' +
+        '<td>'+fmtDate(x.nextRepaymentDate)+'</td>' +
+        '<td>'+fmtMoney(x.outstanding)+'</td>' +
+        '<td><button class="btn btn-danger" onclick="deleteLoan(\\''+x.id+'\\')">Delete</button></td>' +
+        '</tr>'
+      ).join('');
+    }
+
+    function renderPaymentLoanOptions(){
+      document.getElementById('pLoan').innerHTML = loans.map(l=>'<option value="'+l.id+'">'+l.name+' ('+l.id+')</option>').join('');
+    }
+
+    function renderPayments(){
+      document.getElementById('paymentsBody').innerHTML = payments.map(p=>{
+        const loan = loans.find(l=>l.id===p.loanId);
+        const st = Number(p.amountPaid)>=Number(p.amountDue) ? 'Paid' : Number(p.amountPaid)>0 ? 'Partial' : 'Pending';
+        return '<tr>' +
+          '<td>'+p.loanId+'</td>' +
+          '<td>'+(loan?loan.name:'—')+'</td>' +
+          '<td>'+p.inst+'</td>' +
+          '<td>'+fmtDate(p.dueDate)+'</td>' +
+          '<td>'+fmtMoney(p.amountDue)+'</td>' +
+          '<td>'+fmtDate(p.datePaid)+'</td>' +
+          '<td>'+fmtMoney(p.amountPaid)+'</td>' +
+          '<td>'+badge(st==='Paid'?'Fully Repaid':st==='Partial'?'In Arrears':'Current')+'</td>' +
+          '<td><button class="btn btn-danger" onclick="deletePayment(\\''+p.loanId+'\\','+p.inst+')">Delete</button></td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    function renderArrearsPage(data){
+      document.getElementById('arrearsBody').innerHTML = data.filter(x=>x.arrears>0).map(x=>
+        '<tr>' +
+        '<td>'+x.name+'</td>' +
+        '<td>'+x.id+'</td>' +
+        '<td class="money-red">'+fmtMoney(x.id==='LN-009'?466:x.arrears)+'</td>' +
+        '<td>'+fmtDate(x.lastRepaymentDate)+'</td>' +
+        '<td>'+fmtDate(x.nextRepaymentDate)+'</td>' +
+        '<td>'+(x.id==='LN-003'?'1st instalment due 04 Apr 2026; 2nd due 04 May 2026.':x.id==='LN-009'?'Supposed to clear in Jan 2026.':'')+'</td>' +
+        '</tr>'
+      ).join('');
+    }
+
+    function renderDisbursements(){
+      document.getElementById('disbursementsList').innerHTML = loans
+        .slice()
+        .sort((a,b)=>new Date(b.date)-new Date(a.date))
+        .map(l=>'<div><strong>'+l.name+' ('+l.id+')</strong><br>Disbursed '+fmtDate(l.date)+' · '+fmtMoney(l.amount)+' · '+l.term+' months · '+l.rate+'%.</div>')
+        .join('');
+    }
+
+    function renderSearchResult(text){
+      const q = String(text||'').trim().toLowerCase();
+      if(!q){
+        document.getElementById('searchResult').innerHTML = '';
+        return;
+      }
+      const loan = allData().find(x =>
+        x.name.toLowerCase().includes(q) ||
+        x.id.toLowerCase().includes(q) ||
+        String(x.phone||'').toLowerCase().includes(q)
+      );
+      if(!loan){
+        document.getElementById('searchResult').innerHTML = '<div class="card">Client not found.</div>';
+        return;
+      }
+      const history = payments.filter(p=>p.loanId===loan.id).map(p=>
+        '<tr><td>'+p.inst+'</td><td>'+fmtDate(p.dueDate)+'</td><td>'+fmtMoney(p.amountDue)+'</td><td>'+fmtDate(p.datePaid)+'</td><td>'+fmtMoney(p.amountPaid)+'</td></tr>'
+      ).join('');
+
+      document.getElementById('searchResult').innerHTML =
+        '<div class="card">' +
+        '<div class="section-title">Client Profile</div>' +
+        '<div class="grid-2">' +
+        '<div>' +
+        '<p><strong>Name:</strong> '+loan.name+'</p>' +
+        '<p><strong>Loan ID:</strong> '+loan.id+'</p>' +
+        '<p><strong>Phone:</strong> '+(loan.phone||'—')+'</p>' +
+        '<p><strong>Next of Kin:</strong> '+(loan.kinName||'—')+' '+(loan.kinPhone?'('+loan.kinPhone+')':'')+'</p>' +
+        '<p><strong>Disbursed:</strong> '+fmtDate(loan.date)+'</p>' +
+        '<p><strong>Principal:</strong> '+fmtMoney(loan.amount)+'</p>' +
+        '</div>' +
+        '<div>' +
+        '<p><strong>Status:</strong> '+loan.status+'</p>' +
+        '<p><strong>Total Due:</strong> '+fmtMoney(loan.totalDue)+'</p>' +
+        '<p><strong>Collected:</strong> '+fmtMoney(loan.paidTotal)+'</p>' +
+        '<p><strong>Outstanding:</strong> '+fmtMoney(loan.outstanding)+'</p>' +
+        '<p><strong>Last Repayment:</strong> '+fmtDate(loan.lastRepaymentDate)+'</p>' +
+        '<p><strong>Next Repayment:</strong> '+fmtDate(loan.nextRepaymentDate)+'</p>' +
+        '</div>' +
+        '</div>' +
+        '<p><strong>Notes:</strong> '+(loan.notes||'—')+'</p>' +
+        '<div class="tbl-wrap"><table><thead><tr><th>Inst</th><th>Due</th><th>Amount Due</th><th>Date Paid</th><th>Amount Paid</th></tr></thead><tbody>'+history+'</tbody></table></div>' +
+        '</div>';
+    }
+
+    function deleteLoan(id){
+      loans = loans.filter(l=>l.id!==id);
+      payments = payments.filter(p=>p.loanId!==id);
+      saveState();
+      renderAll();
+    }
+
+    function deletePayment(loanId, inst){
+      payments = payments.filter(p=>!(p.loanId===loanId && Number(p.inst)===Number(inst)));
+      saveState();
+      renderAll();
+    }
+
+    function addLoan(){
+      const name = document.getElementById('rName').value.trim();
+      if(!name) return alert('Borrower name is required');
+
+      const nextIdNum = Math.max(0, ...loans.map(x=>Number(String(x.id).split('-')[1]||0))) + 1;
+
+      loans.push({
+        id:'LN-' + String(nextIdNum).padStart(3,'0'),
+        name,
+        phone:document.getElementById('rPhone').value.trim(),
+        kinName:document.getElementById('rKinName').value.trim(),
+        kinPhone:document.getElementById('rKinPhone').value.trim(),
+        date:document.getElementById('rDate').value,
+        amount:Number(document.getElementById('rAmount').value||0),
+        term:Number(document.getElementById('rTerm').value||0),
+        rate:Number(document.getElementById('rRate').value||0),
+        type:document.getElementById('rType').value,
+        notes:document.getElementById('rNotes').value.trim()
+      });
+
+      saveState();
+      renderAll();
+    }
+
+    function addPayment(){
+      const loanId = document.getElementById('pLoan').value;
+      const inst = Number(document.getElementById('pInst').value||0);
+      if(!loanId || !inst) return alert('Loan and instalment are required');
+
+      const existing = payments.find(p=>p.loanId===loanId && Number(p.inst)===inst);
+      const row = {
+        loanId,
+        inst,
+        dueDate:document.getElementById('pDue').value,
+        amountDue:Number(document.getElementById('pAmtDue').value||0),
+        datePaid:document.getElementById('pDatePaid').value,
+        amountPaid:Number(document.getElementById('pAmtPaid').value||0)
+      };
+
+      if(existing) Object.assign(existing, row);
+      else payments.push(row);
+
+      saveState();
+      renderAll();
+    }
+
+    function renderAll(){
+      const data = allData();
+      renderKpis(data);
+      renderCharts(data);
+      renderLists(data);
+      renderRegister(data);
+      renderPaymentLoanOptions();
+      renderPayments();
+      renderArrearsPage(data);
+      renderDisbursements();
+      renderSearchResult(document.getElementById('searchInput').value || '');
+    }
+
+    document.getElementById('addLoanBtn').addEventListener('click', addLoan);
+    document.getElementById('addPaymentBtn').addEventListener('click', addPayment);
+    document.getElementById('searchBtn').addEventListener('click', ()=>renderSearchResult(document.getElementById('searchInput').value));
+    document.getElementById('searchInput').addEventListener('input', ()=>renderSearchResult(document.getElementById('searchInput').value));
+
+    loadState();
+    renderAll();
+  </script>
 </body>
 </html>
