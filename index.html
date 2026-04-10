@@ -172,7 +172,7 @@
       color:#fff;
       font-weight:700;
     }
-    input,select{
+    input,select,textarea{
       width:100%;
       padding:10px;
       border:1px solid #cfd7df;
@@ -204,12 +204,6 @@
       margin-bottom:12px;
       font-size:13px;
     }
-    .soft-panel{
-      background:linear-gradient(180deg,#fbfdff 0%, #f7fafc 100%);
-      border:1px solid #e3e8ef;
-      border-radius:18px;
-      padding:14px;
-    }
     .pill{
       display:inline-block;
       padding:4px 8px;
@@ -236,11 +230,30 @@
       flex-wrap:wrap;
       margin-bottom:12px;
     }
+    .report-header{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:12px;
+      margin-bottom:14px;
+    }
+    .report-box{
+      background:#f9fbfc;
+      border:1px solid #e3e8ef;
+      border-radius:12px;
+      padding:12px;
+    }
     canvas{
       max-width:100%;
       background:linear-gradient(180deg,#ffffff 0%, #fcfdff 100%);
       border-radius:16px;
       padding:6px;
+    }
+    @media print{
+      nav,.toolbar,.export-row,.btn{display:none !important}
+      body{background:#fff}
+      .tab{display:none !important}
+      .tab.print-active{display:block !important}
+      .card{box-shadow:none;border:1px solid #bbb}
     }
     @media (max-width: 980px){
       .grid-2,.grid-3{grid-template-columns:1fr}
@@ -261,6 +274,7 @@
       <button onclick="showTab('disbursements', this)">Disbursements</button>
       <button onclick="showTab('cash', this)">Cash at Hand</button>
       <button onclick="showTab('profit', this)">Profit</button>
+      <button onclick="showTab('report', this)">Monthly Report</button>
       <button onclick="showTab('search', this)">Search</button>
     </nav>
   </header>
@@ -269,7 +283,6 @@
     <div class="toolbar">
       <button class="btn" onclick="resetSeed()">Reload Given Data</button>
       <button class="btn secondary" onclick="clearLoanForm()">Clear Loan Form</button>
-      <button class="btn danger" onclick="clearAll()">Clear All Data</button>
     </div>
 
     <section id="dashboard" class="tab active">
@@ -488,6 +501,24 @@
       </div>
     </section>
 
+    <section id="report" class="tab">
+      <div class="card">
+        <div class="section-title">Print-Ready Monthly Management Report</div>
+        <div class="row">
+          <div class="field">
+            <label>Select Month</label>
+            <select id="reportMonthFilter" onchange="renderMonthlyReport()"></select>
+          </div>
+        </div>
+        <div class="export-row">
+          <button class="btn gold" onclick="window.print()">Print Report</button>
+          <button class="btn gold" onclick="exportMonthlyReportPDF()">Export Report to PDF</button>
+        </div>
+
+        <div id="monthlyReportContent"></div>
+      </div>
+    </section>
+
     <section id="search" class="tab">
       <div class="card">
         <div class="section-title">Client Search</div>
@@ -556,19 +587,15 @@
       alert("Given data reloaded.");
     }
 
-    function clearAll(){
-      if(!confirm("Clear all data?")) return;
-      loans = [];
-      payments = [];
-      openingCash = 0;
-      monthlyExpenses = {};
-      saveData();
-      renderAll();
-    }
-
     function showTab(id, btn){
-      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-      document.getElementById(id).classList.add("active");
+      document.querySelectorAll(".tab").forEach(t => {
+        t.classList.remove("active");
+        t.classList.remove("print-active");
+      });
+      const target = document.getElementById(id);
+      target.classList.add("active");
+      target.classList.add("print-active");
+
       document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
       if(btn) btn.classList.add("active");
       renderAll();
@@ -759,7 +786,7 @@
     }
 
     function getGrowthProjection(){
-      const janToDec = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const labels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       const currentLoanBook = loans.reduce((s,l)=>s+getBalance(l),0);
       const totalInterestExpected = loans.reduce((s,l)=>s+(getTotalRepayable(l)-Number(l.amount)),0);
       const collectionsTotal = payments.reduce((s,p)=>s+Number(p.amount),0);
@@ -773,12 +800,11 @@
       for(let i=0;i<12;i++){
         runningInterest += totalInterestExpected / 12;
         cumulativeInterest.push(runningInterest);
-
         runningLoanBook = runningLoanBook * 1.03;
         cumulativeLoanBook.push(runningLoanBook);
       }
 
-      return { growthRate, labels:janToDec, cumulativeInterest, cumulativeLoanBook };
+      return { growthRate, labels, cumulativeInterest, cumulativeLoanBook };
     }
 
     function destroyChart(id){
@@ -815,7 +841,7 @@
         <div class="kpi"><div class="label">Loan Book Value</div><div class="value">${formatMoney(outstanding)}</div><div class="sub">Outstanding balances</div></div>
         <div class="kpi"><div class="label">Total Collected</div><div class="value good">${formatMoney(totalCollected)}</div><div class="sub">${efficiency.toFixed(1)}% collection efficiency</div></div>
         <div class="kpi"><div class="label">Total Arrears</div><div class="value bad">${formatMoney(totalArrears)}</div><div class="sub">${atRisk} loans at risk</div></div>
-        <div class="kpi"><div class="label">Cash in Hand</div><div class="value" style="color:#7b61ff">${formatMoney(cashNow)}</div><div class="sub">Manual opening cash respected</div></div>
+        <div class="kpi"><div class="label">Cash in Hand</div><div class="value" style="color:#7b61ff">${formatMoney(cashNow)}</div><div class="sub">Available for lending</div></div>
         <div class="kpi"><div class="label">Growth Rate Metric</div><div class="value" style="color:#4f7cff">${gp.growthRate.toFixed(2)}%</div><div class="sub">Estimated monthly growth</div></div>
       `;
 
@@ -1129,15 +1155,21 @@
       const months = getAllMonths();
       const disb = document.getElementById("disbursementMonthFilter");
       const profit = document.getElementById("profitMonthFilter");
+      const report = document.getElementById("reportMonthFilter");
 
       const currentDisb = disb.value;
       const currentProfit = profit.value;
+      const currentReport = report.value;
 
-      disb.innerHTML = `<option value="ALL">All</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
-      profit.innerHTML = `<option value="ALL">All</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
+      const options = `<option value="ALL">All</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
+
+      disb.innerHTML = options;
+      profit.innerHTML = options;
+      report.innerHTML = `<option value="">Select Month</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
 
       disb.value = months.includes(currentDisb) ? currentDisb : "ALL";
       profit.value = months.includes(currentProfit) ? currentProfit : "ALL";
+      report.value = months.includes(currentReport) ? currentReport : (months[0] || "");
     }
 
     function renderDisbursements(){
@@ -1224,6 +1256,144 @@
       </tr>`).join("");
     }
 
+    function renderMonthlyReport(){
+      fillFilters();
+      const month = document.getElementById("reportMonthFilter").value;
+      const cashRows = getCashFlowRows();
+      const profitRows = getProfitRows();
+      const expected = aggregateExpectedCollections();
+      const actual = aggregateCollections();
+      const disbursements = aggregateDisbursements();
+
+      if(!month){
+        document.getElementById("monthlyReportContent").innerHTML = `<div class="muted">Select a month to view the report.</div>`;
+        return;
+      }
+
+      const cashRow = cashRows.find(r => r.month === month) || { opening:0, collections:0, disbursements:0, expenses:0, closing:0 };
+      const profitRow = profitRows.find(r => r.month === month) || { interestCollected:0, monthlyProfit:0 };
+      const arrearsAccounts = loans.filter(l => getArrears(l) > 0);
+      const dueThisMonth = loans.flatMap(l => getDueSchedule(l).filter(s => monthKey(s.dueDate) === month).map(s => ({
+        client: l.clientName,
+        dueDate: s.dueDate,
+        amount: s.amount
+      })));
+
+      document.getElementById("monthlyReportContent").innerHTML = `
+        <div class="report-header">
+          <div class="report-box"><strong>Month</strong><br>${month}</div>
+          <div class="report-box"><strong>Opening Cash</strong><br>${formatMoney(cashRow.opening)}</div>
+          <div class="report-box"><strong>Closing Cash</strong><br>${formatMoney(cashRow.closing)}</div>
+          <div class="report-box"><strong>Monthly Profit</strong><br>${formatMoney(profitRow.monthlyProfit)}</div>
+          <div class="report-box"><strong>Expected Collections</strong><br>${formatMoney(expected[month] || 0)}</div>
+          <div class="report-box"><strong>Actual Collections</strong><br>${formatMoney(actual[month] || 0)}</div>
+          <div class="report-box"><strong>Disbursements</strong><br>${formatMoney(disbursements[month] || 0)}</div>
+          <div class="report-box"><strong>Expenses</strong><br>${formatMoney(cashRow.expenses)}</div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Top Arrears Accounts</div>
+          <table id="reportArrearsTable">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Arrears</th>
+                <th>PAR Bucket</th>
+                <th>Last Repayment</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${arrearsAccounts.map(l=>`
+                <tr>
+                  <td>${l.clientName}</td>
+                  <td>${formatMoney(getArrears(l))}</td>
+                  <td>${getPARBucket(l)}</td>
+                  <td>${getLastRepayment(l.id)}</td>
+                </tr>
+              `).join("") || `<tr><td colspan="4">No arrears accounts.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Due Loans in ${month}</div>
+          <table id="reportDueTable">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Due Date</th>
+                <th>Expected Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dueThisMonth.map(d=>`
+                <tr>
+                  <td>${d.client}</td>
+                  <td>${d.dueDate}</td>
+                  <td>${formatMoney(d.amount)}</td>
+                </tr>
+              `).join("") || `<tr><td colspan="3">No due loans in this month.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function exportMonthlyReportPDF(){
+      const month = document.getElementById("reportMonthFilter").value;
+      if(!month){
+        alert("Select a month first.");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF("l", "pt", "a4");
+      doc.setFontSize(16);
+      doc.text(`Monthly Management Report - ${month}`, 40, 30);
+
+      const cashRows = getCashFlowRows();
+      const profitRows = getProfitRows();
+      const expected = aggregateExpectedCollections();
+      const actual = aggregateCollections();
+      const disbursements = aggregateDisbursements();
+      const cashRow = cashRows.find(r => r.month === month) || { opening:0, collections:0, disbursements:0, expenses:0, closing:0 };
+      const profitRow = profitRows.find(r => r.month === month) || { interestCollected:0, monthlyProfit:0 };
+
+      doc.autoTable({
+        startY: 50,
+        head: [["Metric", "Value"]],
+        body: [
+          ["Month", month],
+          ["Opening Cash", formatMoney(cashRow.opening)],
+          ["Closing Cash", formatMoney(cashRow.closing)],
+          ["Expected Collections", formatMoney(expected[month] || 0)],
+          ["Actual Collections", formatMoney(actual[month] || 0)],
+          ["Disbursements", formatMoney(disbursements[month] || 0)],
+          ["Expenses", formatMoney(cashRow.expenses)],
+          ["Estimated Interest Collected", formatMoney(profitRow.interestCollected)],
+          ["Monthly Profit", formatMoney(profitRow.monthlyProfit)]
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [111, 143, 123] }
+      });
+
+      doc.autoTable({
+        html: "#reportArrearsTable",
+        startY: doc.lastAutoTable.finalY + 20,
+        theme: "grid",
+        headStyles: { fillColor: [111, 143, 123] }
+      });
+
+      doc.autoTable({
+        html: "#reportDueTable",
+        startY: doc.lastAutoTable.finalY + 20,
+        theme: "grid",
+        headStyles: { fillColor: [111, 143, 123] }
+      });
+
+      doc.save(`monthly_management_report_${month.replace(/\s+/g,'_').toLowerCase()}.pdf`);
+    }
+
     function renderSearch(){
       const q = document.getElementById("searchInput").value.toLowerCase().trim();
       const container = document.getElementById("searchResults");
@@ -1295,6 +1465,7 @@
       renderDisbursements();
       renderCashAtHand();
       renderProfit();
+      renderMonthlyReport();
       renderSearch();
     }
 
