@@ -4,10 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LoanTrack</title>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+
   <style>
     :root{
-      --bg:#eef2f5;
+      --bg:#eef3f6;
       --card:#ffffff;
       --primary:#6f8f7b;
       --primary-dark:#5d7764;
@@ -19,26 +24,28 @@
       --text:#243142;
       --muted:#6b7280;
       --line:#dde3ea;
+      --soft:#f8fafc;
     }
     *{box-sizing:border-box}
     body{
       margin:0;
       font-family:Arial,sans-serif;
-      background:var(--bg);
+      background:linear-gradient(180deg,#edf2f5 0%, #f7f9fb 100%);
       color:var(--text);
     }
     header{
-      background:var(--primary);
+      background:linear-gradient(135deg,#6f8f7b 0%, #789684 100%);
       color:#fff;
-      padding:14px 20px 10px;
+      padding:16px 20px 12px;
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
       gap:20px;
       flex-wrap:wrap;
+      box-shadow:0 4px 18px rgba(0,0,0,.08);
     }
-    .brand-title{font-size:20px;font-weight:700}
-    .brand-sub{font-size:12px;color:#ffd965}
+    .brand-title{font-size:28px;font-weight:800;letter-spacing:.2px}
+    .brand-sub{font-size:13px;color:#ffe08a}
     nav{
       display:flex;
       gap:10px;
@@ -47,15 +54,17 @@
     }
     nav button,.btn{
       border:none;
-      border-radius:8px;
+      border-radius:10px;
       background:transparent;
       color:#fff;
       padding:10px 14px;
       cursor:pointer;
       font-weight:700;
+      transition:.2s ease;
     }
     nav button.active, nav button:hover, .btn.primary{
       background:rgba(255,255,255,.18);
+      transform:translateY(-1px);
     }
     .btn{
       background:var(--primary);
@@ -64,55 +73,69 @@
     .btn:hover{background:var(--primary-dark)}
     .btn.secondary{background:var(--blue)}
     .btn.danger{background:var(--red)}
-    .wrap{padding:16px}
+    .btn.gold{background:var(--gold); color:#1f2937}
+    .wrap{padding:18px}
     .toolbar{
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      margin-bottom:14px;
+      margin-bottom:16px;
     }
     .tab{display:none}
     .tab.active{display:block}
     .card{
       background:var(--card);
-      border:1px solid #d7dde5;
-      border-radius:18px;
-      padding:16px 18px;
-      box-shadow:0 4px 10px rgba(0,0,0,.04);
-      margin-bottom:14px;
+      border:1px solid #d9e0e8;
+      border-radius:20px;
+      padding:18px;
+      box-shadow:0 8px 24px rgba(15,23,42,.05);
+      margin-bottom:16px;
     }
     .section-title{
-      font-size:12px;
-      font-weight:700;
+      font-size:13px;
+      font-weight:800;
       color:#5f6e82;
       text-transform:uppercase;
-      margin-bottom:12px;
-      border-bottom:1px solid #dde3ea;
-      padding-bottom:10px;
+      margin-bottom:14px;
+      border-bottom:1px solid #e3e8ef;
+      padding-bottom:12px;
+      letter-spacing:.3px;
     }
     .kpis{
       display:grid;
       grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-      gap:14px;
-      margin-bottom:14px;
+      gap:16px;
+      margin-bottom:16px;
     }
     .kpi{
-      background:#fff;
-      border-radius:16px;
-      padding:16px;
-      border:1px solid #e5eaf0;
-      box-shadow:0 2px 8px rgba(0,0,0,.04);
+      background:linear-gradient(180deg,#ffffff 0%, #fbfdff 100%);
+      border-radius:18px;
+      padding:18px;
+      border:1px solid #e4eaf1;
+      box-shadow:0 4px 12px rgba(0,0,0,.04);
+      position:relative;
+      overflow:hidden;
+    }
+    .kpi:before{
+      content:"";
+      position:absolute;
+      left:0; top:0; bottom:0;
+      width:6px;
+      background:linear-gradient(180deg,var(--primary) 0%, #8fb29b 100%);
+      border-radius:18px 0 0 18px;
     }
     .kpi .label{
       font-size:12px;
       color:var(--muted);
       margin-bottom:8px;
       text-transform:uppercase;
+      font-weight:700;
+      letter-spacing:.2px;
     }
     .kpi .value{
-      font-size:20px;
-      font-weight:700;
-      margin-bottom:4px;
+      font-size:24px;
+      font-weight:800;
+      margin-bottom:6px;
     }
     .kpi .sub{
       font-size:12px;
@@ -121,23 +144,25 @@
     .grid-2{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:14px;
-      margin-bottom:14px;
+      gap:16px;
+      margin-bottom:16px;
     }
     .grid-3{
       display:grid;
       grid-template-columns:repeat(3,1fr);
-      gap:14px;
-      margin-bottom:14px;
+      gap:16px;
+      margin-bottom:16px;
     }
     table{
       width:100%;
       border-collapse:collapse;
       background:#fff;
+      border-radius:12px;
+      overflow:hidden;
     }
     th,td{
       border:1px solid #e3e8ee;
-      padding:8px;
+      padding:9px;
       text-align:left;
       font-size:14px;
       vertical-align:top;
@@ -145,14 +170,16 @@
     th{
       background:#748f7d;
       color:#fff;
+      font-weight:700;
     }
     input,select{
       width:100%;
       padding:10px;
       border:1px solid #cfd7df;
-      border-radius:8px;
+      border-radius:10px;
       margin-bottom:10px;
       background:#fff;
+      font-size:14px;
     }
     .row{
       display:flex;
@@ -160,9 +187,9 @@
       flex-wrap:wrap;
     }
     .field{flex:1 1 220px}
-    .good{color:var(--green);font-weight:700}
-    .bad{color:var(--red);font-weight:700}
-    .mid{color:#c27c12;font-weight:700}
+    .good{color:var(--green);font-weight:800}
+    .bad{color:var(--red);font-weight:800}
+    .mid{color:#c27c12;font-weight:800}
     .muted{color:var(--muted);font-size:12px}
     .action-group{
       display:flex;
@@ -172,12 +199,49 @@
     .mini-note{
       background:#fff7e8;
       border:1px solid #f2d59d;
-      border-radius:10px;
-      padding:10px 12px;
+      border-radius:12px;
+      padding:12px 14px;
       margin-bottom:12px;
       font-size:13px;
     }
-    canvas{max-width:100%}
+    .soft-panel{
+      background:linear-gradient(180deg,#fbfdff 0%, #f7fafc 100%);
+      border:1px solid #e3e8ef;
+      border-radius:18px;
+      padding:14px;
+    }
+    .pill{
+      display:inline-block;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#eef2f7;
+      font-size:12px;
+      margin-bottom:6px;
+      font-weight:700;
+    }
+    .search-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:10px;
+    }
+    .search-box{
+      background:#fff;
+      border:1px solid #e3e8ef;
+      border-radius:12px;
+      padding:10px;
+    }
+    .export-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    canvas{
+      max-width:100%;
+      background:linear-gradient(180deg,#ffffff 0%, #fcfdff 100%);
+      border-radius:16px;
+      padding:6px;
+    }
     @media (max-width: 980px){
       .grid-2,.grid-3{grid-template-columns:1fr}
     }
@@ -187,7 +251,7 @@
   <header>
     <div>
       <div class="brand-title">LoanTrack</div>
-      <div class="brand-sub">Officer A Portfolio · Online Multi-User Style</div>
+      <div class="brand-sub">Officer A Portfolio · Online Multi-User</div>
     </div>
     <nav>
       <button class="active" onclick="showTab('dashboard', this)">Dashboard</button>
@@ -213,14 +277,16 @@
 
       <div class="grid-2">
         <div class="card">
-          <div class="section-title">Monthly Profitability Trend</div>
+          <div class="section-title">Monthly Profitability</div>
           <canvas id="profitabilityChart" height="120"></canvas>
         </div>
         <div class="card">
-          <div class="section-title">Growth Projection — Cumulative Interest vs Loan Book</div>
+          <div class="section-title">Growth Projection — Jan to Dec</div>
           <canvas id="growthChart" height="120"></canvas>
         </div>
       </div>
+
+      <div class="kpis" id="growthFigureKpis"></div>
 
       <div class="grid-3">
         <div class="card">
@@ -363,8 +429,7 @@
       <div class="card">
         <div class="section-title">Cash at Hand Flow</div>
         <div class="mini-note">
-          Opening cash is the starting money available for lending. Closing cash is calculated from:
-          <strong>Opening + Collections − Disbursements − Monthly Expenses</strong>
+          Cash starts at <strong>0</strong> by default. You can manually enter opening cash. Closing cash is kept at a minimum of zero until you enter your actual funding position.
         </div>
         <div class="row">
           <div class="field">
@@ -372,7 +437,11 @@
             <input id="openingCashInput" type="number" oninput="updateOpeningCash()">
           </div>
         </div>
-        <table>
+        <div class="export-row">
+          <button class="btn gold" onclick="exportTableToExcel('cashTable', 'cash_at_hand.xlsx')">Export Cashflow to Excel</button>
+          <button class="btn gold" onclick="exportTableToPDF('cashTable', 'Cash at Hand Report')">Export Cashflow to PDF</button>
+        </div>
+        <table id="cashTable">
           <thead>
             <tr>
               <th>Month</th>
@@ -397,8 +466,12 @@
             <select id="profitMonthFilter" onchange="renderProfit()"></select>
           </div>
         </div>
+        <div class="export-row">
+          <button class="btn gold" onclick="exportTableToExcel('profitTable', 'monthly_profit.xlsx')">Export Profit to Excel</button>
+          <button class="btn gold" onclick="exportTableToPDF('profitTable', 'Monthly Profit Report')">Export Profit to PDF</button>
+        </div>
         <div class="kpis" id="profitKpis"></div>
-        <table>
+        <table id="profitTable">
           <thead>
             <tr>
               <th>Month</th>
@@ -651,12 +724,14 @@
       const months = getAllMonths();
       const collections = aggregateCollections();
       const disbursements = aggregateDisbursements();
-      let opening = openingCash;
+      let opening = Math.max(0, openingCash);
+
       return months.map(month => {
         const col = collections[month] || 0;
         const disb = disbursements[month] || 0;
         const exp = Number(monthlyExpenses[month] || 0);
-        const closing = opening + col - disb - exp;
+        const rawClosing = opening + col - disb - exp;
+        const closing = Math.max(0, rawClosing);
         const row = { month, opening, collections:col, disbursements:disb, expenses:exp, closing };
         opening = closing;
         return row;
@@ -684,25 +759,26 @@
     }
 
     function getGrowthProjection(){
+      const janToDec = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       const currentLoanBook = loans.reduce((s,l)=>s+getBalance(l),0);
       const totalInterestExpected = loans.reduce((s,l)=>s+(getTotalRepayable(l)-Number(l.amount)),0);
       const collectionsTotal = payments.reduce((s,p)=>s+Number(p.amount),0);
       const growthRate = currentLoanBook > 0 ? (collectionsTotal / currentLoanBook) * 100 : 0;
 
-      const labels = [];
-      const cumulativeInterest = [];
-      const cumulativeLoanBook = [];
       let runningInterest = 0;
       let runningLoanBook = currentLoanBook;
+      const cumulativeInterest = [];
+      const cumulativeLoanBook = [];
 
-      for(let i=1;i<=12;i++){
-        labels.push("M" + i);
+      for(let i=0;i<12;i++){
         runningInterest += totalInterestExpected / 12;
         cumulativeInterest.push(runningInterest);
+
         runningLoanBook = runningLoanBook * 1.03;
         cumulativeLoanBook.push(runningLoanBook);
       }
-      return { growthRate, labels, cumulativeInterest, cumulativeLoanBook };
+
+      return { growthRate, labels:janToDec, cumulativeInterest, cumulativeLoanBook };
     }
 
     function destroyChart(id){
@@ -714,8 +790,15 @@
       charts[id] = new Chart(document.getElementById(id), config);
     }
 
+    function buildGradient(ctx, color1, color2){
+      const g = ctx.createLinearGradient(0, 0, 0, 280);
+      g.addColorStop(0, color1);
+      g.addColorStop(1, color2);
+      return g;
+    }
+
     function renderDashboard(){
-      document.getElementById("openingCashInput").value = openingCash;
+      document.getElementById("openingCashInput").value = Math.max(0, openingCash);
       const totalDisbursed = loans.reduce((s,l)=>s+Number(l.amount),0);
       const totalCollected = payments.reduce((s,p)=>s+Number(p.amount),0);
       const totalArrears = loans.reduce((s,l)=>s+getArrears(l),0);
@@ -724,16 +807,21 @@
       const expectedToDate = loans.reduce((s,l)=>s+getExpectedToDate(l),0);
       const efficiency = expectedToDate > 0 ? (totalCollected/expectedToDate)*100 : 0;
       const cashRows = getCashFlowRows();
-      const cashNow = cashRows.length ? cashRows[cashRows.length-1].closing : openingCash;
+      const cashNow = cashRows.length ? cashRows[cashRows.length-1].closing : Math.max(0, openingCash);
       const gp = getGrowthProjection();
 
       document.getElementById("dashboardKpis").innerHTML = `
         <div class="kpi"><div class="label">Total Disbursed</div><div class="value">${formatMoney(totalDisbursed)}</div><div class="sub">${loans.length} total loans</div></div>
         <div class="kpi"><div class="label">Loan Book Value</div><div class="value">${formatMoney(outstanding)}</div><div class="sub">Outstanding balances</div></div>
-        <div class="kpi"><div class="label">Total Collected</div><div class="value good">${formatMoney(totalCollected)}</div><div class="sub">${efficiency.toFixed(1)}% efficiency</div></div>
+        <div class="kpi"><div class="label">Total Collected</div><div class="value good">${formatMoney(totalCollected)}</div><div class="sub">${efficiency.toFixed(1)}% collection efficiency</div></div>
         <div class="kpi"><div class="label">Total Arrears</div><div class="value bad">${formatMoney(totalArrears)}</div><div class="sub">${atRisk} loans at risk</div></div>
-        <div class="kpi"><div class="label">Cash in Hand</div><div class="value" style="color:#7b61ff">${formatMoney(cashNow)}</div><div class="sub">Available for borrowing</div></div>
+        <div class="kpi"><div class="label">Cash in Hand</div><div class="value" style="color:#7b61ff">${formatMoney(cashNow)}</div><div class="sub">Manual opening cash respected</div></div>
         <div class="kpi"><div class="label">Growth Rate Metric</div><div class="value" style="color:#4f7cff">${gp.growthRate.toFixed(2)}%</div><div class="sub">Estimated monthly growth</div></div>
+      `;
+
+      document.getElementById("growthFigureKpis").innerHTML = `
+        <div class="kpi"><div class="label">Projected Cumulative Interest by Dec</div><div class="value" style="color:#4f7cff">${formatMoney(gp.cumulativeInterest[11])}</div><div class="sub">Jan to Dec estimate</div></div>
+        <div class="kpi"><div class="label">Projected Loan Book by Dec</div><div class="value" style="color:#7b61ff">${formatMoney(gp.cumulativeLoanBook[11])}</div><div class="sub">Jan to Dec estimate</div></div>
       `;
 
       const statusCounts = {
@@ -749,16 +837,26 @@
           datasets: [{
             data: [statusCounts.current, statusCounts.arrears, statusCounts.cleared],
             backgroundColor: ["#1f9d66", "#d14b4b", "#d4a72c"],
-            borderWidth: 0
+            borderWidth: 0,
+            hoverOffset: 10
           }]
         },
-        options: { responsive:true, plugins:{ legend:{ position:"bottom" } } }
+        options: {
+          responsive:true,
+          cutout:"62%",
+          plugins:{ legend:{ position:"bottom", labels:{ usePointStyle:true } } }
+        }
       });
 
       const months = getAllMonths();
       const collections = aggregateCollections();
       const disbursements = aggregateDisbursements();
       const profitRows = getProfitRows();
+
+      const ctxCol = document.getElementById("collectionsChart").getContext("2d");
+      const ctxDisb = document.getElementById("disbursementChart").getContext("2d");
+      const ctxProf = document.getElementById("profitabilityChart").getContext("2d");
+      const ctxGrowth = document.getElementById("growthChart").getContext("2d");
 
       renderChart("collectionsChart", {
         type: "bar",
@@ -767,8 +865,8 @@
           datasets: [{
             label: "Collections",
             data: months.map(m => collections[m] || 0),
-            backgroundColor: "#1f9d66",
-            borderRadius: 8
+            backgroundColor: buildGradient(ctxCol, "rgba(31,157,102,0.95)", "rgba(31,157,102,0.35)"),
+            borderRadius: 10
           }]
         },
         options: { responsive:true, plugins:{ legend:{ display:false } } }
@@ -781,8 +879,8 @@
           datasets: [{
             label: "Disbursements",
             data: months.map(m => disbursements[m] || 0),
-            backgroundColor: "#7b61ff",
-            borderRadius: 8
+            backgroundColor: buildGradient(ctxDisb, "rgba(123,97,255,0.95)", "rgba(123,97,255,0.35)"),
+            borderRadius: 10
           }]
         },
         options: { responsive:true, plugins:{ legend:{ display:false } } }
@@ -796,8 +894,8 @@
               type: "bar",
               label: "Monthly Profit",
               data: profitRows.map(r => r.monthlyProfit),
-              backgroundColor: "#d4a72c",
-              borderRadius: 8,
+              backgroundColor: buildGradient(ctxProf, "rgba(212,167,44,0.95)", "rgba(212,167,44,0.35)"),
+              borderRadius: 10,
               yAxisID: "y"
             },
             {
@@ -806,7 +904,9 @@
               data: profitRows.map(r => r.closing),
               borderColor: "#4f7cff",
               backgroundColor: "#4f7cff",
-              tension: 0.35,
+              pointBackgroundColor: "#4f7cff",
+              pointRadius: 4,
+              tension: 0.4,
               fill: false,
               yAxisID: "y1"
             }
@@ -815,7 +915,7 @@
         options: {
           responsive:true,
           interaction:{mode:"index", intersect:false},
-          plugins:{ legend:{ position:"bottom" } },
+          plugins:{ legend:{ position:"bottom", labels:{ usePointStyle:true } } },
           scales:{
             y:{ beginAtZero:true, position:"left" },
             y1:{ beginAtZero:true, position:"right", grid:{ drawOnChartArea:false } }
@@ -832,21 +932,28 @@
               label: "Cumulative Interest",
               data: gp.cumulativeInterest,
               borderColor: "#4f7cff",
-              backgroundColor: "rgba(79,124,255,0.15)",
-              tension: 0.35,
+              backgroundColor: "rgba(79,124,255,0.18)",
+              pointBackgroundColor: "#4f7cff",
+              pointRadius: 4,
+              tension: 0.4,
               fill: true
             },
             {
               label: "Cumulative Loan Book",
               data: gp.cumulativeLoanBook,
               borderColor: "#7b61ff",
-              backgroundColor: "rgba(123,97,255,0.08)",
-              tension: 0.35,
+              backgroundColor: "rgba(123,97,255,0.12)",
+              pointBackgroundColor: "#7b61ff",
+              pointRadius: 4,
+              tension: 0.4,
               fill: true
             }
           ]
         },
-        options: { responsive:true, plugins:{ legend:{ position:"bottom" } } }
+        options: {
+          responsive:true,
+          plugins:{ legend:{ position:"bottom", labels:{ usePointStyle:true } } }
+        }
       });
 
       document.getElementById("upcomingBox").innerHTML = renderUpcomingHtml();
@@ -1064,19 +1171,19 @@
     }
 
     function updateOpeningCash(){
-      openingCash = Number(document.getElementById("openingCashInput").value || 0);
+      openingCash = Math.max(0, Number(document.getElementById("openingCashInput").value || 0));
       saveData();
       renderAll();
     }
 
     function updateMonthExpense(month, value){
-      monthlyExpenses[month] = Number(value || 0);
+      monthlyExpenses[month] = Math.max(0, Number(value || 0));
       saveData();
       renderAll();
     }
 
     function renderCashAtHand(){
-      document.getElementById("openingCashInput").value = openingCash;
+      document.getElementById("openingCashInput").value = Math.max(0, openingCash);
       const rows = getCashFlowRows();
       document.getElementById("cashTableBody").innerHTML = rows.map(r=>`<tr>
         <td>${r.month}</td>
@@ -1097,7 +1204,7 @@
       const totalProfit = filtered.reduce((s,r)=>s+r.monthlyProfit,0);
       const totalExpenses = filtered.reduce((s,r)=>s+r.expenses,0);
       const totalInterest = filtered.reduce((s,r)=>s+r.interestCollected,0);
-      const endCash = filtered.length ? filtered[filtered.length-1].closing : openingCash;
+      const endCash = filtered.length ? filtered[filtered.length-1].closing : Math.max(0, openingCash);
 
       document.getElementById("profitKpis").innerHTML = `
         <div class="kpi"><div class="label">Selected Period Interest</div><div class="value">${formatMoney(totalInterest)}</div></div>
@@ -1136,25 +1243,48 @@
         const status = getStatus(l);
         return `<div class="card">
           <div class="section-title">${l.clientName}</div>
-          <div class="grid-3">
-            <div><span class="pill">Phone</span><div>${l.clientPhone || "-"}</div></div>
-            <div><span class="pill">Next of Kin</span><div>${l.nextOfKin || "-"}</div></div>
-            <div><span class="pill">Next of Kin Phone</span><div>${l.nextOfKinPhone || "-"}</div></div>
-            <div><span class="pill">Loan Amount</span><div>${formatMoney(l.amount)}</div></div>
-            <div><span class="pill">Interest Rate</span><div>${l.interestRate}%</div></div>
-            <div><span class="pill">Loan Type</span><div>${l.loanType}</div></div>
-            <div><span class="pill">Date Disbursed</span><div>${l.disbursementDate}</div></div>
-            <div><span class="pill">Final Repayment</span><div>${getFinalRepaymentDate(l)}</div></div>
-            <div><span class="pill">Last Repayment</span><div>${getLastRepayment(l.id)}</div></div>
-            <div><span class="pill">Paid To Date</span><div>${formatMoney(getPaidAmount(l.id))}</div></div>
-            <div><span class="pill">Arrears</span><div class="${getArrears(l)>0?'bad':'good'}">${formatMoney(getArrears(l))}</div></div>
-            <div><span class="pill">Outstanding Balance</span><div>${formatMoney(getBalance(l))}</div></div>
-            <div><span class="pill">PAR Bucket</span><div>${getPARBucket(l)}</div></div>
-            <div><span class="pill">Status</span><div class="${status==='Performing'?'good':'bad'}">${status}</div></div>
-            <div><span class="pill">Loan Officer</span><div>${l.loanOfficer}</div></div>
+          <div class="search-grid">
+            <div class="search-box"><div class="pill">Phone</div><div>${l.clientPhone || "-"}</div></div>
+            <div class="search-box"><div class="pill">Next of Kin</div><div>${l.nextOfKin || "-"}</div></div>
+            <div class="search-box"><div class="pill">Next of Kin Phone</div><div>${l.nextOfKinPhone || "-"}</div></div>
+            <div class="search-box"><div class="pill">Loan Amount</div><div>${formatMoney(l.amount)}</div></div>
+            <div class="search-box"><div class="pill">Interest Rate</div><div>${l.interestRate}%</div></div>
+            <div class="search-box"><div class="pill">Loan Type</div><div>${l.loanType}</div></div>
+            <div class="search-box"><div class="pill">Date Disbursed</div><div>${l.disbursementDate}</div></div>
+            <div class="search-box"><div class="pill">Final Repayment</div><div>${getFinalRepaymentDate(l)}</div></div>
+            <div class="search-box"><div class="pill">Last Repayment</div><div>${getLastRepayment(l.id)}</div></div>
+            <div class="search-box"><div class="pill">Paid To Date</div><div>${formatMoney(getPaidAmount(l.id))}</div></div>
+            <div class="search-box"><div class="pill">Arrears</div><div class="${getArrears(l)>0?'bad':'good'}">${formatMoney(getArrears(l))}</div></div>
+            <div class="search-box"><div class="pill">Outstanding Balance</div><div>${formatMoney(getBalance(l))}</div></div>
+            <div class="search-box"><div class="pill">PAR Bucket</div><div>${getPARBucket(l)}</div></div>
+            <div class="search-box"><div class="pill">Status</div><div class="${status==='Performing'?'good':'bad'}">${status}</div></div>
+            <div class="search-box"><div class="pill">Loan Officer</div><div>${l.loanOfficer}</div></div>
           </div>
         </div>`;
       }).join("");
+    }
+
+    function exportTableToExcel(tableId, filename){
+      const table = document.getElementById(tableId);
+      const workbook = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
+      XLSX.writeFile(workbook, filename);
+    }
+
+    function exportTableToPDF(tableId, title){
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF("l", "pt", "a4");
+      doc.setFontSize(14);
+      doc.text(title, 40, 30);
+
+      doc.autoTable({
+        html: "#" + tableId,
+        startY: 50,
+        theme: "grid",
+        headStyles: { fillColor: [111, 143, 123] },
+        styles: { fontSize: 8, cellPadding: 4 }
+      });
+
+      doc.save(title.replace(/\s+/g, "_").toLowerCase() + ".pdf");
     }
 
     function renderAll(){
