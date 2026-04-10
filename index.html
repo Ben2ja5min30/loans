@@ -3,311 +3,424 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Loan Officer Portfolio System</title>
+  <title>LoanTrack</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{
-      --bg:#f4f6f8;
+      --bg:#eef2f5;
       --card:#ffffff;
       --primary:#6f8f7b;
-      --primary-dark:#5f7866;
-      --green:#22a06b;
-      --orange:#e46a2e;
-      --red:#c64040;
-      --purple:#7a69c7;
-      --blue:#3b82f6;
-      --text:#1f2937;
+      --primary-dark:#5d7764;
+      --gold:#d4a72c;
+      --green:#1f9d66;
+      --red:#d14b4b;
+      --blue:#4f7cff;
+      --purple:#7b61ff;
+      --text:#243142;
       --muted:#6b7280;
-      --line:#e5e7eb;
+      --line:#dde3ea;
     }
     *{box-sizing:border-box}
-    body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
-    header{background:var(--primary);color:#fff;text-align:center;padding:18px;font-size:20px;font-weight:700}
-    nav{display:flex;flex-wrap:wrap;gap:10px;padding:12px;background:#dfe8e2;position:sticky;top:0;z-index:10}
-    nav button,.btn{border:none;border-radius:8px;padding:10px 14px;background:var(--primary);color:#fff;cursor:pointer;font-weight:700}
-    nav button:hover,.btn:hover{background:var(--primary-dark)}
-    .danger{background:var(--red)!important}
-    .secondary{background:var(--blue)!important}
-    .container{padding:14px}
-    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-    .tab{display:none;background:var(--card);border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);padding:16px;margin-bottom:16px}
+    body{
+      margin:0;
+      font-family:Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+    header{
+      background:var(--primary);
+      color:#fff;
+      padding:14px 20px 10px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:20px;
+      flex-wrap:wrap;
+    }
+    .brand-title{font-size:20px;font-weight:700}
+    .brand-sub{font-size:12px;color:#ffd965}
+    nav{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    nav button,.btn{
+      border:none;
+      border-radius:8px;
+      background:transparent;
+      color:#fff;
+      padding:10px 14px;
+      cursor:pointer;
+      font-weight:700;
+    }
+    nav button.active, nav button:hover, .btn.primary{
+      background:rgba(255,255,255,.18);
+    }
+    .btn{
+      background:var(--primary);
+      color:#fff;
+    }
+    .btn:hover{background:var(--primary-dark)}
+    .btn.secondary{background:var(--blue)}
+    .btn.danger{background:var(--red)}
+    .wrap{padding:16px}
+    .toolbar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .tab{display:none}
     .tab.active{display:block}
-    h2,h3{margin:0 0 12px 0;color:#415f50}
-    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px}
-    .kpi{background:#fff;border-radius:14px;padding:16px;border-left:6px solid var(--primary);box-shadow:0 1px 6px rgba(0,0,0,.05)}
-    .kpi .label{font-size:13px;color:var(--muted);margin-bottom:6px}
-    .kpi .value{font-size:24px;font-weight:700;line-height:1.1}
-    .kpi .sub{margin-top:6px;font-size:12px;color:var(--muted)}
-    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
-    .panel{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff;min-height:320px}
-    .row{display:flex;flex-wrap:wrap;gap:12px}
+    .card{
+      background:var(--card);
+      border:1px solid #d7dde5;
+      border-radius:18px;
+      padding:16px 18px;
+      box-shadow:0 4px 10px rgba(0,0,0,.04);
+      margin-bottom:14px;
+    }
+    .section-title{
+      font-size:12px;
+      font-weight:700;
+      color:#5f6e82;
+      text-transform:uppercase;
+      margin-bottom:12px;
+      border-bottom:1px solid #dde3ea;
+      padding-bottom:10px;
+    }
+    .kpis{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:14px;
+      margin-bottom:14px;
+    }
+    .kpi{
+      background:#fff;
+      border-radius:16px;
+      padding:16px;
+      border:1px solid #e5eaf0;
+      box-shadow:0 2px 8px rgba(0,0,0,.04);
+    }
+    .kpi .label{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:8px;
+      text-transform:uppercase;
+    }
+    .kpi .value{
+      font-size:20px;
+      font-weight:700;
+      margin-bottom:4px;
+    }
+    .kpi .sub{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .grid-2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:14px;
+      margin-bottom:14px;
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      background:#fff;
+    }
+    th,td{
+      border:1px solid #e3e8ee;
+      padding:8px;
+      text-align:left;
+      font-size:14px;
+      vertical-align:top;
+    }
+    th{
+      background:#748f7d;
+      color:#fff;
+    }
+    input,select{
+      width:100%;
+      padding:10px;
+      border:1px solid #cfd7df;
+      border-radius:8px;
+      margin-bottom:10px;
+      background:#fff;
+    }
+    .row{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+    }
     .field{flex:1 1 220px}
-    input,select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;margin-bottom:10px;background:#fff}
-    table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff}
-    th,td{border:1px solid #e5e7eb;padding:8px;text-align:left;font-size:14px;vertical-align:top}
-    th{background:var(--primary);color:#fff}
-    .status-good{color:var(--green);font-weight:700}
-    .status-bad{color:var(--red);font-weight:700}
-    .status-mid{color:#b7791f;font-weight:700}
-    .small-note{font-size:12px;color:var(--muted)}
-    .search-card{background:#f9fbfa;border:1px solid var(--line);border-left:6px solid var(--primary);border-radius:12px;padding:14px;margin-top:12px}
-    .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
-    .detail{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}
-    .detail .d-label{font-size:12px;color:var(--muted);margin-bottom:5px}
-    .detail .d-value{font-size:16px;font-weight:700}
-    .metric-title{font-size:12px;color:#111827;margin-bottom:4px;text-transform:uppercase}
-    .metric-value{font-size:22px;margin-bottom:6px}
-    .progress{width:100%;height:6px;background:#eceff1;border-radius:999px;overflow:hidden;margin-top:6px}
-    .progress > div{height:100%;border-radius:999px}
-    canvas{width:100%;max-width:100%;background:#fff;border-radius:10px}
-    .action-group{display:flex;gap:6px;flex-wrap:wrap}
-    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2f7;font-size:12px}
-    .highlight{background:#fff7ed;padding:10px;border-radius:10px;border:1px solid #fed7aa}
-    @media (max-width:900px){.two-col{grid-template-columns:1fr}}
+    .good{color:var(--green);font-weight:700}
+    .bad{color:var(--red);font-weight:700}
+    .mid{color:#c27c12;font-weight:700}
+    .muted{color:var(--muted);font-size:12px}
+    .action-group{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+    .mini-note{
+      background:#fff7e8;
+      border:1px solid #f2d59d;
+      border-radius:10px;
+      padding:10px 12px;
+      margin-bottom:12px;
+      font-size:13px;
+    }
+    canvas{max-width:100%}
+    @media (max-width: 980px){
+      .grid-2,.grid-3{grid-template-columns:1fr}
+    }
   </style>
 </head>
 <body>
-  <header>Loan Officer Portfolio System</header>
+  <header>
+    <div>
+      <div class="brand-title">LoanTrack</div>
+      <div class="brand-sub">Officer A Portfolio · Online Multi-User Style</div>
+    </div>
+    <nav>
+      <button class="active" onclick="showTab('dashboard', this)">Dashboard</button>
+      <button onclick="showTab('register', this)">Register</button>
+      <button onclick="showTab('payments', this)">Payments</button>
+      <button onclick="showTab('arrears', this)">Arrears</button>
+      <button onclick="showTab('disbursements', this)">Disbursements</button>
+      <button onclick="showTab('cash', this)">Cash at Hand</button>
+      <button onclick="showTab('profit', this)">Profit</button>
+      <button onclick="showTab('search', this)">Search</button>
+    </nav>
+  </header>
 
-  <nav>
-    <button onclick="showTab('dashboard')">Dashboard</button>
-    <button onclick="showTab('register')">Register Loan</button>
-    <button onclick="showTab('payments')">Payments</button>
-    <button onclick="showTab('disbursements')">Disbursements</button>
-    <button onclick="showTab('collections')">Collections</button>
-    <button onclick="showTab('arrears')">Arrears</button>
-    <button onclick="showTab('profit')">Profit</button>
-    <button onclick="showTab('search')">Client Search</button>
-  </nav>
-
-  <div class="container">
+  <div class="wrap">
     <div class="toolbar">
-      <button class="btn" onclick="resetToSeedData()">Reload Given Data</button>
-      <button class="btn danger" onclick="clearAllData()">Clear All Data</button>
+      <button class="btn" onclick="resetSeed()">Reload Given Data</button>
+      <button class="btn secondary" onclick="clearLoanForm()">Clear Loan Form</button>
+      <button class="btn danger" onclick="clearAll()">Clear All Data</button>
     </div>
 
     <section id="dashboard" class="tab active">
-      <h2>Dashboard</h2>
-      <div class="row">
-        <div class="field">
-          <label>Opening Cash in Hand</label>
-          <input id="openingCashInput" type="number" oninput="updateOpeningCash()" />
+      <div class="kpis" id="dashboardKpis"></div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-title">Monthly Profitability Trend</div>
+          <canvas id="profitabilityChart" height="120"></canvas>
+        </div>
+        <div class="card">
+          <div class="section-title">Growth Projection — Cumulative Interest vs Loan Book</div>
+          <canvas id="growthChart" height="120"></canvas>
         </div>
       </div>
 
-      <div class="kpi-grid" id="kpiGrid"></div>
-
-      <div class="two-col">
-        <div class="panel" id="healthPanel"></div>
-        <div class="panel">
-          <h3>Monthly Overview (Disbursements vs Collections)</h3>
-          <canvas id="monthlyOverviewChart" width="760" height="320"></canvas>
+      <div class="grid-3">
+        <div class="card">
+          <div class="section-title">Portfolio Health</div>
+          <canvas id="statusChart" height="180"></canvas>
+        </div>
+        <div class="card">
+          <div class="section-title">Monthly Collections Trend</div>
+          <canvas id="collectionsChart" height="180"></canvas>
+        </div>
+        <div class="card">
+          <div class="section-title">Monthly Disbursements Trend</div>
+          <canvas id="disbursementChart" height="180"></canvas>
         </div>
       </div>
 
-      <div class="two-col">
-        <div class="panel">
-          <h3>Estimated Growth Graphs</h3>
-          <canvas id="growthChart" width="760" height="320"></canvas>
-          <div class="small-note" style="margin-top:10px;">
-            Blue = cumulative interest estimate, Purple = cumulative loan book
-          </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-title">Weekly Upcoming Due Loans</div>
+          <div id="upcomingBox"></div>
         </div>
-        <div class="panel">
-          <h3>Cumulative Month 1 to Month 12 Projection</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Cumulative Interest</th>
-                <th>Cumulative Loan Book</th>
-              </tr>
-            </thead>
-            <tbody id="projectionTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="two-col">
-        <div class="panel">
-          <h3>Upcoming 7 Days Repayments</h3>
-          <div id="upcomingRepayments"></div>
-        </div>
-        <div class="panel">
-          <h3>Portfolio Table</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Client</th>
-                <th>Principal</th>
-                <th>Last Repayment</th>
-                <th>Final Repayment</th>
-                <th>Arrears</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="dashboardLoanTable"></tbody>
-          </table>
+        <div class="card">
+          <div class="section-title">Expected Repayments</div>
+          <div id="expectedBox"></div>
         </div>
       </div>
     </section>
 
     <section id="register" class="tab">
-      <h2>Register / Edit Loan</h2>
-      <div class="highlight" id="loanEditBanner" style="display:none;margin-bottom:12px;">
-        Editing loan record
-      </div>
-      <input type="hidden" id="editingLoanId" />
-      <div class="row">
-        <div class="field"><input id="clientName" placeholder="Client Name"></div>
-        <div class="field"><input id="clientPhone" placeholder="Phone Number"></div>
-      </div>
-      <div class="row">
-        <div class="field"><input id="nextOfKin" placeholder="Next of Kin"></div>
-        <div class="field"><input id="nextOfKinPhone" placeholder="Next of Kin Phone"></div>
-      </div>
-      <div class="row">
-        <div class="field"><input id="loanAmount" type="number" placeholder="Loan Amount"></div>
-        <div class="field"><input id="interestRate" type="number" placeholder="Monthly Interest %" value="10"></div>
-        <div class="field"><input id="loanTerm" type="number" placeholder="Loan Term (months)" value="3"></div>
-      </div>
-      <div class="row">
-        <div class="field"><input id="disbursementDate" type="date"></div>
-        <div class="field">
-          <select id="loanType">
-            <option value="Standard">Standard</option>
-            <option value="Interest Only">Interest Only</option>
-            <option value="Interest Then Balloon">Interest Then Balloon</option>
-          </select>
+      <div class="card">
+        <div class="section-title">Register / Edit Loan</div>
+        <input type="hidden" id="editingLoanId">
+        <div class="row">
+          <div class="field"><input id="clientName" placeholder="Client Name"></div>
+          <div class="field"><input id="clientPhone" placeholder="Phone Number"></div>
         </div>
-        <div class="field"><input id="loanOfficer" value="Loan Officer A" placeholder="Loan Officer"></div>
-      </div>
-      <div class="action-group">
-        <button class="btn" onclick="saveLoan()">Save Loan</button>
-        <button class="btn secondary" onclick="clearLoanForm()">Clear Form</button>
+        <div class="row">
+          <div class="field"><input id="nextOfKin" placeholder="Next of Kin"></div>
+          <div class="field"><input id="nextOfKinPhone" placeholder="Next of Kin Phone"></div>
+        </div>
+        <div class="row">
+          <div class="field"><input id="loanAmount" type="number" placeholder="Loan Amount"></div>
+          <div class="field"><input id="interestRate" type="number" placeholder="Monthly Interest %" value="10"></div>
+          <div class="field"><input id="loanTerm" type="number" placeholder="Term (months)" value="3"></div>
+        </div>
+        <div class="row">
+          <div class="field"><input id="disbursementDate" type="date"></div>
+          <div class="field">
+            <select id="loanType">
+              <option value="Standard">Standard</option>
+              <option value="Interest Only">Interest Only</option>
+              <option value="Interest Then Balloon">Interest Then Balloon</option>
+            </select>
+          </div>
+          <div class="field"><input id="loanOfficer" value="Loan Officer A"></div>
+        </div>
+        <div class="action-group">
+          <button class="btn" onclick="saveLoan()">Save Loan</button>
+        </div>
       </div>
     </section>
 
     <section id="payments" class="tab">
-      <h2>Payments</h2>
-      <div class="highlight" id="paymentEditBanner" style="display:none;margin-bottom:12px;">
-        Editing payment record
-      </div>
-      <input type="hidden" id="editingPaymentId" />
-      <div class="row">
-        <div class="field"><select id="paymentLoanSelect"></select></div>
-        <div class="field"><input id="paymentAmount" type="number" placeholder="Payment Amount"></div>
-        <div class="field"><input id="paymentDate" type="date"></div>
-      </div>
-      <div class="action-group">
-        <button class="btn" onclick="savePayment()">Save Payment</button>
-        <button class="btn secondary" onclick="clearPaymentForm()">Clear Form</button>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Client</th>
-            <th>Payment Date</th>
-            <th>Amount</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="paymentTableBody"></tbody>
-      </table>
-    </section>
-
-    <section id="disbursements" class="tab">
-      <h2>Disbursements</h2>
-      <div class="row">
-        <div class="field">
-          <label>Month</label>
-          <select id="disbursementMonthFilter" onchange="renderDisbursements()"></select>
+      <div class="card">
+        <div class="section-title">Add / Edit Payment</div>
+        <input type="hidden" id="editingPaymentId">
+        <div class="row">
+          <div class="field"><select id="paymentLoanSelect"></select></div>
+          <div class="field"><input id="paymentAmount" type="number" placeholder="Payment Amount"></div>
+          <div class="field"><input id="paymentDate" type="date"></div>
+        </div>
+        <div class="action-group">
+          <button class="btn" onclick="savePayment()">Save Payment</button>
+          <button class="btn secondary" onclick="clearPaymentForm()">Clear Payment Form</button>
         </div>
       </div>
-      <div class="kpi-grid" id="disbursementKpis"></div>
-      <div class="panel">
-        <h3>Monthly Disbursements</h3>
-        <canvas id="disbursementChart" width="900" height="320"></canvas>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Client</th>
-            <th>Disbursement Date</th>
-            <th>Month</th>
-            <th>Loan Amount</th>
-            <th>Term</th>
-            <th>Loan Type</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="disbursementTableBody"></tbody>
-      </table>
-    </section>
 
-    <section id="collections" class="tab">
-      <h2>Expected vs Actual Collections</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Expected Collections</th>
-            <th>Actual Collections</th>
-            <th>Variance</th>
-            <th>Efficiency %</th>
-          </tr>
-        </thead>
-        <tbody id="collectionsTableBody"></tbody>
-      </table>
+      <div class="card">
+        <div class="section-title">Payment History</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="paymentTableBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <section id="arrears" class="tab">
-      <h2>Arrears</h2>
-      <div class="kpi-grid" id="arrearsKpis"></div>
-      <table>
-        <thead>
-          <tr>
-            <th>Client</th>
-            <th>Expected To Date</th>
-            <th>Paid</th>
-            <th>Arrears</th>
-            <th>Days in Arrears</th>
-            <th>PAR Bucket</th>
-          </tr>
-        </thead>
-        <tbody id="arrearsTableBody"></tbody>
-      </table>
+      <div class="card">
+        <div class="section-title">Accounts in Arrears</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Expected To Date</th>
+              <th>Paid</th>
+              <th>Arrears</th>
+              <th>Days in Arrears</th>
+              <th>PAR Bucket</th>
+            </tr>
+          </thead>
+          <tbody id="arrearsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="disbursements" class="tab">
+      <div class="card">
+        <div class="section-title">Disbursement Summary</div>
+        <div class="row">
+          <div class="field">
+            <label>Filter Month</label>
+            <select id="disbursementMonthFilter" onchange="renderDisbursements()"></select>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Disbursement Date</th>
+              <th>Month</th>
+              <th>Amount</th>
+              <th>Term</th>
+              <th>Loan Type</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="disbursementTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="cash" class="tab">
+      <div class="card">
+        <div class="section-title">Cash at Hand Flow</div>
+        <div class="mini-note">
+          Opening cash is the starting money available for lending. Closing cash is calculated from:
+          <strong>Opening + Collections − Disbursements − Monthly Expenses</strong>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>Opening Cash</label>
+            <input id="openingCashInput" type="number" oninput="updateOpeningCash()">
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Opening Balance</th>
+              <th>Collections</th>
+              <th>Disbursements</th>
+              <th>Expenses</th>
+              <th>Closing Balance</th>
+            </tr>
+          </thead>
+          <tbody id="cashTableBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <section id="profit" class="tab">
-      <h2>Profit by Month</h2>
-      <div class="row">
-        <div class="field">
-          <label>Filter Month</label>
-          <select id="profitMonthFilter" onchange="renderProfit()"></select>
+      <div class="card">
+        <div class="section-title">Profit by Month</div>
+        <div class="row">
+          <div class="field">
+            <label>Filter Month</label>
+            <select id="profitMonthFilter" onchange="renderProfit()"></select>
+          </div>
         </div>
+        <div class="kpis" id="profitKpis"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Actual Collections</th>
+              <th>Estimated Interest Collected</th>
+              <th>Disbursements</th>
+              <th>Expenses</th>
+              <th>Monthly Profit</th>
+              <th>Cash End Month</th>
+            </tr>
+          </thead>
+          <tbody id="profitTableBody"></tbody>
+        </table>
       </div>
-      <div class="kpi-grid" id="profitKpis"></div>
-      <table>
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Actual Collections</th>
-            <th>Estimated Interest Collected</th>
-            <th>Disbursements</th>
-            <th>Misc Expenses</th>
-            <th>Monthly Profit</th>
-            <th>Cash in Hand End Month</th>
-          </tr>
-        </thead>
-        <tbody id="profitTableBody"></tbody>
-      </table>
     </section>
 
     <section id="search" class="tab">
-      <h2>Client Search</h2>
-      <input id="searchInput" placeholder="Search by client name or phone" onkeyup="renderSearchResults()">
-      <div id="searchResults"></div>
+      <div class="card">
+        <div class="section-title">Client Search</div>
+        <input id="searchInput" placeholder="Search by client name or phone" onkeyup="renderSearch()">
+        <div id="searchResults"></div>
+      </div>
     </section>
   </div>
 
@@ -351,6 +464,8 @@
     let openingCash = Number(localStorage.getItem("openingCash") || 0);
     let monthlyExpenses = JSON.parse(localStorage.getItem("monthlyExpenses") || "{}");
 
+    let charts = {};
+
     function saveData(){
       localStorage.setItem("loans", JSON.stringify(loans));
       localStorage.setItem("payments", JSON.stringify(payments));
@@ -358,7 +473,7 @@
       localStorage.setItem("monthlyExpenses", JSON.stringify(monthlyExpenses));
     }
 
-    function resetToSeedData(){
+    function resetSeed(){
       loans = [...seedLoans];
       payments = [...seedPayments];
       openingCash = 0;
@@ -368,7 +483,7 @@
       alert("Given data reloaded.");
     }
 
-    function clearAllData(){
+    function clearAll(){
       if(!confirm("Clear all data?")) return;
       loans = [];
       payments = [];
@@ -378,26 +493,21 @@
       renderAll();
     }
 
-    function showTab(id){
+    function showTab(id, btn){
       document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
       document.getElementById(id).classList.add("active");
+      document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+      if(btn) btn.classList.add("active");
       renderAll();
     }
 
-    function updateOpeningCash(){
-      openingCash = Number(document.getElementById("openingCashInput").value || 0);
-      saveData();
-      renderAll();
+    function formatMoney(v){
+      return "$" + Number(v || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
     }
 
-    function updateMonthExpense(month, value){
-      monthlyExpenses[month] = Number(value || 0);
-      saveData();
-      renderAll();
+    function monthKey(dateStr){
+      return new Date(dateStr).toLocaleString("en-US",{month:"short", year:"numeric"});
     }
-
-    function formatMoney(v){ return "$" + Number(v || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
-    function monthKey(dateStr){ return new Date(dateStr).toLocaleString("en-US",{month:"short", year:"numeric"}); }
 
     function getAllMonths(){
       const set = new Set();
@@ -435,14 +545,11 @@
     function getMonthlyDue(loan){
       const principal = Number(loan.amount);
       const rate = Number(loan.interestRate)/100;
-
       if(loan.loanType === "Interest Only") return principal*rate;
       if(loan.loanType === "Interest Then Balloon") return principal*rate;
-
       if(loan.clientName === "Fosirai Gadhi") return 150;
       if(loan.clientName === "Tagaza Puru") return 600;
       if(loan.clientName === "Pukuta Mhoiki") return 187;
-
       return getTotalRepayable(loan)/Number(loan.term);
     }
 
@@ -454,18 +561,14 @@
       for(let i=1;i<=loan.term;i++){
         const d = new Date(loan.disbursementDate);
         d.setMonth(d.getMonth()+i);
-
         let amount = getMonthlyDue(loan);
 
         if(loan.loanType === "Interest Then Balloon"){
-          if(i === 1) amount = principal*rate;
+          if(i === 1) amount = principal * rate;
           if(i === loan.term) amount = principal + (principal*rate*loan.term);
         }
 
-        schedule.push({
-          dueDate: d.toISOString().split("T")[0],
-          amount: Number(amount)
-        });
+        schedule.push({ dueDate:d.toISOString().split("T")[0], amount:Number(amount) });
       }
       return schedule;
     }
@@ -473,10 +576,9 @@
     function getExpectedToDate(loan){
       const today = new Date();
       if(loan.clientName === "Mamhanya") return 601;
-
       return getDueSchedule(loan)
         .filter(x => new Date(x.dueDate) <= today)
-        .reduce((s,x) => s + x.amount, 0);
+        .reduce((s,x)=>s+x.amount,0);
     }
 
     function getArrears(loan){
@@ -492,9 +594,7 @@
 
     function getStatus(loan){
       const arrears = getArrears(loan);
-      if(loan.loanType === "Interest Only"){
-        return arrears > 0 ? "In Arrears" : "Performing";
-      }
+      if(loan.loanType === "Interest Only") return arrears > 0 ? "In Arrears" : "Performing";
       if(getBalance(loan) <= 0) return "Cleared";
       if(arrears > 0) return "In Arrears";
       return "Performing";
@@ -507,7 +607,7 @@
       const overdue = getDueSchedule(loan).filter(x => new Date(x.dueDate) < today);
       if(!overdue.length) return 0;
       const oldestDue = new Date(overdue[0].dueDate);
-      return Math.max(1, Math.floor((today - oldestDue) / 86400000));
+      return Math.max(1, Math.floor((today - oldestDue)/86400000));
     }
 
     function getPARBucket(loan){
@@ -517,20 +617,269 @@
       return "PAR 30";
     }
 
-    function addLoan(){
-      loans.push({
-        id:"LN"+Date.now(),
-        clientName: document.getElementById("clientName").value.trim(),
-        clientPhone: document.getElementById("clientPhone").value.trim(),
-        nextOfKin: document.getElementById("nextOfKin").value.trim(),
-        nextOfKinPhone: document.getElementById("nextOfKinPhone").value.trim(),
-        amount: Number(document.getElementById("loanAmount").value),
-        interestRate: Number(document.getElementById("interestRate").value),
-        term: Number(document.getElementById("loanTerm").value),
-        disbursementDate: document.getElementById("disbursementDate").value,
-        loanOfficer: document.getElementById("loanOfficer").value.trim() || "Loan Officer A",
-        loanType: document.getElementById("loanType").value
+    function aggregateDisbursements(){
+      const map = {};
+      getAllMonths().forEach(m => map[m]=0);
+      loans.forEach(l => map[monthKey(l.disbursementDate)] += Number(l.amount));
+      return map;
+    }
+
+    function aggregateCollections(){
+      const map = {};
+      getAllMonths().forEach(m => map[m]=0);
+      payments.forEach(p => map[monthKey(p.paymentDate)] += Number(p.amount));
+      return map;
+    }
+
+    function aggregateExpectedCollections(){
+      const map = {};
+      getAllMonths().forEach(m => map[m]=0);
+      loans.forEach(l=>{
+        if(l.clientName === "Mamhanya"){
+          map["Apr 2026"] = (map["Apr 2026"] || 0) + 601;
+          return;
+        }
+        getDueSchedule(l).forEach(s=>{
+          const mk = monthKey(s.dueDate);
+          map[mk] = (map[mk] || 0) + Number(s.amount);
+        });
       });
+      return map;
+    }
+
+    function getCashFlowRows(){
+      const months = getAllMonths();
+      const collections = aggregateCollections();
+      const disbursements = aggregateDisbursements();
+      let opening = openingCash;
+      return months.map(month => {
+        const col = collections[month] || 0;
+        const disb = disbursements[month] || 0;
+        const exp = Number(monthlyExpenses[month] || 0);
+        const closing = opening + col - disb - exp;
+        const row = { month, opening, collections:col, disbursements:disb, expenses:exp, closing };
+        opening = closing;
+        return row;
+      });
+    }
+
+    function getProfitRows(){
+      const cashRows = getCashFlowRows();
+      return cashRows.map(r=>{
+        let interestCollected = 0;
+        payments.filter(p => monthKey(p.paymentDate) === r.month).forEach(p=>{
+          const loan = loans.find(l => l.id === p.loanId);
+          if(!loan) return;
+          const repayable = getTotalRepayable(loan);
+          const interest = repayable - Number(loan.amount);
+          const ratio = repayable > 0 ? interest / repayable : 0;
+          interestCollected += Number(p.amount) * ratio;
+        });
+        return {
+          ...r,
+          interestCollected,
+          monthlyProfit: interestCollected - r.expenses
+        };
+      });
+    }
+
+    function getGrowthProjection(){
+      const currentLoanBook = loans.reduce((s,l)=>s+getBalance(l),0);
+      const totalInterestExpected = loans.reduce((s,l)=>s+(getTotalRepayable(l)-Number(l.amount)),0);
+      const collectionsTotal = payments.reduce((s,p)=>s+Number(p.amount),0);
+      const growthRate = currentLoanBook > 0 ? (collectionsTotal / currentLoanBook) * 100 : 0;
+
+      const labels = [];
+      const cumulativeInterest = [];
+      const cumulativeLoanBook = [];
+      let runningInterest = 0;
+      let runningLoanBook = currentLoanBook;
+
+      for(let i=1;i<=12;i++){
+        labels.push("M" + i);
+        runningInterest += totalInterestExpected / 12;
+        cumulativeInterest.push(runningInterest);
+        runningLoanBook = runningLoanBook * 1.03;
+        cumulativeLoanBook.push(runningLoanBook);
+      }
+      return { growthRate, labels, cumulativeInterest, cumulativeLoanBook };
+    }
+
+    function destroyChart(id){
+      if(charts[id]) charts[id].destroy();
+    }
+
+    function renderChart(id, config){
+      destroyChart(id);
+      charts[id] = new Chart(document.getElementById(id), config);
+    }
+
+    function renderDashboard(){
+      document.getElementById("openingCashInput").value = openingCash;
+      const totalDisbursed = loans.reduce((s,l)=>s+Number(l.amount),0);
+      const totalCollected = payments.reduce((s,p)=>s+Number(p.amount),0);
+      const totalArrears = loans.reduce((s,l)=>s+getArrears(l),0);
+      const outstanding = loans.reduce((s,l)=>s+getBalance(l),0);
+      const atRisk = loans.filter(l => getArrears(l) > 0).length;
+      const expectedToDate = loans.reduce((s,l)=>s+getExpectedToDate(l),0);
+      const efficiency = expectedToDate > 0 ? (totalCollected/expectedToDate)*100 : 0;
+      const cashRows = getCashFlowRows();
+      const cashNow = cashRows.length ? cashRows[cashRows.length-1].closing : openingCash;
+      const gp = getGrowthProjection();
+
+      document.getElementById("dashboardKpis").innerHTML = `
+        <div class="kpi"><div class="label">Total Disbursed</div><div class="value">${formatMoney(totalDisbursed)}</div><div class="sub">${loans.length} total loans</div></div>
+        <div class="kpi"><div class="label">Loan Book Value</div><div class="value">${formatMoney(outstanding)}</div><div class="sub">Outstanding balances</div></div>
+        <div class="kpi"><div class="label">Total Collected</div><div class="value good">${formatMoney(totalCollected)}</div><div class="sub">${efficiency.toFixed(1)}% efficiency</div></div>
+        <div class="kpi"><div class="label">Total Arrears</div><div class="value bad">${formatMoney(totalArrears)}</div><div class="sub">${atRisk} loans at risk</div></div>
+        <div class="kpi"><div class="label">Cash in Hand</div><div class="value" style="color:#7b61ff">${formatMoney(cashNow)}</div><div class="sub">Available for borrowing</div></div>
+        <div class="kpi"><div class="label">Growth Rate Metric</div><div class="value" style="color:#4f7cff">${gp.growthRate.toFixed(2)}%</div><div class="sub">Estimated monthly growth</div></div>
+      `;
+
+      const statusCounts = {
+        current: loans.filter(l=>getStatus(l)==="Performing").length,
+        arrears: loans.filter(l=>getStatus(l)==="In Arrears").length,
+        cleared: loans.filter(l=>getStatus(l)==="Cleared").length
+      };
+
+      renderChart("statusChart", {
+        type: "doughnut",
+        data: {
+          labels: ["Performing", "In Arrears", "Cleared"],
+          datasets: [{
+            data: [statusCounts.current, statusCounts.arrears, statusCounts.cleared],
+            backgroundColor: ["#1f9d66", "#d14b4b", "#d4a72c"],
+            borderWidth: 0
+          }]
+        },
+        options: { responsive:true, plugins:{ legend:{ position:"bottom" } } }
+      });
+
+      const months = getAllMonths();
+      const collections = aggregateCollections();
+      const disbursements = aggregateDisbursements();
+      const profitRows = getProfitRows();
+
+      renderChart("collectionsChart", {
+        type: "bar",
+        data: {
+          labels: months,
+          datasets: [{
+            label: "Collections",
+            data: months.map(m => collections[m] || 0),
+            backgroundColor: "#1f9d66",
+            borderRadius: 8
+          }]
+        },
+        options: { responsive:true, plugins:{ legend:{ display:false } } }
+      });
+
+      renderChart("disbursementChart", {
+        type: "bar",
+        data: {
+          labels: months,
+          datasets: [{
+            label: "Disbursements",
+            data: months.map(m => disbursements[m] || 0),
+            backgroundColor: "#7b61ff",
+            borderRadius: 8
+          }]
+        },
+        options: { responsive:true, plugins:{ legend:{ display:false } } }
+      });
+
+      renderChart("profitabilityChart", {
+        data: {
+          labels: months,
+          datasets: [
+            {
+              type: "bar",
+              label: "Monthly Profit",
+              data: profitRows.map(r => r.monthlyProfit),
+              backgroundColor: "#d4a72c",
+              borderRadius: 8,
+              yAxisID: "y"
+            },
+            {
+              type: "line",
+              label: "Cash End Month",
+              data: profitRows.map(r => r.closing),
+              borderColor: "#4f7cff",
+              backgroundColor: "#4f7cff",
+              tension: 0.35,
+              fill: false,
+              yAxisID: "y1"
+            }
+          ]
+        },
+        options: {
+          responsive:true,
+          interaction:{mode:"index", intersect:false},
+          plugins:{ legend:{ position:"bottom" } },
+          scales:{
+            y:{ beginAtZero:true, position:"left" },
+            y1:{ beginAtZero:true, position:"right", grid:{ drawOnChartArea:false } }
+          }
+        }
+      });
+
+      renderChart("growthChart", {
+        type: "line",
+        data: {
+          labels: gp.labels,
+          datasets: [
+            {
+              label: "Cumulative Interest",
+              data: gp.cumulativeInterest,
+              borderColor: "#4f7cff",
+              backgroundColor: "rgba(79,124,255,0.15)",
+              tension: 0.35,
+              fill: true
+            },
+            {
+              label: "Cumulative Loan Book",
+              data: gp.cumulativeLoanBook,
+              borderColor: "#7b61ff",
+              backgroundColor: "rgba(123,97,255,0.08)",
+              tension: 0.35,
+              fill: true
+            }
+          ]
+        },
+        options: { responsive:true, plugins:{ legend:{ position:"bottom" } } }
+      });
+
+      document.getElementById("upcomingBox").innerHTML = renderUpcomingHtml();
+      document.getElementById("expectedBox").innerHTML = renderExpectedHtml();
+    }
+
+    function renderUpcomingHtml(){
+      const out = [];
+      const today = new Date();
+      const plus7 = new Date();
+      plus7.setDate(today.getDate()+7);
+
+      loans.forEach(l=>{
+        getDueSchedule(l).forEach(s=>{
+          const d = new Date(s.dueDate);
+          if(d >= today && d <= plus7){
+            out.push({client:l.clientName, date:s.dueDate, amount:s.amount});
+          }
+        });
+      });
+
+      if(!out.length) return `<div class="muted">No repayments falling in the next 7 days.</div>`;
+      return `<table><thead><tr><th>Client</th><th>Due Date</th><th>Expected Amount</th></tr></thead><tbody>${
+        out.sort((a,b)=>new Date(a.date)-new Date(b.date)).map(x=>`<tr><td>${x.client}</td><td>${x.date}</td><td>${formatMoney(x.amount)}</td></tr>`).join("")
+      }</tbody></table>`;
+    }
+
+    function renderExpectedHtml(){
+      const map = aggregateExpectedCollections();
+      const months = getAllMonths();
+      return `<table><thead><tr><th>Month</th><th>Expected Collections</th></tr></thead><tbody>${
+        months.map(m=>`<tr><td>${m}</td><td>${formatMoney(map[m] || 0)}</td></tr>`).join("")
+      }</tbody></table>`;
     }
 
     function saveLoan(){
@@ -580,8 +929,7 @@
       document.getElementById("disbursementDate").value = loan.disbursementDate;
       document.getElementById("loanType").value = loan.loanType;
       document.getElementById("loanOfficer").value = loan.loanOfficer;
-      document.getElementById("loanEditBanner").style.display = "block";
-      showTab('register');
+      showTab('register', document.querySelectorAll('nav button')[1]);
     }
 
     function clearLoanForm(){
@@ -591,12 +939,11 @@
       document.getElementById("nextOfKin").value = "";
       document.getElementById("nextOfKinPhone").value = "";
       document.getElementById("loanAmount").value = "";
-      document.getElementById("interestRate").value = 10;
-      document.getElementById("loanTerm").value = 3;
+      document.getElementById("interestRate").value = "10";
+      document.getElementById("loanTerm").value = "3";
       document.getElementById("disbursementDate").value = "";
       document.getElementById("loanType").value = "Standard";
       document.getElementById("loanOfficer").value = "Loan Officer A";
-      document.getElementById("loanEditBanner").style.display = "none";
     }
 
     function savePayment(){
@@ -632,8 +979,7 @@
       document.getElementById("paymentLoanSelect").value = payment.loanId;
       document.getElementById("paymentAmount").value = payment.amount;
       document.getElementById("paymentDate").value = payment.paymentDate;
-      document.getElementById("paymentEditBanner").style.display = "block";
-      showTab('payments');
+      showTab('payments', document.querySelectorAll('nav button')[2]);
     }
 
     function clearPaymentForm(){
@@ -641,352 +987,6 @@
       document.getElementById("paymentLoanSelect").value = "";
       document.getElementById("paymentAmount").value = "";
       document.getElementById("paymentDate").value = "";
-      document.getElementById("paymentEditBanner").style.display = "none";
-    }
-
-    function deletePayment(id){
-      payments = payments.filter(p => p.id !== id);
-      saveData();
-      renderAll();
-    }
-
-    function getUpcoming7Days(){
-      const out = [];
-      const today = new Date();
-      const plus7 = new Date();
-      plus7.setDate(today.getDate()+7);
-
-      loans.forEach(l=>{
-        getDueSchedule(l).forEach(s=>{
-          const d = new Date(s.dueDate);
-          if(d >= today && d <= plus7){
-            out.push({client:l.clientName, date:s.dueDate, amount:s.amount});
-          }
-        });
-      });
-
-      return out.sort((a,b)=>new Date(a.date)-new Date(b.date));
-    }
-
-    function aggregateDisbursements(){
-      const map = {};
-      getAllMonths().forEach(m => map[m] = 0);
-      loans.forEach(l => map[monthKey(l.disbursementDate)] += Number(l.amount));
-      return map;
-    }
-
-    function aggregateActualCollections(){
-      const map = {};
-      getAllMonths().forEach(m => map[m] = 0);
-      payments.forEach(p => map[monthKey(p.paymentDate)] += Number(p.amount));
-      return map;
-    }
-
-    function aggregateExpectedCollections(){
-      const map = {};
-      getAllMonths().forEach(m => map[m] = 0);
-      loans.forEach(l => {
-        if(l.clientName === "Mamhanya"){
-          map["Apr 2026"] = (map["Apr 2026"] || 0) + 601;
-          return;
-        }
-        getDueSchedule(l).forEach(s => {
-          const mk = monthKey(s.dueDate);
-          map[mk] = (map[mk] || 0) + Number(s.amount);
-        });
-      });
-      return map;
-    }
-
-    function drawGroupedBarChart(canvasId, aMap, bMap, aColor, bColor, aLabel, bLabel){
-      const canvas = document.getElementById(canvasId);
-      const ctx = canvas.getContext("2d");
-      const W = canvas.width, H = canvas.height;
-      ctx.clearRect(0,0,W,H);
-      ctx.fillStyle="#fff";
-      ctx.fillRect(0,0,W,H);
-
-      const labels = Object.keys(aMap);
-      const valuesA = labels.map(k => aMap[k] || 0);
-      const valuesB = labels.map(k => bMap[k] || 0);
-      const max = Math.max(...valuesA, ...valuesB, 1);
-
-      const left = 60, right = 20, top = 40, bottom = 50;
-      const chartW = W - left - right;
-      const chartH = H - top - bottom;
-      const groupW = chartW / Math.max(labels.length,1);
-      const barW = Math.min(18, groupW/3);
-
-      ctx.strokeStyle="#e5e7eb";
-      ctx.lineWidth=1;
-      for(let i=0;i<=5;i++){
-        const y = top + (chartH/5)*i;
-        ctx.beginPath();
-        ctx.moveTo(left,y);
-        ctx.lineTo(W-right,y);
-        ctx.stroke();
-      }
-
-      labels.forEach((label,i)=>{
-        const xBase = left + i*groupW + groupW/2;
-        const hA = (valuesA[i]/max)*(chartH-10);
-        const hB = (valuesB[i]/max)*(chartH-10);
-
-        ctx.fillStyle = aColor;
-        ctx.fillRect(xBase - barW - 2, top + chartH - hA, barW, hA);
-
-        ctx.fillStyle = bColor;
-        ctx.fillRect(xBase + 2, top + chartH - hB, barW, hB);
-
-        ctx.fillStyle="#6b7280";
-        ctx.font="12px Arial";
-        ctx.fillText(label.replace(" 2026","").replace(" 2025",""), xBase-20, H-18);
-      });
-
-      ctx.fillStyle = aColor;
-      ctx.fillRect(W/2 - 120, 10, 12, 12);
-      ctx.fillStyle = "#6b7280";
-      ctx.fillText(aLabel, W/2 - 100, 20);
-
-      ctx.fillStyle = bColor;
-      ctx.fillRect(W/2 + 30, 10, 12, 12);
-      ctx.fillStyle = "#6b7280";
-      ctx.fillText(bLabel, W/2 + 50, 20);
-    }
-
-    function drawDonut(canvasId, currentCount, par1Count, par30Count){
-      const canvas = document.getElementById(canvasId);
-      const ctx = canvas.getContext("2d");
-      const W = canvas.width, H = canvas.height;
-      ctx.clearRect(0,0,W,H);
-
-      const total = currentCount + par1Count + par30Count || 1;
-      const cx = 140, cy = 140, r = 90, inner = 52;
-      let start = -Math.PI/2;
-      const parts = [
-        {value:currentCount, color:"#22a06b", label:`Current (${currentCount})`},
-        {value:par1Count, color:"#e46a2e", label:`PAR 1 (${par1Count})`},
-        {value:par30Count, color:"#b12626", label:`PAR 30 (${par30Count})`}
-      ];
-
-      parts.forEach(p=>{
-        const angle = (p.value/total) * Math.PI*2;
-        ctx.beginPath();
-        ctx.moveTo(cx,cy);
-        ctx.arc(cx,cy,r,start,start+angle);
-        ctx.closePath();
-        ctx.fillStyle=p.color;
-        ctx.fill();
-        start += angle;
-      });
-
-      ctx.beginPath();
-      ctx.arc(cx,cy,inner,0,Math.PI*2);
-      ctx.fillStyle="#fff";
-      ctx.fill();
-
-      let legendY = 80;
-      parts.forEach(p=>{
-        ctx.fillStyle = p.color;
-        ctx.fillRect(300, legendY, 14, 14);
-        ctx.fillStyle = "#4b5563";
-        ctx.font = "16px Arial";
-        ctx.fillText(p.label, 322, legendY+12);
-        legendY += 34;
-      });
-    }
-
-    function drawLineChart(canvasId, labels, seriesA, seriesB, colorA, colorB){
-      const canvas = document.getElementById(canvasId);
-      const ctx = canvas.getContext("2d");
-      const W = canvas.width, H = canvas.height;
-      ctx.clearRect(0,0,W,H);
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0,0,W,H);
-
-      const left = 60, right = 20, top = 25, bottom = 45;
-      const chartW = W - left - right;
-      const chartH = H - top - bottom;
-      const max = Math.max(...seriesA, ...seriesB, 1);
-
-      ctx.strokeStyle="#e5e7eb";
-      for(let i=0;i<=5;i++){
-        const y = top + i*(chartH/5);
-        ctx.beginPath();
-        ctx.moveTo(left,y);
-        ctx.lineTo(W-right,y);
-        ctx.stroke();
-      }
-
-      function drawSeries(series, color){
-        ctx.beginPath();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
-        series.forEach((val,i)=>{
-          const x = left + (i/(series.length-1 || 1))*chartW;
-          const y = top + chartH - (val/max)*chartH;
-          if(i===0) ctx.moveTo(x,y);
-          else ctx.lineTo(x,y);
-        });
-        ctx.stroke();
-
-        series.forEach((val,i)=>{
-          const x = left + (i/(series.length-1 || 1))*chartW;
-          const y = top + chartH - (val/max)*chartH;
-          ctx.beginPath();
-          ctx.fillStyle = color;
-          ctx.arc(x,y,4,0,Math.PI*2);
-          ctx.fill();
-        });
-      }
-
-      drawSeries(seriesA, colorA);
-      drawSeries(seriesB, colorB);
-
-      ctx.fillStyle="#6b7280";
-      ctx.font="12px Arial";
-      labels.forEach((label,i)=>{
-        const x = left + (i/(labels.length-1 || 1))*chartW;
-        ctx.fillText(label, x-12, H-18);
-      });
-
-      ctx.fillStyle = colorA;
-      ctx.fillRect(W/2 - 130, 8, 14, 14);
-      ctx.fillStyle = "#6b7280";
-      ctx.fillText("Cumulative Interest", W/2 - 108, 20);
-
-      ctx.fillStyle = colorB;
-      ctx.fillRect(W/2 + 40, 8, 14, 14);
-      ctx.fillStyle = "#6b7280";
-      ctx.fillText("Cumulative Loan Book", W/2 + 62, 20);
-    }
-
-    function getGrowthProjection(){
-      const currentLoanBook = loans.reduce((s,l)=>s+getBalance(l),0);
-      const totalInterestExpected = loans.reduce((s,l)=>s+(getTotalRepayable(l)-Number(l.amount)),0);
-      const monthlyGrowthRate = currentLoanBook > 0 ? ((aggregateActualCollectionsTotal()/Math.max(currentLoanBook,1))*100) : 0;
-
-      const labels = [];
-      const cumulativeInterest = [];
-      const cumulativeLoanBook = [];
-
-      let runningInterest = 0;
-      let runningLoanBook = currentLoanBook;
-
-      for(let i=1;i<=12;i++){
-        labels.push("M"+i);
-        runningInterest += totalInterestExpected / 12;
-        cumulativeInterest.push(runningInterest);
-
-        runningLoanBook = runningLoanBook * 1.03;
-        cumulativeLoanBook.push(runningLoanBook);
-      }
-
-      return {
-        growthRate: monthlyGrowthRate,
-        labels,
-        cumulativeInterest,
-        cumulativeLoanBook
-      };
-    }
-
-    function aggregateActualCollectionsTotal(){
-      return payments.reduce((s,p)=>s+Number(p.amount),0);
-    }
-
-    function renderDashboard(){
-      document.getElementById("openingCashInput").value = openingCash;
-
-      const totalDisbursed = loans.reduce((s,l)=>s+Number(l.amount),0);
-      const totalCollected = payments.reduce((s,p)=>s+Number(p.amount),0);
-      const totalArrears = loans.reduce((s,l)=>s+getArrears(l),0);
-      const outstandingPrincipal = loans.reduce((s,l)=>s+getBalance(l),0);
-
-      const activeLoans = loans.filter(l => getStatus(l) !== "Cleared").length;
-      const loansAtRisk = loans.filter(l => getArrears(l) > 0).length;
-      const expectedToDate = loans.reduce((s,l)=>s+getExpectedToDate(l),0);
-      const collectionEfficiency = expectedToDate > 0 ? (totalCollected/expectedToDate)*100 : 0;
-      const par1Count = loans.filter(l => getPARBucket(l) === "PAR 1").length;
-      const par30Count = loans.filter(l => getPARBucket(l) === "PAR 30").length;
-      const currentCount = loans.filter(l => getPARBucket(l) === "Current").length;
-      const par1Rate = loans.length ? (par1Count/loans.length)*100 : 0;
-      const par30Rate = loans.length ? (par30Count/loans.length)*100 : 0;
-
-      const months = getAllMonths();
-      const disbMap = aggregateDisbursements();
-      const collMap = aggregateActualCollections();
-
-      let cash = openingCash;
-      months.forEach(m => {
-        cash = cash + (collMap[m] || 0) - (disbMap[m] || 0) - (monthlyExpenses[m] || 0);
-      });
-
-      const gp = getGrowthProjection();
-
-      document.getElementById("kpiGrid").innerHTML = `
-        <div class="kpi"><div class="label">Total disbursed</div><div class="value">${formatMoney(totalDisbursed)}</div><div class="sub">${activeLoans} active loans</div></div>
-        <div class="kpi"><div class="label">Loan book value</div><div class="value">${formatMoney(outstandingPrincipal)}</div><div class="sub">Outstanding book</div></div>
-        <div class="kpi"><div class="label">Total collected</div><div class="value" style="color:#22a06b">${formatMoney(totalCollected)}</div><div class="sub">${collectionEfficiency.toFixed(1)}% efficiency</div></div>
-        <div class="kpi"><div class="label">Total arrears</div><div class="value" style="color:#e46a2e">${formatMoney(totalArrears)}</div><div class="sub">${loansAtRisk} loans at risk</div></div>
-        <div class="kpi"><div class="label">Cash in hand now</div><div class="value" style="color:#7a69c7">${formatMoney(cash)}</div><div class="sub">Available for borrowing</div></div>
-        <div class="kpi"><div class="label">Growth rate metric</div><div class="value" style="color:#3b82f6">${gp.growthRate.toFixed(2)}%</div><div class="sub">Estimated monthly growth</div></div>
-      `;
-
-      document.getElementById("healthPanel").innerHTML = `
-        <div class="row">
-          <div class="field">
-            <div class="metric-title">PAR 1 rate</div>
-            <div class="metric-value" style="color:#e46a2e">${par1Rate.toFixed(1)}%</div>
-            <div class="progress"><div style="width:${Math.min(par1Rate,100)}%;background:#c07a19"></div></div>
-            <div class="small-note">Target ≤ 5%</div>
-          </div>
-          <div class="field">
-            <div class="metric-title">PAR 30 rate</div>
-            <div class="metric-value" style="color:#22a06b">${par30Rate.toFixed(1)}%</div>
-            <div class="progress"><div style="width:${Math.min(par30Rate,100)}%;background:#22a06b"></div></div>
-            <div class="small-note">Target ≤ 3%</div>
-          </div>
-          <div class="field">
-            <div class="metric-title">Collection efficiency</div>
-            <div class="metric-value" style="color:#e46a2e">${collectionEfficiency.toFixed(1)}%</div>
-            <div class="progress"><div style="width:${Math.min(collectionEfficiency,100)}%;background:#22a06b"></div></div>
-            <div class="small-note">Target ≥ 95%</div>
-          </div>
-        </div>
-        <h3 style="margin-top:16px">Portfolio Health</h3>
-        <canvas id="healthDonutCanvas" width="520" height="280"></canvas>
-      `;
-      drawDonut("healthDonutCanvas", currentCount, par1Count, par30Count);
-
-      drawGroupedBarChart("monthlyOverviewChart", disbMap, collMap, "#a49ed9", "#8bc6b1", "Disbursements", "Collections");
-      drawLineChart("growthChart", gp.labels, gp.cumulativeInterest, gp.cumulativeLoanBook, "#3b82f6", "#7a69c7");
-
-      document.getElementById("projectionTableBody").innerHTML = gp.labels.map((m,i)=>`
-        <tr>
-          <td>${m}</td>
-          <td>${formatMoney(gp.cumulativeInterest[i])}</td>
-          <td>${formatMoney(gp.cumulativeLoanBook[i])}</td>
-        </tr>
-      `).join("");
-
-      const upcoming = getUpcoming7Days();
-      document.getElementById("upcomingRepayments").innerHTML = upcoming.length ? `
-        <table>
-          <thead><tr><th>Client</th><th>Due date</th><th>Expected amount</th></tr></thead>
-          <tbody>${upcoming.map(x=>`<tr><td>${x.client}</td><td>${x.date}</td><td>${formatMoney(x.amount)}</td></tr>`).join("")}</tbody>
-        </table>` : `<div class="small-note">No repayments falling in the next 7 days.</div>`;
-
-      document.getElementById("dashboardLoanTable").innerHTML = loans.map(l=>{
-        const status = getStatus(l);
-        return `<tr>
-          <td>${l.clientName}</td>
-          <td>${formatMoney(l.amount)}</td>
-          <td>${getLastRepayment(l.id)}</td>
-          <td>${getFinalRepaymentDate(l)}</td>
-          <td>${formatMoney(getArrears(l))}</td>
-          <td class="${status==='Performing'?'status-good':'status-bad'}">${status}</td>
-        </tr>`;
-      }).join("");
     }
 
     function renderPayments(){
@@ -1012,39 +1012,29 @@
         }).join("");
     }
 
-    function fillMonthFilter(){
+    function deletePayment(id){
+      payments = payments.filter(p => p.id !== id);
+      saveData();
+      renderAll();
+    }
+
+    function fillFilters(){
       const months = getAllMonths();
-      const disbFilter = document.getElementById("disbursementMonthFilter");
-      const profitFilter = document.getElementById("profitMonthFilter");
+      const disb = document.getElementById("disbursementMonthFilter");
+      const profit = document.getElementById("profitMonthFilter");
 
-      const currentDisb = disbFilter.value;
-      disbFilter.innerHTML = `<option value="ALL">All</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
-      if(months.includes(currentDisb)) disbFilter.value = currentDisb; else disbFilter.value = "ALL";
+      const currentDisb = disb.value;
+      const currentProfit = profit.value;
 
-      const currentProfit = profitFilter.value;
-      profitFilter.innerHTML = `<option value="ALL">All</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
-      if(months.includes(currentProfit)) profitFilter.value = currentProfit; else profitFilter.value = "ALL";
+      disb.innerHTML = `<option value="ALL">All</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
+      profit.innerHTML = `<option value="ALL">All</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
+
+      disb.value = months.includes(currentDisb) ? currentDisb : "ALL";
+      profit.value = months.includes(currentProfit) ? currentProfit : "ALL";
     }
 
     function renderDisbursements(){
-      fillMonthFilter();
-      const monthly = aggregateDisbursements();
-      const vals = Object.values(monthly);
-      const total = vals.reduce((a,b)=>a+b,0);
-      const avg = vals.length ? total / vals.length : 0;
-      let bestMonth = "-", bestValue = 0;
-      Object.entries(monthly).forEach(([k,v])=>{ if(v>bestValue){ bestValue=v; bestMonth=k; } });
-
-      document.getElementById("disbursementKpis").innerHTML = `
-        <div class="kpi"><div class="label">Total disbursements</div><div class="value">${formatMoney(total)}</div></div>
-        <div class="kpi"><div class="label">Average monthly disbursement</div><div class="value">${formatMoney(avg)}</div></div>
-        <div class="kpi"><div class="label">Best month</div><div class="value" style="font-size:22px">${bestMonth}</div><div class="sub">${formatMoney(bestValue)}</div></div>
-      `;
-
-      const zeroMap = {};
-      Object.keys(monthly).forEach(k => zeroMap[k] = 0);
-      drawGroupedBarChart("disbursementChart", monthly, zeroMap, "#a49ed9", "#ffffff", "Disbursements", "");
-
+      fillFilters();
       const filterMonth = document.getElementById("disbursementMonthFilter").value;
       const list = loans
         .filter(l => filterMonth === "ALL" || monthKey(l.disbursementDate) === filterMonth)
@@ -1061,115 +1051,73 @@
       </tr>`).join("");
     }
 
-    function renderCollections(){
-      const expected = aggregateExpectedCollections();
-      const actual = aggregateActualCollections();
-      const months = getAllMonths();
-
-      document.getElementById("collectionsTableBody").innerHTML = months.map(m=>{
-        const exp = expected[m] || 0;
-        const act = actual[m] || 0;
-        const variance = act - exp;
-        const eff = exp > 0 ? (act/exp)*100 : 0;
-        return `<tr>
-          <td>${m}</td>
-          <td>${formatMoney(exp)}</td>
-          <td>${formatMoney(act)}</td>
-          <td class="${variance>=0?'status-good':'status-bad'}">${formatMoney(variance)}</td>
-          <td>${eff.toFixed(1)}%</td>
-        </tr>`;
-      }).join("");
-    }
-
     function renderArrears(){
-      const arrearsLoans = loans.filter(l=>getArrears(l)>0);
-      const totalArrears = arrearsLoans.reduce((s,l)=>s+getArrears(l),0);
-      const par1 = arrearsLoans.filter(l=>getPARBucket(l)==="PAR 1").reduce((s,l)=>s+getArrears(l),0);
-      const par30 = arrearsLoans.filter(l=>getPARBucket(l)==="PAR 30").reduce((s,l)=>s+getArrears(l),0);
-
-      document.getElementById("arrearsKpis").innerHTML = `
-        <div class="kpi"><div class="label">Accounts in arrears</div><div class="value">${arrearsLoans.length}</div></div>
-        <div class="kpi"><div class="label">Total arrears value</div><div class="value" style="color:#e46a2e">${formatMoney(totalArrears)}</div></div>
-        <div class="kpi"><div class="label">PAR 1 value</div><div class="value">${formatMoney(par1)}</div></div>
-        <div class="kpi"><div class="label">PAR 30 value</div><div class="value">${formatMoney(par30)}</div></div>
-      `;
-
+      const arrearsLoans = loans.filter(l => getArrears(l) > 0);
       document.getElementById("arrearsTableBody").innerHTML = arrearsLoans.map(l=>`<tr>
         <td>${l.clientName}</td>
         <td>${formatMoney(getExpectedToDate(l))}</td>
         <td>${formatMoney(getPaidAmount(l.id))}</td>
-        <td>${formatMoney(getArrears(l))}</td>
+        <td class="bad">${formatMoney(getArrears(l))}</td>
         <td>${getDaysInArrears(l)}</td>
         <td>${getPARBucket(l)}</td>
       </tr>`).join("");
     }
 
-    function renderProfit(){
-      fillMonthFilter();
-      const actual = aggregateActualCollections();
-      const disb = aggregateDisbursements();
-      const months = getAllMonths();
-      const filterMonth = document.getElementById("profitMonthFilter").value;
-
-      let runningCash = openingCash;
-      const rows = [];
-
-      months.forEach(m=>{
-        let interestCollected = 0;
-        payments.filter(p => monthKey(p.paymentDate) === m).forEach(p=>{
-          const loan = loans.find(l => l.id === p.loanId);
-          if(!loan) return;
-          const repayable = getTotalRepayable(loan);
-          const interest = repayable - Number(loan.amount);
-          const ratio = repayable > 0 ? interest / repayable : 0;
-          interestCollected += Number(p.amount) * ratio;
-        });
-
-        const expense = Number(monthlyExpenses[m] || 0);
-        const actualCollections = actual[m] || 0;
-        const disbursement = disb[m] || 0;
-        const monthlyProfit = interestCollected - expense;
-        runningCash = runningCash + actualCollections - disbursement - expense;
-
-        rows.push({
-          month: m,
-          actualCollections,
-          interestCollected,
-          disbursement,
-          expense,
-          monthlyProfit,
-          runningCash
-        });
-      });
-
-      const filteredRows = filterMonth === "ALL" ? rows : rows.filter(r => r.month === filterMonth);
-
-      const totalProfit = filteredRows.reduce((s,r)=>s+r.monthlyProfit,0);
-      const totalExpense = filteredRows.reduce((s,r)=>s+r.expense,0);
-      const totalInterest = filteredRows.reduce((s,r)=>s+r.interestCollected,0);
-      const selectedCash = filteredRows.length ? filteredRows[filteredRows.length-1].runningCash : openingCash;
-
-      document.getElementById("profitKpis").innerHTML = `
-        <div class="kpi"><div class="label">Selected period interest</div><div class="value">${formatMoney(totalInterest)}</div></div>
-        <div class="kpi"><div class="label">Selected period expenses</div><div class="value">${formatMoney(totalExpense)}</div></div>
-        <div class="kpi"><div class="label">Selected period profit</div><div class="value ${totalProfit>=0?'status-good':'status-bad'}">${formatMoney(totalProfit)}</div></div>
-        <div class="kpi"><div class="label">Cash in hand end period</div><div class="value">${formatMoney(selectedCash)}</div></div>
-      `;
-
-      document.getElementById("profitTableBody").innerHTML = filteredRows.map(r=>`
-        <tr>
-          <td>${r.month}</td>
-          <td>${formatMoney(r.actualCollections)}</td>
-          <td>${formatMoney(r.interestCollected)}</td>
-          <td>${formatMoney(r.disbursement)}</td>
-          <td><input type="number" value="${r.expense}" oninput="updateMonthExpense('${r.month}', this.value)" /></td>
-          <td class="${r.monthlyProfit>=0?'status-good':'status-bad'}">${formatMoney(r.monthlyProfit)}</td>
-          <td>${formatMoney(r.runningCash)}</td>
-        </tr>
-      `).join("");
+    function updateOpeningCash(){
+      openingCash = Number(document.getElementById("openingCashInput").value || 0);
+      saveData();
+      renderAll();
     }
 
-    function renderSearchResults(){
+    function updateMonthExpense(month, value){
+      monthlyExpenses[month] = Number(value || 0);
+      saveData();
+      renderAll();
+    }
+
+    function renderCashAtHand(){
+      document.getElementById("openingCashInput").value = openingCash;
+      const rows = getCashFlowRows();
+      document.getElementById("cashTableBody").innerHTML = rows.map(r=>`<tr>
+        <td>${r.month}</td>
+        <td>${formatMoney(r.opening)}</td>
+        <td>${formatMoney(r.collections)}</td>
+        <td>${formatMoney(r.disbursements)}</td>
+        <td><input type="number" value="${r.expenses}" oninput="updateMonthExpense('${r.month}', this.value)"></td>
+        <td>${formatMoney(r.closing)}</td>
+      </tr>`).join("");
+    }
+
+    function renderProfit(){
+      fillFilters();
+      const filterMonth = document.getElementById("profitMonthFilter").value;
+      const rows = getProfitRows();
+      const filtered = filterMonth === "ALL" ? rows : rows.filter(r => r.month === filterMonth);
+
+      const totalProfit = filtered.reduce((s,r)=>s+r.monthlyProfit,0);
+      const totalExpenses = filtered.reduce((s,r)=>s+r.expenses,0);
+      const totalInterest = filtered.reduce((s,r)=>s+r.interestCollected,0);
+      const endCash = filtered.length ? filtered[filtered.length-1].closing : openingCash;
+
+      document.getElementById("profitKpis").innerHTML = `
+        <div class="kpi"><div class="label">Selected Period Interest</div><div class="value">${formatMoney(totalInterest)}</div></div>
+        <div class="kpi"><div class="label">Selected Period Expenses</div><div class="value">${formatMoney(totalExpenses)}</div></div>
+        <div class="kpi"><div class="label">Selected Period Profit</div><div class="value ${totalProfit>=0?'good':'bad'}">${formatMoney(totalProfit)}</div></div>
+        <div class="kpi"><div class="label">Cash End Period</div><div class="value">${formatMoney(endCash)}</div></div>
+      `;
+
+      document.getElementById("profitTableBody").innerHTML = filtered.map(r=>`<tr>
+        <td>${r.month}</td>
+        <td>${formatMoney(r.collections)}</td>
+        <td>${formatMoney(r.interestCollected)}</td>
+        <td>${formatMoney(r.disbursements)}</td>
+        <td><input type="number" value="${r.expenses}" oninput="updateMonthExpense('${r.month}', this.value)"></td>
+        <td class="${r.monthlyProfit>=0?'good':'bad'}">${formatMoney(r.monthlyProfit)}</td>
+        <td>${formatMoney(r.closing)}</td>
+      </tr>`).join("");
+    }
+
+    function renderSearch(){
       const q = document.getElementById("searchInput").value.toLowerCase().trim();
       const container = document.getElementById("searchResults");
       if(!q){ container.innerHTML = ""; return; }
@@ -1180,30 +1128,30 @@
       );
 
       if(!matches.length){
-        container.innerHTML = `<div class="small-note">No client found.</div>`;
+        container.innerHTML = `<div class="muted">No client found.</div>`;
         return;
       }
 
       container.innerHTML = matches.map(l=>{
         const status = getStatus(l);
-        return `<div class="search-card">
-          <h3>${l.clientName}</h3>
-          <div class="detail-grid">
-            <div class="detail"><div class="d-label">Phone</div><div class="d-value">${l.clientPhone || "-"}</div></div>
-            <div class="detail"><div class="d-label">Next of Kin</div><div class="d-value">${l.nextOfKin || "-"}</div></div>
-            <div class="detail"><div class="d-label">Next of Kin Phone</div><div class="d-value">${l.nextOfKinPhone || "-"}</div></div>
-            <div class="detail"><div class="d-label">Loan Amount</div><div class="d-value">${formatMoney(l.amount)}</div></div>
-            <div class="detail"><div class="d-label">Interest Rate</div><div class="d-value">${l.interestRate}%</div></div>
-            <div class="detail"><div class="d-label">Loan Type</div><div class="d-value">${l.loanType}</div></div>
-            <div class="detail"><div class="d-label">Date Disbursed</div><div class="d-value">${l.disbursementDate}</div></div>
-            <div class="detail"><div class="d-label">Date of Final Repayment</div><div class="d-value">${getFinalRepaymentDate(l)}</div></div>
-            <div class="detail"><div class="d-label">Last Repayment</div><div class="d-value">${getLastRepayment(l.id)}</div></div>
-            <div class="detail"><div class="d-label">Paid To Date</div><div class="d-value">${formatMoney(getPaidAmount(l.id))}</div></div>
-            <div class="detail"><div class="d-label">Arrears</div><div class="d-value ${getArrears(l)>0?'status-bad':'status-good'}">${formatMoney(getArrears(l))}</div></div>
-            <div class="detail"><div class="d-label">Outstanding Balance</div><div class="d-value">${formatMoney(getBalance(l))}</div></div>
-            <div class="detail"><div class="d-label">PAR Bucket</div><div class="d-value">${getPARBucket(l)}</div></div>
-            <div class="detail"><div class="d-label">Status</div><div class="d-value ${status==='Performing'?'status-good':'status-bad'}">${status}</div></div>
-            <div class="detail"><div class="d-label">Loan Officer</div><div class="d-value">${l.loanOfficer}</div></div>
+        return `<div class="card">
+          <div class="section-title">${l.clientName}</div>
+          <div class="grid-3">
+            <div><span class="pill">Phone</span><div>${l.clientPhone || "-"}</div></div>
+            <div><span class="pill">Next of Kin</span><div>${l.nextOfKin || "-"}</div></div>
+            <div><span class="pill">Next of Kin Phone</span><div>${l.nextOfKinPhone || "-"}</div></div>
+            <div><span class="pill">Loan Amount</span><div>${formatMoney(l.amount)}</div></div>
+            <div><span class="pill">Interest Rate</span><div>${l.interestRate}%</div></div>
+            <div><span class="pill">Loan Type</span><div>${l.loanType}</div></div>
+            <div><span class="pill">Date Disbursed</span><div>${l.disbursementDate}</div></div>
+            <div><span class="pill">Final Repayment</span><div>${getFinalRepaymentDate(l)}</div></div>
+            <div><span class="pill">Last Repayment</span><div>${getLastRepayment(l.id)}</div></div>
+            <div><span class="pill">Paid To Date</span><div>${formatMoney(getPaidAmount(l.id))}</div></div>
+            <div><span class="pill">Arrears</span><div class="${getArrears(l)>0?'bad':'good'}">${formatMoney(getArrears(l))}</div></div>
+            <div><span class="pill">Outstanding Balance</span><div>${formatMoney(getBalance(l))}</div></div>
+            <div><span class="pill">PAR Bucket</span><div>${getPARBucket(l)}</div></div>
+            <div><span class="pill">Status</span><div class="${status==='Performing'?'good':'bad'}">${status}</div></div>
+            <div><span class="pill">Loan Officer</span><div>${l.loanOfficer}</div></div>
           </div>
         </div>`;
       }).join("");
@@ -1213,11 +1161,11 @@
       saveData();
       renderDashboard();
       renderPayments();
-      renderDisbursements();
-      renderCollections();
       renderArrears();
+      renderDisbursements();
+      renderCashAtHand();
       renderProfit();
-      renderSearchResults();
+      renderSearch();
     }
 
     renderAll();
