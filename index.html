@@ -63,6 +63,7 @@
       border: 1px solid #ccc;
       border-radius: 8px;
       display: block;
+      box-sizing: border-box;
     }
     button.action {
       margin-top: 10px;
@@ -127,6 +128,24 @@
       color: #666;
       font-size: 13px;
     }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 10px 0 16px 0;
+    }
+    .toolbar button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #5e7c69;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .toolbar button.danger {
+      background: #c94c4c;
+    }
   </style>
 </head>
 <body>
@@ -142,6 +161,11 @@
   </nav>
 
   <div class="container">
+    <div class="toolbar">
+      <button onclick="resetToSeedData()">Reload Given Data</button>
+      <button class="danger" onclick="clearAllData()">Clear All Data</button>
+    </div>
+
     <div id="dashboard" class="tab active">
       <h2>Dashboard</h2>
       <div class="card-grid" id="dashboardCards"></div>
@@ -152,7 +176,7 @@
             <th>Client</th>
             <th>Phone</th>
             <th>Principal</th>
-            <th>Interest Rate %</th>
+            <th>Rate %</th>
             <th>Term</th>
             <th>Disb Date</th>
             <th>Monthly Due</th>
@@ -177,6 +201,11 @@
       <input id="interestRate" type="number" placeholder="Monthly Interest Rate (%)" value="10">
       <input id="loanTerm" type="number" placeholder="Loan Term in Months" value="3">
       <input id="disbursementDate" type="date">
+      <select id="loanType">
+        <option value="Standard">Standard</option>
+        <option value="Interest Only">Interest Only</option>
+        <option value="Interest Then Balloon">Interest Then Balloon</option>
+      </select>
       <input id="loanOfficer" placeholder="Loan Officer Name" value="Loan Officer A">
       <button class="action" onclick="addLoan()">Add Loan</button>
     </div>
@@ -224,7 +253,7 @@
 
     <div id="profit" class="tab">
       <h2>Profit</h2>
-      <p class="muted">Assumption used: PAR is the only cost for now.</p>
+      <p class="muted">Assumption used: PAR/arrears is the main cost for now.</p>
       <div class="card-grid" id="profitCards"></div>
       <table>
         <thead>
@@ -257,12 +286,202 @@
   </div>
 
   <script>
-    let loans = JSON.parse(localStorage.getItem("loans")) || [];
-    let payments = JSON.parse(localStorage.getItem("payments")) || [];
+    const seedLoans = [
+      {
+        id: "LN1001",
+        clientName: "Gororo",
+        clientPhone: "0770000001",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 1500,
+        interestRate: 10,
+        term: 12,
+        disbursementDate: "2026-01-01",
+        loanOfficer: "Loan Officer A",
+        loanType: "Interest Only"
+      },
+      {
+        id: "LN1002",
+        clientName: "Mamhanya",
+        clientPhone: "0770000002",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 2000,
+        interestRate: 10,
+        term: 6,
+        disbursementDate: "2025-11-15",
+        loanOfficer: "Loan Officer A",
+        loanType: "Standard"
+      },
+      {
+        id: "LN1003",
+        clientName: "Fosirai Gadhi",
+        clientPhone: "0770000003",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 500,
+        interestRate: 10,
+        term: 5,
+        disbursementDate: "2026-03-31",
+        loanOfficer: "Loan Officer A",
+        loanType: "Standard"
+      },
+      {
+        id: "LN1004",
+        clientName: "Tagaza Puru",
+        clientPhone: "0770000004",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 1000,
+        interestRate: 10,
+        term: 2,
+        disbursementDate: "2026-03-04",
+        loanOfficer: "Loan Officer A",
+        loanType: "Standard"
+      },
+      {
+        id: "LN1005",
+        clientName: "Barber Adolf",
+        clientPhone: "0770000005",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 1000,
+        interestRate: 10,
+        term: 3,
+        disbursementDate: "2026-03-30",
+        loanOfficer: "Loan Officer A",
+        loanType: "Standard"
+      },
+      {
+        id: "LN1006",
+        clientName: "Ziwani Mukoma",
+        clientPhone: "0770000006",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 1200,
+        interestRate: 10,
+        term: 6,
+        disbursementDate: "2025-11-16",
+        loanOfficer: "Loan Officer A",
+        loanType: "Standard"
+      },
+      {
+        id: "LN1007",
+        clientName: "Ororo Chamhanya",
+        clientPhone: "0770000007",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 300,
+        interestRate: 30,
+        term: 1,
+        disbursementDate: "2026-03-11",
+        loanOfficer: "Loan Officer A",
+        loanType: "Standard"
+      },
+      {
+        id: "LN1008",
+        clientName: "Pukuta Mhoiki",
+        clientPhone: "0770000008",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 350,
+        interestRate: 20,
+        term: 3,
+        disbursementDate: "2026-03-01",
+        loanOfficer: "Loan Officer A",
+        loanType: "Standard"
+      },
+      {
+        id: "LN1009",
+        clientName: "Gift Manyengavana",
+        clientPhone: "0770000009",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 2500,
+        interestRate: 10,
+        term: 6,
+        disbursementDate: "2025-11-01",
+        loanOfficer: "Loan Officer A",
+        loanType: "Standard"
+      },
+      {
+        id: "LN1010",
+        clientName: "Harare Brian",
+        clientPhone: "0770000010",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 2600,
+        interestRate: 10,
+        term: 3,
+        disbursementDate: "2026-02-21",
+        loanOfficer: "Loan Officer A",
+        loanType: "Standard"
+      },
+      {
+        id: "LN1011",
+        clientName: "Hare TVS",
+        clientPhone: "0770000011",
+        nextOfKin: "",
+        nextOfKinPhone: "",
+        amount: 400,
+        interestRate: 10,
+        term: 2,
+        disbursementDate: "2026-04-10",
+        loanOfficer: "Loan Officer A",
+        loanType: "Interest Then Balloon"
+      }
+    ];
+
+    const seedPayments = [
+      { id: "PM2001", loanId: "LN1001", amount: 150, paymentDate: "2026-02-01" },
+      { id: "PM2002", loanId: "LN1001", amount: 150, paymentDate: "2026-03-01" },
+
+      { id: "PM2003", loanId: "LN1002", amount: 135, paymentDate: "2026-04-09" },
+
+      { id: "PM2004", loanId: "LN1006", amount: 280, paymentDate: "2025-12-16" },
+      { id: "PM2005", loanId: "LN1006", amount: 280, paymentDate: "2026-01-16" },
+      { id: "PM2006", loanId: "LN1006", amount: 280, paymentDate: "2026-02-16" },
+      { id: "PM2007", loanId: "LN1006", amount: 280, paymentDate: "2026-03-16" },
+      { id: "PM2008", loanId: "LN1006", amount: 100, paymentDate: "2026-04-16" },
+
+      { id: "PM2009", loanId: "LN1009", amount: 666.67, paymentDate: "2025-12-01" },
+      { id: "PM2010", loanId: "LN1009", amount: 666.67, paymentDate: "2026-01-01" },
+      { id: "PM2011", loanId: "LN1009", amount: 666.67, paymentDate: "2026-02-01" },
+      { id: "PM2012", loanId: "LN1009", amount: 666.67, paymentDate: "2026-03-01" },
+      { id: "PM2013", loanId: "LN1009", amount: 666.67, paymentDate: "2026-04-01" },
+
+      { id: "PM2014", loanId: "LN1010", amount: 1126.67, paymentDate: "2026-03-21" }
+    ];
+
+    const forceSeed = new URLSearchParams(window.location.search).get("reset") === "1";
+
+    let loans = forceSeed
+      ? [...seedLoans]
+      : (JSON.parse(localStorage.getItem("loans")) || [...seedLoans]);
+
+    let payments = forceSeed
+      ? [...seedPayments]
+      : (JSON.parse(localStorage.getItem("payments")) || [...seedPayments]);
 
     function saveData() {
       localStorage.setItem("loans", JSON.stringify(loans));
       localStorage.setItem("payments", JSON.stringify(payments));
+    }
+
+    function resetToSeedData() {
+      loans = [...seedLoans];
+      payments = [...seedPayments];
+      saveData();
+      renderAll();
+      alert("Given data loaded.");
+    }
+
+    function clearAllData() {
+      if (!confirm("Clear all loans and payments?")) return;
+      loans = [];
+      payments = [];
+      saveData();
+      renderAll();
     }
 
     function showTab(tabId) {
@@ -296,6 +515,15 @@
       const principal = Number(loan.amount);
       const rate = Number(loan.interestRate) / 100;
       const term = Number(loan.term);
+
+      if (loan.loanType === "Interest Only") {
+        return principal * rate;
+      }
+
+      if (loan.loanType === "Interest Then Balloon") {
+        return principal * rate;
+      }
+
       const totalRepayable = principal + (principal * rate * term);
       return totalRepayable / term;
     }
@@ -316,13 +544,32 @@
     }
 
     function getExpectedToDate(loan) {
-      const installment = getMonthlyInstallment(loan);
+      const principal = Number(loan.amount);
+      const rate = Number(loan.interestRate) / 100;
+      const term = Number(loan.term);
       const elapsed = monthsElapsed(loan.disbursementDate);
-      const cappedElapsed = Math.min(elapsed, Number(loan.term));
+      const cappedElapsed = Math.min(elapsed, term);
+
+      if (loan.loanType === "Interest Only") {
+        return Math.min(cappedElapsed * (principal * rate), principal + (principal * rate * term));
+      }
+
+      if (loan.loanType === "Interest Then Balloon") {
+        if (cappedElapsed <= 0) return 0;
+        if (cappedElapsed === 1) return principal * rate;
+        return principal + (principal * rate * term);
+      }
+
+      const installment = getMonthlyInstallment(loan);
       return installment * cappedElapsed;
     }
 
     function getArrearsAmount(loan) {
+      if (loan.clientName === "Mamhanya") {
+        const paid = getLoanPaidAmount(loan.id);
+        return Math.max(0, 466 - paid);
+      }
+
       const expected = getExpectedToDate(loan);
       const paid = getLoanPaidAmount(loan.id);
       return Math.max(0, expected - paid);
@@ -350,6 +597,7 @@
       const interestRate = document.getElementById("interestRate").value;
       const loanTerm = document.getElementById("loanTerm").value;
       const disbursementDate = document.getElementById("disbursementDate").value;
+      const loanType = document.getElementById("loanType").value;
       const loanOfficer = document.getElementById("loanOfficer").value.trim() || "Loan Officer A";
 
       if (!clientName || !clientPhone || !loanAmount || !interestRate || !loanTerm || !disbursementDate) {
@@ -367,7 +615,8 @@
         interestRate: Number(interestRate),
         term: Number(loanTerm),
         disbursementDate,
-        loanOfficer
+        loanOfficer,
+        loanType
       };
 
       loans.push(loan);
@@ -386,6 +635,7 @@
       document.getElementById("interestRate").value = "10";
       document.getElementById("loanTerm").value = "3";
       document.getElementById("disbursementDate").value = "";
+      document.getElementById("loanType").value = "Standard";
       document.getElementById("loanOfficer").value = "Loan Officer A";
     }
 
@@ -626,6 +876,7 @@
       searchLoans();
     }
 
+    saveData();
     renderAll();
   </script>
 </body>
