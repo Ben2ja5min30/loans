@@ -3,11 +3,69 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LoanTrack</title>
+  <title>LoanTrack - Supabase Live</title>
+
+  <!--
+    REQUIRED SUPABASE TABLES (run once in Supabase SQL Editor)
+
+    create table if not exists public.loans (
+      id text primary key,
+      client_name text not null,
+      client_phone text,
+      next_of_kin text,
+      next_of_kin_phone text,
+      amount numeric not null default 0,
+      interest_rate numeric not null default 10,
+      term integer not null default 3,
+      disbursement_date date not null,
+      loan_type text not null default 'Standard',
+      loan_officer text,
+      risk_tag text default 'Performing',
+      remarks text default '',
+      created_at timestamptz default now(),
+      updated_at timestamptz default now()
+    );
+
+    create table if not exists public.payments (
+      id text primary key,
+      loan_id text not null references public.loans(id) on delete cascade,
+      amount numeric not null default 0,
+      payment_date date not null,
+      created_at timestamptz default now(),
+      updated_at timestamptz default now()
+    );
+
+    create table if not exists public.expenses (
+      id text primary key,
+      month_key text not null unique,
+      amount numeric not null default 0,
+      created_at timestamptz default now(),
+      updated_at timestamptz default now()
+    );
+
+    alter table public.loans enable row level security;
+    alter table public.payments enable row level security;
+    alter table public.expenses enable row level security;
+
+    drop policy if exists "loans public all" on public.loans;
+    drop policy if exists "payments public all" on public.payments;
+    drop policy if exists "expenses public all" on public.expenses;
+
+    create policy "loans public all" on public.loans for all using (true) with check (true);
+    create policy "payments public all" on public.payments for all using (true) with check (true);
+    create policy "expenses public all" on public.expenses for all using (true) with check (true);
+
+    alter publication supabase_realtime add table public.loans;
+    alter publication supabase_realtime add table public.payments;
+    alter publication supabase_realtime add table public.expenses;
+  -->
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
     :root{
       --bg:#f3f6f8; --card:#fff; --line:#dfe7ec; --text:#233143; --muted:#667085;
@@ -16,17 +74,11 @@
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
-    header{
-      background:linear-gradient(135deg,#6c8a79,#759383);
-      color:#fff;padding:14px 18px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap
-    }
+    header{background:linear-gradient(135deg,#6c8a79,#759383);color:#fff;padding:14px 18px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     .brand-title{font-size:28px;font-weight:800}
     .brand-sub{font-size:12px;color:#ffd95f}
     nav{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    nav button,.btn{
-      border:none;border-radius:8px;padding:10px 12px;cursor:pointer;font-weight:700;
-      background:transparent;color:#fff
-    }
+    nav button,.btn{border:none;border-radius:8px;padding:10px 12px;cursor:pointer;font-weight:700;background:transparent;color:#fff}
     nav button.active,nav button:hover{background:rgba(255,255,255,.16)}
     .wrap{padding:16px}
     .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
@@ -35,21 +87,13 @@
     .btn.secondary{background:var(--blue)}
     .btn.gold{background:var(--gold);color:#1f2937}
     .btn.danger{background:var(--red)}
+    .btn.small{padding:7px 10px;font-size:12px}
     .tab{display:none}
     .tab.active{display:block}
-    .card{
-      background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;
-      box-shadow:0 6px 18px rgba(15,23,42,.05);margin-bottom:16px
-    }
-    .section-title{
-      font-size:12px;text-transform:uppercase;font-weight:800;color:#607086;
-      border-bottom:1px solid #e6edf2;padding-bottom:10px;margin-bottom:12px;letter-spacing:.4px
-    }
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 6px 18px rgba(15,23,42,.05);margin-bottom:16px}
+    .section-title{font-size:12px;text-transform:uppercase;font-weight:800;color:#607086;border-bottom:1px solid #e6edf2;padding-bottom:10px;margin-bottom:12px;letter-spacing:.4px}
     .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:16px}
-    .kpi{
-      background:linear-gradient(180deg,#fff,#fbfdff);border:1px solid #e6edf2;border-radius:16px;
-      padding:14px;box-shadow:0 3px 10px rgba(0,0,0,.03)
-    }
+    .kpi{background:linear-gradient(180deg,#fff,#fbfdff);border:1px solid #e6edf2;border-radius:16px;padding:14px;box-shadow:0 3px 10px rgba(0,0,0,.03)}
     .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:6px}
     .kpi .value{font-size:22px;font-weight:800;margin-bottom:4px}
     .kpi .sub{font-size:12px;color:var(--muted)}
@@ -57,9 +101,7 @@
     .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
     .row{display:flex;gap:12px;flex-wrap:wrap}
     .field{flex:1 1 220px}
-    input,select,textarea{
-      width:100%;padding:10px;border:1px solid #cfd8df;border-radius:10px;background:#fff;margin-bottom:10px
-    }
+    input,select,textarea{width:100%;padding:10px;border:1px solid #cfd8df;border-radius:10px;background:#fff;margin-bottom:10px}
     table{width:100%;border-collapse:collapse;background:#fff}
     th,td{border:1px solid #e4ebf0;padding:8px;text-align:left;font-size:14px;vertical-align:top}
     th{background:#6f8b79;color:#fff}
@@ -73,9 +115,7 @@
     .pill.gold{background:#fff3d8;color:#b97900}
     .pill.blue{background:#e8f0ff;color:#2859c5}
     .pill.purple{background:#f2ebff;color:#6941c6}
-    .warn-card,.rec-card{
-      border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:#fff
-    }
+    .warn-card,.rec-card{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:#fff}
     .warn-card.overdue{border-left:4px solid var(--red);background:#fff7f7}
     .warn-card.week{border-left:4px solid var(--gold);background:#fffcef}
     .warn-card.next{border-left:4px solid var(--green);background:#f8fcfa}
@@ -84,6 +124,8 @@
     .export-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
     .search-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
     .search-box{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+    .status-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .notice{padding:10px 12px;border-radius:10px;background:#fff9db;border:1px solid #f3d982;color:#7c5f00}
     @media print{
       nav,.toolbar,.export-row,.btn{display:none!important}
       .tab{display:none!important}
@@ -97,7 +139,7 @@
   <header>
     <div>
       <div class="brand-title">LoanTrack</div>
-      <div class="brand-sub">Officer A Portfolio</div>
+      <div class="brand-sub">Supabase Live Sync</div>
     </div>
     <nav>
       <button class="active" onclick="showTab('dashboard', this)">Dashboard</button>
@@ -116,41 +158,32 @@
   </header>
 
   <div class="wrap">
+    <div class="status-bar">
+      <span class="pill blue" id="syncStatus">Connecting...</span>
+      <span class="muted" id="lastSyncText">Last sync: --</span>
+    </div>
+    <div id="configNotice" class="notice" style="display:none;">
+      Replace <strong>YOUR_SUPABASE_URL</strong> and <strong>YOUR_SUPABASE_ANON_KEY</strong> in this file.
+    </div>
+
     <div class="toolbar">
-      <button class="btn" onclick="resetSeed()">Reload Given Data</button>
+      <button class="btn" onclick="refreshAll()">Refresh Live Data</button>
       <button class="btn secondary" onclick="clearLoanForm()">Clear Loan Form</button>
+      <button class="btn secondary" onclick="clearPaymentForm()">Clear Payment Form</button>
     </div>
 
     <section id="dashboard" class="tab active">
       <div class="kpis" id="dashboardKpis"></div>
       <div class="grid-2">
-        <div class="card">
-          <div class="section-title">Principal vs Collected vs Outstanding</div>
-          <canvas id="principalChart" height="140"></canvas>
-        </div>
-        <div class="card">
-          <div class="section-title">Loan Status Distribution</div>
-          <canvas id="statusChart" height="140"></canvas>
-        </div>
+        <div class="card"><div class="section-title">Principal vs Collected vs Outstanding</div><canvas id="principalChart" height="140"></canvas></div>
+        <div class="card"><div class="section-title">Loan Status Distribution</div><canvas id="statusChart" height="140"></canvas></div>
       </div>
       <div class="grid-3">
-        <div class="card">
-          <div class="section-title">Monthly Collections Trend</div>
-          <canvas id="collectionsChart" height="150"></canvas>
-        </div>
-        <div class="card">
-          <div class="section-title">Arrears by Borrower ($)</div>
-          <canvas id="arrearsChart" height="150"></canvas>
-        </div>
-        <div class="card">
-          <div class="section-title">Outstanding Balances ($)</div>
-          <canvas id="outstandingChart" height="150"></canvas>
-        </div>
+        <div class="card"><div class="section-title">Monthly Collections Trend</div><canvas id="collectionsChart" height="150"></canvas></div>
+        <div class="card"><div class="section-title">Arrears by Borrower ($)</div><canvas id="arrearsChart" height="150"></canvas></div>
+        <div class="card"><div class="section-title">Outstanding Balances ($)</div><canvas id="outstandingChart" height="150"></canvas></div>
       </div>
-      <div class="card">
-        <div class="section-title">PAR Analysis — Portfolio at Risk</div>
-        <canvas id="parChart" height="120"></canvas>
-      </div>
+      <div class="card"><div class="section-title">PAR Analysis — Portfolio at Risk</div><canvas id="parChart" height="120"></canvas></div>
       <div class="grid-2">
         <div class="card"><div class="section-title">Accounts in Arrears</div><div id="dashboardArrearsBox"></div></div>
         <div class="card"><div class="section-title">Weekly Upcoming Due Loans</div><div id="dashboardDueBox"></div></div>
@@ -216,7 +249,6 @@
           <div class="field"><input id="paymentDate" type="date"></div>
         </div>
         <button class="btn" onclick="savePayment()">Save Payment</button>
-        <button class="btn secondary" onclick="clearPaymentForm()">Clear Payment Form</button>
       </div>
       <div class="card">
         <div class="section-title">Payment History</div>
@@ -279,23 +311,13 @@
         <div class="section-title">Growth Forecast — All Collections Reinvested at 10%</div>
         <div class="kpis" id="growthKpis"></div>
         <div class="grid-2">
-          <div class="card">
-            <div class="section-title">12-Month Reinvestment Growth (10% flat, 5% PAR deduction)</div>
-            <canvas id="growthScenarioChart" height="150"></canvas>
-          </div>
-          <div class="card">
-            <div class="section-title">Monthly Interest Earned vs PAR Deduction</div>
-            <canvas id="growthMonthlyBarChart" height="150"></canvas>
-          </div>
+          <div class="card"><div class="section-title">12-Month Reinvestment Growth (10% flat, 5% PAR deduction)</div><canvas id="growthScenarioChart" height="150"></canvas></div>
+          <div class="card"><div class="section-title">Monthly Interest Earned vs PAR Deduction</div><canvas id="growthMonthlyBarChart" height="150"></canvas></div>
         </div>
         <div class="card">
           <div class="section-title">Month-by-Month Reinvestment Schedule</div>
           <table>
-            <thead>
-              <tr>
-                <th>Month</th><th>Opening ($)</th><th>Interest 10% ($)</th><th>PAR 5% ($)</th><th>Net Closing ($)</th><th>Cumulative Int ($)</th><th>Return %</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Month</th><th>Opening ($)</th><th>Interest 10% ($)</th><th>PAR 5% ($)</th><th>Net Closing ($)</th><th>Cumulative Int ($)</th><th>Return %</th></tr></thead>
             <tbody id="growthScheduleBody"></tbody>
           </table>
         </div>
@@ -314,33 +336,17 @@
         <div class="section-title">Net Profit & PAR Analysis — Monthly Model</div>
         <div class="kpis" id="profitParKpis"></div>
         <div class="grid-2">
-          <div class="card">
-            <div class="section-title">Monthly Net Profit — PAR 5% vs PAR 0%</div>
-            <canvas id="profitCompareChart" height="150"></canvas>
-          </div>
-          <div class="card">
-            <div class="section-title">Cumulative Profit — PAR 5% vs PAR 0%</div>
-            <canvas id="cumProfitChart" height="150"></canvas>
-          </div>
+          <div class="card"><div class="section-title">Monthly Net Profit — PAR 5% vs PAR 0%</div><canvas id="profitCompareChart" height="150"></canvas></div>
+          <div class="card"><div class="section-title">Cumulative Profit — PAR 5% vs PAR 0%</div><canvas id="cumProfitChart" height="150"></canvas></div>
         </div>
         <div class="grid-2">
-          <div class="card">
-            <div class="section-title">Portfolio Growth — Profit Reinvested Each Month</div>
-            <canvas id="portfolioGrowthChart" height="150"></canvas>
-          </div>
-          <div class="card">
-            <div class="section-title">Monthly PAR Cost vs Interest Income</div>
-            <canvas id="parCostChart" height="150"></canvas>
-          </div>
+          <div class="card"><div class="section-title">Portfolio Growth — Profit Reinvested Each Month</div><canvas id="portfolioGrowthChart" height="150"></canvas></div>
+          <div class="card"><div class="section-title">Monthly PAR Cost vs Interest Income</div><canvas id="parCostChart" height="150"></canvas></div>
         </div>
         <div class="card">
           <div class="section-title">12-Month Profit & Loss — Full Detail</div>
           <table>
-            <thead>
-              <tr>
-                <th>Month</th><th>Portfolio (open)</th><th>Interest Income</th><th>PAR Cost (5%)</th><th>Net Profit (PAR 5%)</th><th>Net Profit (PAR 0%)</th><th>Profit Lost to PAR</th><th>Margin (PAR 5%)</th><th>Margin (PAR 0%)</th><th>Portfolio (close)</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Month</th><th>Portfolio (open)</th><th>Interest Income</th><th>PAR Cost (5%)</th><th>Net Profit (PAR 5%)</th><th>Net Profit (PAR 0%)</th><th>Profit Lost to PAR</th><th>Margin (PAR 5%)</th><th>Margin (PAR 0%)</th><th>Portfolio (close)</th></tr></thead>
             <tbody id="profitParTableBody"></tbody>
           </table>
         </div>
@@ -362,61 +368,38 @@
   </div>
 
   <script>
-    const seedLoans = [
-      { id: "LN1001", clientName: "Gororo", clientPhone: "0770000001", nextOfKin: "", nextOfKinPhone: "", amount: 1500, interestRate: 10, term: 12, disbursementDate: "2026-01-01", loanOfficer: "Loan Officer A", loanType: "Interest Only", riskTag:"Performing", remarks:"" },
-      { id: "LN1002", clientName: "Mamhanya", clientPhone: "0770000002", nextOfKin: "", nextOfKinPhone: "", amount: 2000, interestRate: 10, term: 6, disbursementDate: "2025-11-15", loanOfficer: "Loan Officer A", loanType: "Standard", riskTag:"At Risk", remarks:"" },
-      { id: "LN1003", clientName: "Fosirai Gadhi", clientPhone: "0770000003", nextOfKin: "", nextOfKinPhone: "", amount: 500, interestRate: 10, term: 5, disbursementDate: "2026-03-31", loanOfficer: "Loan Officer A", loanType: "Standard", riskTag:"Performing", remarks:"" },
-      { id: "LN1004", clientName: "Tagaza Puru", clientPhone: "0770000004", nextOfKin: "", nextOfKinPhone: "", amount: 1000, interestRate: 10, term: 2, disbursementDate: "2026-03-04", loanOfficer: "Loan Officer A", loanType: "Standard", riskTag:"At Risk", remarks:"" },
-      { id: "LN1005", clientName: "Barber Adolf", clientPhone: "0770000005", nextOfKin: "", nextOfKinPhone: "", amount: 1000, interestRate: 10, term: 3, disbursementDate: "2026-03-30", loanOfficer: "Loan Officer A", loanType: "Standard", riskTag:"Performing", remarks:"" },
-      { id: "LN1006", clientName: "Ziwani Mukoma", clientPhone: "0770000006", nextOfKin: "", nextOfKinPhone: "", amount: 1200, interestRate: 10, term: 6, disbursementDate: "2025-11-16", loanOfficer: "Loan Officer A", loanType: "Standard", riskTag:"At Risk", remarks:"" },
-      { id: "LN1007", clientName: "Ororo Chamhanya", clientPhone: "0770000007", nextOfKin: "", nextOfKinPhone: "", amount: 300, interestRate: 30, term: 1, disbursementDate: "2026-03-11", loanOfficer: "Loan Officer A", loanType: "Standard", riskTag:"Watchlist", remarks:"" },
-      { id: "LN1008", clientName: "Pukuta Mhoiki", clientPhone: "0770000008", nextOfKin: "", nextOfKinPhone: "", amount: 350, interestRate: 20, term: 3, disbursementDate: "2026-03-01", loanOfficer: "Loan Officer A", loanType: "Standard", riskTag:"Watchlist", remarks:"" },
-      { id: "LN1009", clientName: "Gift Manyengavana", clientPhone: "0770000009", nextOfKin: "", nextOfKinPhone: "", amount: 2500, interestRate: 10, term: 6, disbursementDate: "2025-11-01", loanOfficer: "Loan Officer A", loanType: "Standard", riskTag:"Performing", remarks:"" },
-      { id: "LN1010", clientName: "Harare Brian", clientPhone: "0770000010", nextOfKin: "", nextOfKinPhone: "", amount: 2600, interestRate: 10, term: 3, disbursementDate: "2026-02-21", loanOfficer: "Loan Officer A", loanType: "Standard", riskTag:"Watchlist", remarks:"" },
-      { id: "LN1011", clientName: "Hare TVS", clientPhone: "0770000011", nextOfKin: "", nextOfKinPhone: "", amount: 400, interestRate: 10, term: 2, disbursementDate: "2026-04-10", loanOfficer: "Loan Officer A", loanType: "Interest Then Balloon", riskTag:"Performing", remarks:"" }
-    ];
+    const SUPABASE_URL = "https://gxbtqgaminuvxknweuof.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_2b49PfBI6NNMf84ftisnXA_sFR9lNAY";
 
-    const seedPayments = [
-      { id: "PM2001", loanId: "LN1001", amount: 150, paymentDate: "2026-02-01" },
-      { id: "PM2002", loanId: "LN1001", amount: 150, paymentDate: "2026-03-01" },
-      { id: "PM2003", loanId: "LN1002", amount: 135, paymentDate: "2026-04-09" },
-      { id: "PM2004", loanId: "LN1006", amount: 280, paymentDate: "2025-12-16" },
-      { id: "PM2005", loanId: "LN1006", amount: 280, paymentDate: "2026-01-16" },
-      { id: "PM2006", loanId: "LN1006", amount: 280, paymentDate: "2026-02-16" },
-      { id: "PM2007", loanId: "LN1006", amount: 280, paymentDate: "2026-03-16" },
-      { id: "PM2008", loanId: "LN1006", amount: 100, paymentDate: "2026-04-16" },
-      { id: "PM2009", loanId: "LN1009", amount: 666.67, paymentDate: "2025-12-01" },
-      { id: "PM2010", loanId: "LN1009", amount: 666.67, paymentDate: "2026-01-01" },
-      { id: "PM2011", loanId: "LN1009", amount: 666.67, paymentDate: "2026-02-01" },
-      { id: "PM2012", loanId: "LN1009", amount: 666.67, paymentDate: "2026-03-01" },
-      { id: "PM2013", loanId: "LN1009", amount: 666.67, paymentDate: "2026-04-01" },
-      { id: "PM2014", loanId: "LN1010", amount: 1126.67, paymentDate: "2026-03-21" }
-    ];
-
-    const qs = new URLSearchParams(window.location.search);
-    const forceSeed = qs.get("reset") === "1";
-
-    let loans = forceSeed ? [...seedLoans] : (JSON.parse(localStorage.getItem("loans")) || [...seedLoans]);
-    let payments = forceSeed ? [...seedPayments] : (JSON.parse(localStorage.getItem("payments")) || [...seedPayments]);
-    let openingCash = Number(localStorage.getItem("openingCash") || 0);
-    let monthlyExpenses = JSON.parse(localStorage.getItem("monthlyExpenses") || "{}");
+    let supabaseClient = null;
+    let loans = [];
+    let payments = [];
+    let expenses = [];
     let charts = {};
+    let refreshTimer = null;
+    let realtimeChannel = null;
 
-    function saveData(){
-      localStorage.setItem("loans", JSON.stringify(loans));
-      localStorage.setItem("payments", JSON.stringify(payments));
-      localStorage.setItem("openingCash", String(openingCash));
-      localStorage.setItem("monthlyExpenses", JSON.stringify(monthlyExpenses));
+    function setSyncStatus(text, cls="blue"){
+      const el = document.getElementById("syncStatus");
+      el.className = `pill ${cls}`;
+      el.textContent = text;
+      document.getElementById("lastSyncText").textContent = `Last sync: ${new Date().toLocaleTimeString()}`;
     }
 
-    function resetSeed(){
-      loans = [...seedLoans];
-      payments = [...seedPayments];
-      openingCash = 0;
-      monthlyExpenses = {};
-      saveData();
-      renderAll();
-      alert("Given data reloaded.");
+    function showConfigNotice(show){
+      document.getElementById("configNotice").style.display = show ? "block" : "none";
+    }
+
+    function initSupabase(){
+      const badConfig = SUPABASE_URL.includes("YOUR_SUPABASE") || SUPABASE_ANON_KEY.includes("YOUR_SUPABASE");
+      if (badConfig) {
+        showConfigNotice(true);
+        setSyncStatus("Config needed", "red");
+        return false;
+      }
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      showConfigNotice(false);
+      return true;
     }
 
     function formatMoney(v){ return "$" + Number(v || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -432,49 +415,49 @@
 
     function getAllMonths(){
       const set = new Set();
-      loans.forEach(l => set.add(monthKey(l.disbursementDate)));
-      payments.forEach(p => set.add(monthKey(p.paymentDate)));
+      loans.forEach(l => set.add(monthKey(l.disbursement_date)));
+      payments.forEach(p => set.add(monthKey(p.payment_date)));
       return Array.from(set).sort((a,b)=>new Date("1 "+a)-new Date("1 "+b));
     }
 
     function getLoanPayments(loanId){
-      return payments.filter(p=>p.loanId===loanId).sort((a,b)=>new Date(a.paymentDate)-new Date(b.paymentDate));
+      return payments.filter(p=>p.loan_id===loanId).sort((a,b)=>new Date(a.payment_date)-new Date(b.payment_date));
     }
 
     function getPaidAmount(loanId){ return getLoanPayments(loanId).reduce((s,p)=>s+Number(p.amount),0); }
 
     function getLastRepayment(loanId){
       const arr=getLoanPayments(loanId);
-      return arr.length ? arr[arr.length-1].paymentDate : "No payment yet";
+      return arr.length ? arr[arr.length-1].payment_date : "No payment yet";
     }
 
     function getFinalRepaymentDate(loan){
-      const d = new Date(loan.disbursementDate);
+      const d = new Date(loan.disbursement_date);
       d.setMonth(d.getMonth()+Number(loan.term));
       return d.toISOString().split("T")[0];
     }
 
     function getTotalRepayable(loan){
-      const p=Number(loan.amount), r=Number(loan.interestRate)/100, t=Number(loan.term);
+      const p=Number(loan.amount), r=Number(loan.interest_rate)/100, t=Number(loan.term);
       return p + (p*r*t);
     }
 
     function getMonthlyDue(loan){
-      const p=Number(loan.amount), r=Number(loan.interestRate)/100;
-      if(loan.loanType==="Interest Only") return p*r;
-      if(loan.loanType==="Interest Then Balloon") return p*r;
-      if(loan.clientName==="Fosirai Gadhi") return 150;
-      if(loan.clientName==="Tagaza Puru") return 600;
-      if(loan.clientName==="Pukuta Mhoiki") return 187;
+      const p=Number(loan.amount), r=Number(loan.interest_rate)/100;
+      if(loan.loan_type==="Interest Only") return p*r;
+      if(loan.loan_type==="Interest Then Balloon") return p*r;
+      if(loan.client_name==="Fosirai Gadhi") return 150;
+      if(loan.client_name==="Tagaza Puru") return 600;
+      if(loan.client_name==="Pukuta Mhoiki") return 187;
       return getTotalRepayable(loan)/Number(loan.term);
     }
 
     function getDueSchedule(loan){
-      const schedule=[]; const p=Number(loan.amount), r=Number(loan.interestRate)/100;
+      const schedule=[]; const p=Number(loan.amount), r=Number(loan.interest_rate)/100;
       for(let i=1;i<=loan.term;i++){
-        const d=new Date(loan.disbursementDate); d.setMonth(d.getMonth()+i);
+        const d=new Date(loan.disbursement_date); d.setMonth(d.getMonth()+i);
         let amount=getMonthlyDue(loan);
-        if(loan.loanType==="Interest Then Balloon"){
+        if(loan.loan_type==="Interest Then Balloon"){
           if(i===1) amount = p*r;
           if(i===loan.term) amount = p + (p*r*loan.term);
         }
@@ -485,24 +468,24 @@
 
     function getExpectedToDate(loan){
       const today=new Date();
-      if(loan.clientName==="Mamhanya") return 601;
+      if(loan.client_name==="Mamhanya") return 601;
       return getDueSchedule(loan).filter(x=>new Date(x.dueDate)<=today).reduce((s,x)=>s+x.amount,0);
     }
 
     function getArrears(loan){
-      if(loan.clientName==="Mamhanya") return 466;
+      if(loan.client_name==="Mamhanya") return 466;
       return Math.max(0, getExpectedToDate(loan)-getPaidAmount(loan.id));
     }
 
     function getBalance(loan){
       const paid=getPaidAmount(loan.id);
-      if(loan.loanType==="Interest Only") return Number(loan.amount);
+      if(loan.loan_type==="Interest Only") return Number(loan.amount);
       return Math.max(0, getTotalRepayable(loan)-paid);
     }
 
     function getStatus(loan){
       const arrears=getArrears(loan);
-      if(loan.loanType==="Interest Only") return arrears>0 ? "In Arrears":"Current";
+      if(loan.loan_type==="Interest Only") return arrears>0 ? "In Arrears":"Current";
       if(getBalance(loan)<=0) return "Fully Repaid";
       if(arrears>0) return "In Arrears";
       return "Current";
@@ -540,20 +523,20 @@
 
     function aggregateDisbursements(){
       const map={}; getAllMonths().forEach(m=>map[m]=0);
-      loans.forEach(l=>map[monthKey(l.disbursementDate)] += Number(l.amount));
+      loans.forEach(l=>map[monthKey(l.disbursement_date)] += Number(l.amount));
       return map;
     }
 
     function aggregateCollections(){
       const map={}; getAllMonths().forEach(m=>map[m]=0);
-      payments.forEach(p=>map[monthKey(p.paymentDate)] += Number(p.amount));
+      payments.forEach(p=>map[monthKey(p.payment_date)] += Number(p.amount));
       return map;
     }
 
     function aggregateExpectedCollections(){
       const map={}; getAllMonths().forEach(m=>map[m]=0);
       loans.forEach(l=>{
-        if(l.clientName==="Mamhanya"){ map["Apr 2026"]=(map["Apr 2026"]||0)+601; return; }
+        if(l.client_name==="Mamhanya"){ map["Apr 2026"]=(map["Apr 2026"]||0)+601; return; }
         getDueSchedule(l).forEach(s=>{
           const mk=monthKey(s.dueDate);
           map[mk]=(map[mk]||0)+Number(s.amount);
@@ -628,6 +611,54 @@
       return {overdue,dueThisWeek,dueNextWeek,upcoming};
     }
 
+    async function fetchLiveData(){
+      if(!supabaseClient) return;
+
+      setSyncStatus("Syncing...", "gold");
+
+      const [loansRes, paymentsRes, expensesRes] = await Promise.all([
+        supabaseClient.from("loans").select("*").order("disbursement_date", { ascending: false }),
+        supabaseClient.from("payments").select("*").order("payment_date", { ascending: false }),
+        supabaseClient.from("expenses").select("*").order("month_key", { ascending: true })
+      ]);
+
+      if (loansRes.error || paymentsRes.error || expensesRes.error) {
+        console.error(loansRes.error, paymentsRes.error, expensesRes.error);
+        setSyncStatus("Sync error", "red");
+        return;
+      }
+
+      loans = loansRes.data || [];
+      payments = paymentsRes.data || [];
+      expenses = expensesRes.data || [];
+      setSyncStatus("Live synced", "green");
+      renderAll();
+    }
+
+    async function refreshAll(){
+      await fetchLiveData();
+    }
+
+    function startRealtime(){
+      if(!supabaseClient) return;
+
+      try {
+        realtimeChannel = supabaseClient.channel("loantrack-live")
+          .on("postgres_changes", { event: "*", schema: "public", table: "loans" }, fetchLiveData)
+          .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, fetchLiveData)
+          .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, fetchLiveData)
+          .subscribe();
+      } catch (e) {
+        console.error(e);
+      }
+
+      clearInterval(refreshTimer);
+      refreshTimer = setInterval(fetchLiveData, 15000);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) fetchLiveData();
+      });
+    }
+
     function renderDashboard(){
       const totalDisbursed=loans.reduce((s,l)=>s+Number(l.amount),0);
       const totalCollected=payments.reduce((s,p)=>s+Number(p.amount),0);
@@ -644,7 +675,7 @@
         <div class="kpi"><div class="label">Collected</div><div class="value good">${formatMoney(totalCollected)}</div><div class="sub">${efficiency.toFixed(1)}% efficiency</div></div>
         <div class="kpi"><div class="label">Outstanding</div><div class="value">${formatMoney(outstanding)}</div><div class="sub">Loan book</div></div>
         <div class="kpi"><div class="label">Arrears</div><div class="value bad">${formatMoney(totalArrears)}</div><div class="sub">${inArrears} accounts</div></div>
-        <div class="kpi"><div class="label">High Risk + Default</div><div class="value mid">${loans.filter(l=>["At Risk","Default"].includes(l.riskTag||"")).length}</div><div class="sub">Tagged accounts</div></div>
+        <div class="kpi"><div class="label">High Risk + Default</div><div class="value mid">${loans.filter(l=>["At Risk","Default"].includes(l.risk_tag||"")).length}</div><div class="sub">Tagged accounts</div></div>
       `;
 
       const ctxPrincipal=document.getElementById("principalChart").getContext("2d");
@@ -673,13 +704,13 @@
 
       renderChart("arrearsChart", {
         type:"bar",
-        data:{labels:arrearsLoans.map(l=>l.clientName),datasets:[{label:"Arrears",data:arrearsLoans.map(l=>getArrears(l)),backgroundColor:"#d14b4b",borderRadius:10}]},
+        data:{labels:arrearsLoans.map(l=>l.client_name),datasets:[{label:"Arrears",data:arrearsLoans.map(l=>getArrears(l)),backgroundColor:"#d14b4b",borderRadius:10}]},
         options:{plugins:{legend:{display:false}}}
       });
 
       renderChart("outstandingChart", {
         type:"bar",
-        data:{labels:loans.map(l=>l.clientName),datasets:[{label:"Outstanding",data:loans.map(l=>getBalance(l)),backgroundColor:buildGradient(ctxOut,"rgba(111,89,217,.95)","rgba(111,89,217,.3)"),borderRadius:10}]},
+        data:{labels:loans.map(l=>l.client_name),datasets:[{label:"Outstanding",data:loans.map(l=>getBalance(l)),backgroundColor:buildGradient(ctxOut,"rgba(111,89,217,.95)","rgba(111,89,217,.3)"),borderRadius:10}]},
         options:{plugins:{legend:{display:false}}}
       });
 
@@ -701,12 +732,12 @@
       });
 
       document.getElementById("dashboardArrearsBox").innerHTML = arrearsLoans.length
-        ? arrearsLoans.map(l=>`<div class="warn-card overdue"><strong>${l.clientName}</strong> — ${formatMoney(getArrears(l))} | ${getPARBucket(l)} | <span class="pill purple">${l.riskTag||"Performing"}</span></div>`).join("")
+        ? arrearsLoans.map(l=>`<div class="warn-card overdue"><strong>${l.client_name}</strong> — ${formatMoney(getArrears(l))} | ${getPARBucket(l)} | <span class="pill purple">${l.risk_tag||"Performing"}</span></div>`).join("")
         : `<div class="muted">No accounts in arrears.</div>`;
 
       const due7 = getDueBuckets().dueThisWeek;
       document.getElementById("dashboardDueBox").innerHTML = due7.length
-        ? due7.map(x=>`<div class="warn-card week"><strong>${x.loan.clientName}</strong> | Next: ${x.schedule.dueDate} | Instalment: ${formatMoney(x.schedule.amount)}</div>`).join("")
+        ? due7.map(x=>`<div class="warn-card week"><strong>${x.loan.client_name}</strong> | Next: ${x.schedule.dueDate} | Instalment: ${formatMoney(x.schedule.amount)}</div>`).join("")
         : `<div class="muted">No loans due in the next 7 days.</div>`;
 
       const expectedMap = aggregateExpectedCollections();
@@ -717,7 +748,7 @@
       const topRisk = loans.slice().sort((a,b)=>getArrears(b)-getArrears(a)).slice(0,5);
       document.getElementById("topRiskBox").innerHTML = topRisk.map(l=>`
         <div class="warn-card ${getArrears(l)>0?'overdue':'next'}">
-          <strong>${l.clientName}</strong> | Arrears: ${formatMoney(getArrears(l))} | Days: ${getDaysInArrears(l)} | <span class="pill ${l.riskTag==='Default'?'red':l.riskTag==='At Risk'?'gold':'blue'}">${l.riskTag||'Performing'}</span><br>
+          <strong>${l.client_name}</strong> | Arrears: ${formatMoney(getArrears(l))} | Days: ${getDaysInArrears(l)} | <span class="pill ${l.risk_tag==='Default'?'red':l.risk_tag==='At Risk'?'gold':'blue'}">${l.risk_tag||'Performing'}</span><br>
           <span class="muted">${l.remarks || 'No remarks'}</span>
         </div>`).join("");
     }
@@ -731,7 +762,7 @@
       html.push(`<div class="card"><div class="section-title">Overdue Accounts — Action Required (${buckets.overdue.length})</div>${
         buckets.overdue.length ? buckets.overdue.map(x=>`
           <div class="warn-card ${getWarningLevel(x.loan)==='Critical'?'critical':'overdue'}">
-            <div><strong>${x.loan.clientName}</strong> | ${x.loan.id} | Instalment: ${formatMoney(getMonthlyDue(x.loan))} | Days OD: ${getDaysInArrears(x.loan)} | Arrears: ${formatMoney(getArrears(x.loan))} <span class="pill red">${getWarningLevel(x.loan)}</span> <span class="pill ${x.loan.riskTag==='Default'?'red':x.loan.riskTag==='At Risk'?'gold':'blue'}">${x.loan.riskTag||'Performing'}</span></div>
+            <div><strong>${x.loan.client_name}</strong> | ${x.loan.id} | Instalment: ${formatMoney(getMonthlyDue(x.loan))} | Days OD: ${getDaysInArrears(x.loan)} | Arrears: ${formatMoney(getArrears(x.loan))} <span class="pill red">${getWarningLevel(x.loan)}</span> <span class="pill ${x.loan.risk_tag==='Default'?'red':x.loan.risk_tag==='At Risk'?'gold':'blue'}">${x.loan.risk_tag||'Performing'}</span></div>
             <div class="muted">${x.loan.remarks || "No remarks"}</div>
           </div>`).join("") : `<div class="muted">No overdue accounts.</div>`
       }</div>`);
@@ -739,7 +770,7 @@
       html.push(`<div class="card"><div class="section-title">Due This Week (0–7 Days) (${buckets.dueThisWeek.length})</div>${
         buckets.dueThisWeek.length ? buckets.dueThisWeek.map(x=>`
           <div class="warn-card week">
-            <div><strong>${x.loan.clientName}</strong> | ${x.loan.id} | Next: ${x.schedule.dueDate} | Instalment: ${formatMoney(x.schedule.amount)} | Days to due: ${x.days} <span class="pill gold">${x.loan.riskTag||'Performing'}</span></div>
+            <div><strong>${x.loan.client_name}</strong> | ${x.loan.id} | Next: ${x.schedule.dueDate} | Instalment: ${formatMoney(x.schedule.amount)} | Days to due: ${x.days} <span class="pill gold">${x.loan.risk_tag||'Performing'}</span></div>
             <div class="muted">${x.loan.remarks || "No remarks"}</div>
           </div>`).join("") : `<div class="muted">No loans due this week.</div>`
       }</div>`);
@@ -747,7 +778,7 @@
       html.push(`<div class="card"><div class="section-title">Due Next Week (8–14 Days) (${buckets.dueNextWeek.length})</div>${
         buckets.dueNextWeek.length ? buckets.dueNextWeek.map(x=>`
           <div class="warn-card next">
-            <div><strong>${x.loan.clientName}</strong> | ${x.loan.id} | Next: ${x.schedule.dueDate} | Instalment: ${formatMoney(x.schedule.amount)} | Days to due: ${x.days} <span class="pill blue">${x.loan.riskTag||'Performing'}</span></div>
+            <div><strong>${x.loan.client_name}</strong> | ${x.loan.id} | Next: ${x.schedule.dueDate} | Instalment: ${formatMoney(x.schedule.amount)} | Days to due: ${x.days} <span class="pill blue">${x.loan.risk_tag||'Performing'}</span></div>
             <div class="muted">${x.loan.remarks || "No remarks"}</div>
           </div>`).join("") : `<div class="muted">No loans due next week.</div>`
       }</div>`);
@@ -759,13 +790,13 @@
       document.getElementById("scheduleTableBody").innerHTML = loans.map(loan=>{
         const next = getNextDue(loan);
         return `<tr>
-          <td>${loan.clientName}</td>
+          <td>${loan.client_name}</td>
           <td>${loan.id}</td>
           <td>${next ? next.dueDate : "—"}</td>
           <td>${next ? formatMoney(next.amount) : "—"}</td>
           <td>${getFinalRepaymentDate(loan)}</td>
           <td>${getStatus(loan)}</td>
-          <td>${loan.riskTag||"Performing"}</td>
+          <td>${loan.risk_tag||"Performing"}</td>
         </tr>`;
       }).join("");
     }
@@ -827,8 +858,8 @@
         content.push(`
           <div class="rec-card">
             <div>
-              <div><strong>Urgent — ${urgent.clientName} (${urgent.id}) — Arrears: ${formatMoney(getArrears(urgent))}</strong></div>
-              <div class="muted">Days overdue: ${getDaysInArrears(urgent)} | Outstanding: ${formatMoney(getBalance(urgent))} | Status: ${getStatus(urgent)} | Risk: ${urgent.riskTag||"Performing"}</div>
+              <div><strong>Urgent — ${urgent.client_name} (${urgent.id}) — Arrears: ${formatMoney(getArrears(urgent))}</strong></div>
+              <div class="muted">Days overdue: ${getDaysInArrears(urgent)} | Outstanding: ${formatMoney(getBalance(urgent))} | Status: ${getStatus(urgent)} | Risk: ${urgent.risk_tag||"Performing"}</div>
               <div class="muted">Remarks: ${urgent.remarks || "No remarks"}</div>
             </div>
             <span class="pill red">Urgent</span>
@@ -839,8 +870,8 @@
         content.push(`
           <div class="rec-card">
             <div>
-              <div><strong>Monitor — ${l.clientName} (${l.id}) — Arrears: ${formatMoney(getArrears(l))}</strong></div>
-              <div class="muted">Days overdue: ${getDaysInArrears(l)} | Outstanding: ${formatMoney(getBalance(l))} | Risk: ${l.riskTag||"Performing"}</div>
+              <div><strong>Monitor — ${l.client_name} (${l.id}) — Arrears: ${formatMoney(getArrears(l))}</strong></div>
+              <div class="muted">Days overdue: ${getDaysInArrears(l)} | Outstanding: ${formatMoney(getBalance(l))} | Risk: ${l.risk_tag||"Performing"}</div>
               <div class="muted">Remarks: ${l.remarks || "No remarks"}</div>
             </div>
             <span class="pill gold">Watch</span>
@@ -948,48 +979,58 @@
       `).join("");
     }
 
-    function saveLoan(){
-      const editingId=document.getElementById("editingLoanId").value;
+    async function saveLoan(){
+      if(!supabaseClient) return;
+      const editingId=document.getElementById("editingLoanId").value || `LN${Date.now()}`;
       const data={
-        clientName:document.getElementById("clientName").value.trim(),
-        clientPhone:document.getElementById("clientPhone").value.trim(),
-        nextOfKin:document.getElementById("nextOfKin").value.trim(),
-        nextOfKinPhone:document.getElementById("nextOfKinPhone").value.trim(),
-        amount:Number(document.getElementById("loanAmount").value),
-        interestRate:Number(document.getElementById("interestRate").value),
-        term:Number(document.getElementById("loanTerm").value),
-        disbursementDate:document.getElementById("disbursementDate").value,
-        loanOfficer:document.getElementById("loanOfficer").value.trim() || "Loan Officer A",
-        loanType:document.getElementById("loanType").value,
-        riskTag:document.getElementById("riskTag").value,
-        remarks:document.getElementById("remarks").value.trim()
+        id: editingId,
+        client_name: document.getElementById("clientName").value.trim(),
+        client_phone: document.getElementById("clientPhone").value.trim(),
+        next_of_kin: document.getElementById("nextOfKin").value.trim(),
+        next_of_kin_phone: document.getElementById("nextOfKinPhone").value.trim(),
+        amount: Number(document.getElementById("loanAmount").value),
+        interest_rate: Number(document.getElementById("interestRate").value),
+        term: Number(document.getElementById("loanTerm").value),
+        disbursement_date: document.getElementById("disbursementDate").value,
+        loan_officer: document.getElementById("loanOfficer").value.trim() || "Loan Officer A",
+        loan_type: document.getElementById("loanType").value,
+        risk_tag: document.getElementById("riskTag").value,
+        remarks: document.getElementById("remarks").value.trim(),
+        updated_at: new Date().toISOString()
       };
-      if(!data.clientName || !data.clientPhone || !data.amount || !data.interestRate || !data.term || !data.disbursementDate){
-        alert("Complete all required fields."); return;
+
+      if(!data.client_name || !data.client_phone || !data.amount || !data.interest_rate || !data.term || !data.disbursement_date){
+        alert("Complete all required fields.");
+        return;
       }
-      if(editingId){
-        const idx=loans.findIndex(l=>l.id===editingId);
-        if(idx>=0) loans[idx]={...loans[idx], ...data};
-      } else {
-        loans.push({id:"LN"+Date.now(), ...data});
+
+      setSyncStatus("Saving loan...", "gold");
+      const { error } = await supabaseClient.from("loans").upsert(data);
+      if(error){
+        console.error(error);
+        setSyncStatus("Save failed", "red");
+        alert("Loan save failed.");
+        return;
       }
-      clearLoanForm(); saveData(); renderAll(); alert("Loan saved.");
+      clearLoanForm();
+      await fetchLiveData();
+      alert("Loan saved live.");
     }
 
     function editLoan(id){
       const l=loans.find(x=>x.id===id); if(!l) return;
       document.getElementById("editingLoanId").value=l.id;
-      document.getElementById("clientName").value=l.clientName;
-      document.getElementById("clientPhone").value=l.clientPhone;
-      document.getElementById("nextOfKin").value=l.nextOfKin || "";
-      document.getElementById("nextOfKinPhone").value=l.nextOfKinPhone || "";
-      document.getElementById("loanAmount").value=l.amount;
-      document.getElementById("interestRate").value=l.interestRate;
-      document.getElementById("loanTerm").value=l.term;
-      document.getElementById("disbursementDate").value=l.disbursementDate;
-      document.getElementById("loanType").value=l.loanType;
-      document.getElementById("loanOfficer").value=l.loanOfficer;
-      document.getElementById("riskTag").value=l.riskTag || "Performing";
+      document.getElementById("clientName").value=l.client_name || "";
+      document.getElementById("clientPhone").value=l.client_phone || "";
+      document.getElementById("nextOfKin").value=l.next_of_kin || "";
+      document.getElementById("nextOfKinPhone").value=l.next_of_kin_phone || "";
+      document.getElementById("loanAmount").value=l.amount || "";
+      document.getElementById("interestRate").value=l.interest_rate || "10";
+      document.getElementById("loanTerm").value=l.term || "3";
+      document.getElementById("disbursementDate").value=l.disbursement_date || "";
+      document.getElementById("loanType").value=l.loan_type || "Standard";
+      document.getElementById("loanOfficer").value=l.loan_officer || "Loan Officer A";
+      document.getElementById("riskTag").value=l.risk_tag || "Performing";
       document.getElementById("remarks").value=l.remarks || "";
       showTab('register', document.querySelectorAll('nav button')[1]);
     }
@@ -1010,30 +1051,52 @@
       document.getElementById("remarks").value="";
     }
 
-    function savePayment(){
-      const editingId=document.getElementById("editingPaymentId").value;
+    async function savePayment(){
+      if(!supabaseClient) return;
+      const editingId=document.getElementById("editingPaymentId").value || `PM${Date.now()}`;
       const data={
-        loanId:document.getElementById("paymentLoanSelect").value,
-        amount:Number(document.getElementById("paymentAmount").value),
-        paymentDate:document.getElementById("paymentDate").value
+        id: editingId,
+        loan_id: document.getElementById("paymentLoanSelect").value,
+        amount: Number(document.getElementById("paymentAmount").value),
+        payment_date: document.getElementById("paymentDate").value,
+        updated_at: new Date().toISOString()
       };
-      if(!data.loanId || !data.amount || !data.paymentDate){ alert("Complete payment fields."); return; }
-      if(editingId){
-        const idx=payments.findIndex(p=>p.id===editingId);
-        if(idx>=0) payments[idx]={...payments[idx], ...data};
-      } else {
-        payments.push({id:"PM"+Date.now(), ...data});
+      if(!data.loan_id || !data.amount || !data.payment_date){
+        alert("Complete payment fields.");
+        return;
       }
-      clearPaymentForm(); saveData(); renderAll(); alert("Payment saved.");
+      setSyncStatus("Saving payment...", "gold");
+      const { error } = await supabaseClient.from("payments").upsert(data);
+      if(error){
+        console.error(error);
+        setSyncStatus("Save failed", "red");
+        alert("Payment save failed.");
+        return;
+      }
+      clearPaymentForm();
+      await fetchLiveData();
+      alert("Payment saved live.");
     }
 
     function editPayment(id){
       const p=payments.find(x=>x.id===id); if(!p) return;
       document.getElementById("editingPaymentId").value=p.id;
-      document.getElementById("paymentLoanSelect").value=p.loanId;
+      document.getElementById("paymentLoanSelect").value=p.loan_id;
       document.getElementById("paymentAmount").value=p.amount;
-      document.getElementById("paymentDate").value=p.paymentDate;
+      document.getElementById("paymentDate").value=p.payment_date;
       showTab('payments', document.querySelectorAll('nav button')[2]);
+    }
+
+    async function deletePayment(id){
+      if(!supabaseClient) return;
+      setSyncStatus("Deleting...", "gold");
+      const { error } = await supabaseClient.from("payments").delete().eq("id", id);
+      if(error){
+        console.error(error);
+        setSyncStatus("Delete failed", "red");
+        return;
+      }
+      await fetchLiveData();
     }
 
     function clearPaymentForm(){
@@ -1044,21 +1107,16 @@
     }
 
     function renderPayments(){
-      document.getElementById("paymentLoanSelect").innerHTML = `<option value="">Select Client</option>` + loans.map(l=>`<option value="${l.id}">${l.clientName}</option>`).join("");
-      document.getElementById("paymentTableBody").innerHTML = payments.slice().sort((a,b)=>new Date(b.paymentDate)-new Date(a.paymentDate)).map(p=>{
-        const loan=loans.find(l=>l.id===p.loanId);
+      document.getElementById("paymentLoanSelect").innerHTML = `<option value="">Select Client</option>` + loans.map(l=>`<option value="${l.id}">${l.client_name}</option>`).join("");
+      document.getElementById("paymentTableBody").innerHTML = payments.slice().sort((a,b)=>new Date(b.payment_date)-new Date(a.payment_date)).map(p=>{
+        const loan=loans.find(l=>l.id===p.loan_id);
         return `<tr>
-          <td>${loan ? loan.clientName : "-"}</td>
-          <td>${p.paymentDate}</td>
+          <td>${loan ? loan.client_name : "-"}</td>
+          <td>${p.payment_date}</td>
           <td>${formatMoney(p.amount)}</td>
-          <td><button class="btn secondary" onclick="editPayment('${p.id}')">Edit</button> <button class="btn danger" onclick="deletePayment('${p.id}')">Delete</button></td>
+          <td><button class="btn secondary small" onclick="editPayment('${p.id}')">Edit</button> <button class="btn danger small" onclick="deletePayment('${p.id}')">Delete</button></td>
         </tr>`;
       }).join("");
-    }
-
-    function deletePayment(id){
-      payments = payments.filter(p=>p.id!==id);
-      saveData(); renderAll();
     }
 
     function fillFilters(){
@@ -1076,29 +1134,29 @@
     function renderDisbursements(){
       fillFilters();
       const filterMonth=document.getElementById("disbursementMonthFilter").value;
-      const list=loans.filter(l=>filterMonth==="ALL" || monthKey(l.disbursementDate)===filterMonth).sort((a,b)=>new Date(b.disbursementDate)-new Date(a.disbursementDate));
+      const list=loans.filter(l=>filterMonth==="ALL" || monthKey(l.disbursement_date)===filterMonth).sort((a,b)=>new Date(b.disbursement_date)-new Date(a.disbursement_date));
       document.getElementById("disbursementTableBody").innerHTML = list.map(l=>`<tr>
-        <td>${l.clientName}</td>
-        <td>${l.disbursementDate}</td>
-        <td>${monthKey(l.disbursementDate)}</td>
+        <td>${l.client_name}</td>
+        <td>${l.disbursement_date}</td>
+        <td>${monthKey(l.disbursement_date)}</td>
         <td>${formatMoney(l.amount)}</td>
         <td>${l.term} months</td>
-        <td>${l.loanType}</td>
-        <td>${l.riskTag||"Performing"}</td>
-        <td><button class="btn secondary" onclick="editLoan('${l.id}')">Edit</button></td>
+        <td>${l.loan_type}</td>
+        <td>${l.risk_tag||"Performing"}</td>
+        <td><button class="btn secondary small" onclick="editLoan('${l.id}')">Edit</button></td>
       </tr>`).join("");
     }
 
     function renderArrears(){
       const rows=loans.filter(l=>getArrears(l)>0);
       document.getElementById("arrearsTableBody").innerHTML = rows.map(l=>`<tr>
-        <td>${l.clientName}</td>
+        <td>${l.client_name}</td>
         <td>${formatMoney(getExpectedToDate(l))}</td>
         <td>${formatMoney(getPaidAmount(l.id))}</td>
         <td class="bad">${formatMoney(getArrears(l))}</td>
         <td>${getDaysInArrears(l)}</td>
         <td>${getPARBucket(l)}</td>
-        <td>${l.riskTag||"Performing"}</td>
+        <td>${l.risk_tag||"Performing"}</td>
         <td>${l.remarks || "-"}</td>
       </tr>`).join("");
     }
@@ -1107,26 +1165,26 @@
       const q=document.getElementById("searchInput").value.toLowerCase().trim();
       const el=document.getElementById("searchResults");
       if(!q){ el.innerHTML=""; return; }
-      const matches=loans.filter(l=>l.clientName.toLowerCase().includes(q)||l.clientPhone.toLowerCase().includes(q));
+      const matches=loans.filter(l=>(l.client_name||"").toLowerCase().includes(q)||(l.client_phone||"").toLowerCase().includes(q));
       if(!matches.length){ el.innerHTML=`<div class="muted">No client found.</div>`; return; }
       el.innerHTML = matches.map(l=>`<div class="card">
-        <div class="section-title">${l.clientName}</div>
+        <div class="section-title">${l.client_name}</div>
         <div class="search-grid">
-          <div class="search-box"><div class="pill">Phone</div><div>${l.clientPhone || "-"}</div></div>
-          <div class="search-box"><div class="pill">Next of Kin</div><div>${l.nextOfKin || "-"}</div></div>
-          <div class="search-box"><div class="pill">Next of Kin Phone</div><div>${l.nextOfKinPhone || "-"}</div></div>
+          <div class="search-box"><div class="pill">Phone</div><div>${l.client_phone || "-"}</div></div>
+          <div class="search-box"><div class="pill">Next of Kin</div><div>${l.next_of_kin || "-"}</div></div>
+          <div class="search-box"><div class="pill">Next of Kin Phone</div><div>${l.next_of_kin_phone || "-"}</div></div>
           <div class="search-box"><div class="pill">Loan Amount</div><div>${formatMoney(l.amount)}</div></div>
-          <div class="search-box"><div class="pill">Interest Rate</div><div>${l.interestRate}%</div></div>
-          <div class="search-box"><div class="pill">Disbursement Date</div><div>${l.disbursementDate}</div></div>
+          <div class="search-box"><div class="pill">Interest Rate</div><div>${l.interest_rate}%</div></div>
+          <div class="search-box"><div class="pill">Disbursement Date</div><div>${l.disbursement_date}</div></div>
           <div class="search-box"><div class="pill">Final Repayment</div><div>${getFinalRepaymentDate(l)}</div></div>
           <div class="search-box"><div class="pill">Last Repayment</div><div>${getLastRepayment(l.id)}</div></div>
           <div class="search-box"><div class="pill">Paid To Date</div><div>${formatMoney(getPaidAmount(l.id))}</div></div>
           <div class="search-box"><div class="pill">Arrears</div><div class="${getArrears(l)>0?'bad':'good'}">${formatMoney(getArrears(l))}</div></div>
           <div class="search-box"><div class="pill">Outstanding</div><div>${formatMoney(getBalance(l))}</div></div>
           <div class="search-box"><div class="pill">Status</div><div>${getStatus(l)}</div></div>
-          <div class="search-box"><div class="pill">Risk Tag</div><div>${l.riskTag||"Performing"}</div></div>
+          <div class="search-box"><div class="pill">Risk Tag</div><div>${l.risk_tag||"Performing"}</div></div>
           <div class="search-box"><div class="pill">Remarks</div><div>${l.remarks || "-"}</div></div>
-          <div class="search-box"><div class="pill">Action</div><div><button class="btn secondary" onclick="editLoan('${l.id}')">Edit Client/Loan</button></div></div>
+          <div class="search-box"><div class="pill">Action</div><div><button class="btn secondary small" onclick="editLoan('${l.id}')">Edit Client/Loan</button></div></div>
         </div>
       </div>`).join("");
     }
@@ -1136,7 +1194,7 @@
       const month=document.getElementById("reportMonthFilter").value;
       const expected=aggregateExpectedCollections(), actual=aggregateCollections(), disb=aggregateDisbursements();
       if(!month){ document.getElementById("monthlyReportContent").innerHTML=`<div class="muted">Select month.</div>`; return; }
-      const dueThisMonth=loans.flatMap(l=>getDueSchedule(l).filter(s=>monthKey(s.dueDate)===month).map(s=>({client:l.clientName,dueDate:s.dueDate,amount:s.amount})));
+      const dueThisMonth=loans.flatMap(l=>getDueSchedule(l).filter(s=>monthKey(s.dueDate)===month).map(s=>({client:l.client_name,dueDate:s.dueDate,amount:s.amount})));
 
       document.getElementById("monthlyReportContent").innerHTML = `
         <table id="reportSummaryTable">
@@ -1175,7 +1233,6 @@
     }
 
     function renderAll(){
-      saveData();
       renderDashboard();
       renderPayments();
       renderArrears();
@@ -1189,7 +1246,11 @@
       renderSearch();
     }
 
-    renderAll();
+    window.addEventListener("load", async () => {
+      if (!initSupabase()) return;
+      await fetchLiveData();
+      startRealtime();
+    });
   </script>
 </body>
 </html>
