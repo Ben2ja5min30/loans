@@ -24,7 +24,6 @@
       --text:#243142;
       --muted:#6b7280;
       --line:#dde3ea;
-      --soft:#f8fafc;
     }
     *{box-sizing:border-box}
     body{
@@ -44,7 +43,7 @@
       flex-wrap:wrap;
       box-shadow:0 4px 18px rgba(0,0,0,.08);
     }
-    .brand-title{font-size:28px;font-weight:800;letter-spacing:.2px}
+    .brand-title{font-size:28px;font-weight:800}
     .brand-sub{font-size:13px;color:#ffe08a}
     nav{
       display:flex;
@@ -62,7 +61,7 @@
       font-weight:700;
       transition:.2s ease;
     }
-    nav button.active, nav button:hover, .btn.primary{
+    nav button.active, nav button:hover{
       background:rgba(255,255,255,.18);
       transform:translateY(-1px);
     }
@@ -130,7 +129,6 @@
       margin-bottom:8px;
       text-transform:uppercase;
       font-weight:700;
-      letter-spacing:.2px;
     }
     .kpi .value{
       font-size:24px;
@@ -274,6 +272,7 @@
       <button onclick="showTab('disbursements', this)">Disbursements</button>
       <button onclick="showTab('cash', this)">Cash at Hand</button>
       <button onclick="showTab('profit', this)">Profit</button>
+      <button onclick="showTab('growthModel', this)">Growth Model</button>
       <button onclick="showTab('report', this)">Monthly Report</button>
       <button onclick="showTab('search', this)">Search</button>
     </nav>
@@ -294,7 +293,7 @@
           <canvas id="profitabilityChart" height="120"></canvas>
         </div>
         <div class="card">
-          <div class="section-title">Growth Projection — Jan to Dec</div>
+          <div class="section-title">Growth Projection — January to December</div>
           <canvas id="growthChart" height="120"></canvas>
         </div>
       </div>
@@ -330,7 +329,7 @@
 
     <section id="register" class="tab">
       <div class="card">
-        <div class="section-title">Register / Edit Loan</div>
+        <div class="section-title">Register / Edit Client Loan</div>
         <input type="hidden" id="editingLoanId">
         <div class="row">
           <div class="field"><input id="clientName" placeholder="Client Name"></div>
@@ -501,6 +500,59 @@
       </div>
     </section>
 
+    <section id="growthModel" class="tab">
+      <div class="card">
+        <div class="section-title">12-Month Growth Model</div>
+
+        <div class="row">
+          <div class="field">
+            <label>Initial Portfolio</label>
+            <input id="growthInitialPortfolio" type="number" value="11750" oninput="renderGrowthModel()">
+          </div>
+          <div class="field">
+            <label>Monthly Interest Rate %</label>
+            <input id="growthInterestRate" type="number" value="10" oninput="renderGrowthModel()">
+          </div>
+          <div class="field">
+            <label>Monthly PAR Deduction %</label>
+            <input id="growthParRate" type="number" value="5" oninput="renderGrowthModel()">
+          </div>
+        </div>
+
+        <div class="kpis" id="growthModelKpis"></div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="section-title">12-Month Reinvestment Growth (PAR 5% vs PAR 0%)</div>
+            <canvas id="growthScenarioChart" height="120"></canvas>
+          </div>
+
+          <div class="card">
+            <div class="section-title">Monthly Interest Earned vs PAR Deduction</div>
+            <canvas id="growthMonthlyBarChart" height="120"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Month-by-Month Reinvestment Schedule</div>
+          <table id="growthScheduleTable">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Opening ($)</th>
+                <th>Interest ($)</th>
+                <th>PAR ($)</th>
+                <th>Net Closing ($)</th>
+                <th>Cumulative Interest ($)</th>
+                <th>Return %</th>
+              </tr>
+            </thead>
+            <tbody id="growthScheduleBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section id="report" class="tab">
       <div class="card">
         <div class="section-title">Print-Ready Monthly Management Report</div>
@@ -595,7 +647,6 @@
       const target = document.getElementById(id);
       target.classList.add("active");
       target.classList.add("print-active");
-
       document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
       if(btn) btn.classList.add("active");
       renderAll();
@@ -786,7 +837,7 @@
     }
 
     function getGrowthProjection(){
-      const labels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const labels = ["January","February","March","April","May","June","July","August","September","October","November","December"];
       const currentLoanBook = loans.reduce((s,l)=>s+getBalance(l),0);
       const totalInterestExpected = loans.reduce((s,l)=>s+(getTotalRepayable(l)-Number(l.amount)),0);
       const collectionsTotal = payments.reduce((s,p)=>s+Number(p.amount),0);
@@ -805,6 +856,65 @@
       }
 
       return { growthRate, labels, cumulativeInterest, cumulativeLoanBook };
+    }
+
+    function getGrowthMonths() {
+      return [
+        "January","February","March","April","May","June",
+        "July","August","September","October","November","December"
+      ];
+    }
+
+    function buildGrowthScenario(initialPortfolio, monthlyInterestRate, monthlyParRate) {
+      const months = getGrowthMonths();
+
+      let withParOpening = initialPortfolio;
+      let noParOpening = initialPortfolio;
+
+      let withParSeries = [initialPortfolio];
+      let noParSeries = [initialPortfolio];
+
+      let monthRows = [];
+      let cumulativeInterest = 0;
+      let parCostTotal = 0;
+
+      for (let i = 0; i < 12; i++) {
+        const interest = withParOpening * (monthlyInterestRate / 100);
+        const parDeduction = interest * (monthlyParRate / 100);
+        const netClosing = withParOpening + interest - parDeduction;
+
+        cumulativeInterest += interest;
+        parCostTotal += parDeduction;
+
+        monthRows.push({
+          month: months[i],
+          opening: withParOpening,
+          interest,
+          parDeduction,
+          netClosing,
+          cumulativeInterest,
+          returnPercent: ((netClosing - initialPortfolio) / initialPortfolio) * 100
+        });
+
+        withParOpening = netClosing;
+        withParSeries.push(netClosing);
+
+        const noParInterest = noParOpening * (monthlyInterestRate / 100);
+        noParOpening = noParOpening + noParInterest;
+        noParSeries.push(noParOpening);
+      }
+
+      return {
+        months,
+        monthRows,
+        withParSeries,
+        noParSeries,
+        valueWithPar: withParSeries[withParSeries.length - 1],
+        valueNoPar: noParSeries[noParSeries.length - 1],
+        parCostTotal,
+        netGrowthWithPar: ((withParSeries[withParSeries.length - 1] - initialPortfolio) / initialPortfolio) * 100,
+        netGrowthNoPar: ((noParSeries[noParSeries.length - 1] - initialPortfolio) / initialPortfolio) * 100
+      };
     }
 
     function destroyChart(id){
@@ -846,8 +956,8 @@
       `;
 
       document.getElementById("growthFigureKpis").innerHTML = `
-        <div class="kpi"><div class="label">Projected Cumulative Interest by Dec</div><div class="value" style="color:#4f7cff">${formatMoney(gp.cumulativeInterest[11])}</div><div class="sub">Jan to Dec estimate</div></div>
-        <div class="kpi"><div class="label">Projected Loan Book by Dec</div><div class="value" style="color:#7b61ff">${formatMoney(gp.cumulativeLoanBook[11])}</div><div class="sub">Jan to Dec estimate</div></div>
+        <div class="kpi"><div class="label">Projected Cumulative Interest by December</div><div class="value" style="color:#4f7cff">${formatMoney(gp.cumulativeInterest[11])}</div><div class="sub">January to December estimate</div></div>
+        <div class="kpi"><div class="label">Projected Loan Book by December</div><div class="value" style="color:#7b61ff">${formatMoney(gp.cumulativeLoanBook[11])}</div><div class="sub">January to December estimate</div></div>
       `;
 
       const statusCounts = {
@@ -984,6 +1094,126 @@
 
       document.getElementById("upcomingBox").innerHTML = renderUpcomingHtml();
       document.getElementById("expectedBox").innerHTML = renderExpectedHtml();
+    }
+
+    function renderGrowthModel() {
+      const initialPortfolio = Number(document.getElementById("growthInitialPortfolio")?.value || 11750);
+      const monthlyInterestRate = Number(document.getElementById("growthInterestRate")?.value || 10);
+      const monthlyParRate = Number(document.getElementById("growthParRate")?.value || 5);
+
+      const scenario = buildGrowthScenario(initialPortfolio, monthlyInterestRate, monthlyParRate);
+
+      document.getElementById("growthModelKpis").innerHTML = `
+        <div class="kpi">
+          <div class="label">Initial Portfolio</div>
+          <div class="value">${formatMoney(initialPortfolio)}</div>
+          <div class="sub">Starting capital</div>
+        </div>
+        <div class="kpi">
+          <div class="label">12M Value (With PAR)</div>
+          <div class="value">${formatMoney(scenario.valueWithPar)}</div>
+          <div class="sub">After ${monthlyParRate}% monthly PAR</div>
+        </div>
+        <div class="kpi">
+          <div class="label">12M Value (No PAR)</div>
+          <div class="value good">${formatMoney(scenario.valueNoPar)}</div>
+          <div class="sub">Ideal scenario</div>
+        </div>
+        <div class="kpi">
+          <div class="label">PAR Cost (12M)</div>
+          <div class="value bad">${formatMoney(scenario.parCostTotal)}</div>
+          <div class="sub">Lost to PAR deductions</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Net Growth (With PAR)</div>
+          <div class="value mid">${scenario.netGrowthWithPar.toFixed(1)}%</div>
+          <div class="sub">vs ${scenario.netGrowthNoPar.toFixed(1)}% no PAR</div>
+        </div>
+      `;
+
+      document.getElementById("growthScheduleBody").innerHTML = scenario.monthRows.map(row => `
+        <tr>
+          <td>${row.month}</td>
+          <td>${formatMoney(row.opening)}</td>
+          <td class="good">${formatMoney(row.interest)}</td>
+          <td class="bad">(${formatMoney(row.parDeduction)})</td>
+          <td><strong>${formatMoney(row.netClosing)}</strong></td>
+          <td>${formatMoney(row.cumulativeInterest)}</td>
+          <td class="good">${row.returnPercent.toFixed(1)}%</td>
+        </tr>
+      `).join("");
+
+      const scenarioLabels = ["Start", ...scenario.months];
+
+      renderChart("growthScenarioChart", {
+        type: "line",
+        data: {
+          labels: scenarioLabels,
+          datasets: [
+            {
+              label: `With PAR (${monthlyParRate}%/m)`,
+              data: scenario.withParSeries,
+              borderColor: "#1f3b73",
+              backgroundColor: "rgba(31,59,115,0.10)",
+              pointBackgroundColor: "#1f3b73",
+              pointRadius: 4,
+              tension: 0.35,
+              fill: true
+            },
+            {
+              label: "No PAR (ideal)",
+              data: scenario.noParSeries,
+              borderColor: "#1f9d55",
+              backgroundColor: "rgba(31,157,85,0.08)",
+              borderDash: [6, 4],
+              pointBackgroundColor: "#1f9d55",
+              pointRadius: 3,
+              tension: 0.35,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: "top", labels: { usePointStyle: true } }
+          },
+          scales: {
+            y: { beginAtZero: false }
+          }
+        }
+      });
+
+      renderChart("growthMonthlyBarChart", {
+        data: {
+          labels: scenario.months,
+          datasets: [
+            {
+              type: "bar",
+              label: "Interest earned",
+              data: scenario.monthRows.map(r => r.interest),
+              backgroundColor: "#5aa276",
+              borderRadius: 8
+            },
+            {
+              type: "bar",
+              label: "PAR deduction",
+              data: scenario.monthRows.map(r => r.parDeduction),
+              backgroundColor: "#d16f61",
+              borderRadius: 8
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: "top", labels: { usePointStyle: true } }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
     }
 
     function renderUpcomingHtml(){
@@ -1465,6 +1695,7 @@
       renderDisbursements();
       renderCashAtHand();
       renderProfit();
+      renderGrowthModel();
       renderMonthlyReport();
       renderSearch();
     }
