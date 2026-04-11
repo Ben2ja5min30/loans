@@ -5,61 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LoanTrack - Supabase Live</title>
 
-  <!--
-    REQUIRED SUPABASE TABLES (run once in Supabase SQL Editor)
-
-    create table if not exists public.loans (
-      id text primary key,
-      client_name text not null,
-      client_phone text,
-      next_of_kin text,
-      next_of_kin_phone text,
-      amount numeric not null default 0,
-      interest_rate numeric not null default 10,
-      term integer not null default 3,
-      disbursement_date date not null,
-      loan_type text not null default 'Standard',
-      loan_officer text,
-      risk_tag text default 'Performing',
-      remarks text default '',
-      created_at timestamptz default now(),
-      updated_at timestamptz default now()
-    );
-
-    create table if not exists public.payments (
-      id text primary key,
-      loan_id text not null references public.loans(id) on delete cascade,
-      amount numeric not null default 0,
-      payment_date date not null,
-      created_at timestamptz default now(),
-      updated_at timestamptz default now()
-    );
-
-    create table if not exists public.expenses (
-      id text primary key,
-      month_key text not null unique,
-      amount numeric not null default 0,
-      created_at timestamptz default now(),
-      updated_at timestamptz default now()
-    );
-
-    alter table public.loans enable row level security;
-    alter table public.payments enable row level security;
-    alter table public.expenses enable row level security;
-
-    drop policy if exists "loans public all" on public.loans;
-    drop policy if exists "payments public all" on public.payments;
-    drop policy if exists "expenses public all" on public.expenses;
-
-    create policy "loans public all" on public.loans for all using (true) with check (true);
-    create policy "payments public all" on public.payments for all using (true) with check (true);
-    create policy "expenses public all" on public.expenses for all using (true) with check (true);
-
-    alter publication supabase_realtime add table public.loans;
-    alter publication supabase_realtime add table public.payments;
-    alter publication supabase_realtime add table public.expenses;
-  -->
-
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -68,20 +13,26 @@
 
   <style>
     :root{
-      --bg:#f3f6f8; --card:#fff; --line:#dfe7ec; --text:#233143; --muted:#667085;
-      --primary:#6c8a79; --primary-dark:#5a7466; --green:#1f9d66; --red:#d14b4b;
-      --gold:#d08c1f; --blue:#3569d6; --purple:#6f59d9; --orange:#d97706;
+      --bg:#f4f7f9; --card:#fff; --line:#dde7ed; --text:#243447; --muted:#667085;
+      --primary:#6f8f7b; --primary-dark:#5f7c6c; --green:#1f9d66; --red:#d14b4b;
+      --gold:#d08c1f; --blue:#3569d6; --purple:#6f59d9; --orange:#ea8a1a; --soft:#f8fbfc;
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
-    header{background:linear-gradient(135deg,#6c8a79,#759383);color:#fff;padding:14px 18px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    header{
+      background:linear-gradient(135deg,#6f8f7b,#7d9988);
+      color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap
+    }
     .brand-title{font-size:28px;font-weight:800}
     .brand-sub{font-size:12px;color:#ffd95f}
-    nav{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    nav button,.btn{border:none;border-radius:8px;padding:10px 12px;cursor:pointer;font-weight:700;background:transparent;color:#fff}
-    nav button.active,nav button:hover{background:rgba(255,255,255,.16)}
+    nav{display:flex;gap:8px;flex-wrap:wrap}
+    nav button,.btn{
+      border:none;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer
+    }
+    nav button{background:transparent;color:#fff}
+    nav button.active,nav button:hover{background:rgba(255,255,255,.15)}
     .wrap{padding:16px}
-    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .toolbar,.statusbar,.exportbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
     .btn{background:var(--primary);color:#fff}
     .btn:hover{background:var(--primary-dark)}
     .btn.secondary{background:var(--blue)}
@@ -90,10 +41,19 @@
     .btn.small{padding:7px 10px;font-size:12px}
     .tab{display:none}
     .tab.active{display:block}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 6px 18px rgba(15,23,42,.05);margin-bottom:16px}
-    .section-title{font-size:12px;text-transform:uppercase;font-weight:800;color:#607086;border-bottom:1px solid #e6edf2;padding-bottom:10px;margin-bottom:12px;letter-spacing:.4px}
+    .card{
+      background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;
+      box-shadow:0 6px 18px rgba(15,23,42,.05);margin-bottom:16px
+    }
+    .section-title{
+      font-size:12px;text-transform:uppercase;font-weight:800;color:#607086;
+      border-bottom:1px solid #e6edf2;padding-bottom:10px;margin-bottom:12px;letter-spacing:.4px
+    }
     .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:16px}
-    .kpi{background:linear-gradient(180deg,#fff,#fbfdff);border:1px solid #e6edf2;border-radius:16px;padding:14px;box-shadow:0 3px 10px rgba(0,0,0,.03)}
+    .kpi{
+      background:linear-gradient(180deg,#fff,#fbfdff);border:1px solid #e6edf2;border-radius:16px;
+      padding:14px;box-shadow:0 3px 10px rgba(0,0,0,.03)
+    }
     .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:6px}
     .kpi .value{font-size:22px;font-weight:800;margin-bottom:4px}
     .kpi .sub{font-size:12px;color:var(--muted)}
@@ -101,10 +61,12 @@
     .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
     .row{display:flex;gap:12px;flex-wrap:wrap}
     .field{flex:1 1 220px}
-    input,select,textarea{width:100%;padding:10px;border:1px solid #cfd8df;border-radius:10px;background:#fff;margin-bottom:10px}
+    input,select,textarea{
+      width:100%;padding:10px;border:1px solid #cfd8df;border-radius:10px;background:#fff;margin-bottom:10px
+    }
     table{width:100%;border-collapse:collapse;background:#fff}
     th,td{border:1px solid #e4ebf0;padding:8px;text-align:left;font-size:14px;vertical-align:top}
-    th{background:#6f8b79;color:#fff}
+    th{background:#6f8f7b;color:#fff}
     .good{color:var(--green);font-weight:800}
     .bad{color:var(--red);font-weight:800}
     .mid{color:var(--orange);font-weight:800}
@@ -115,19 +77,21 @@
     .pill.gold{background:#fff3d8;color:#b97900}
     .pill.blue{background:#e8f0ff;color:#2859c5}
     .pill.purple{background:#f2ebff;color:#6941c6}
-    .warn-card,.rec-card{border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:#fff}
+    .warn-card,.rec-card{
+      border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:#fff
+    }
     .warn-card.overdue{border-left:4px solid var(--red);background:#fff7f7}
+    .warn-card.today{border-left:4px solid var(--orange);background:#fffaf2}
     .warn-card.week{border-left:4px solid var(--gold);background:#fffcef}
     .warn-card.next{border-left:4px solid var(--green);background:#f8fcfa}
     .warn-card.critical{border-left:4px solid #7a1c1c;background:#fff1f1}
     .rec-card{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-    .export-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
     .search-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
     .search-box{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
-    .status-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
     .notice{padding:10px 12px;border-radius:10px;background:#fff9db;border:1px solid #f3d982;color:#7c5f00}
+    .summary-box{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--soft)}
     @media print{
-      nav,.toolbar,.export-row,.btn{display:none!important}
+      nav,.toolbar,.statusbar,.exportbar,.btn{display:none!important}
       .tab{display:none!important}
       .tab.print-active{display:block!important}
       body{background:#fff}
@@ -158,12 +122,9 @@
   </header>
 
   <div class="wrap">
-    <div class="status-bar">
+    <div class="statusbar">
       <span class="pill blue" id="syncStatus">Connecting...</span>
       <span class="muted" id="lastSyncText">Last sync: --</span>
-    </div>
-    <div id="configNotice" class="notice" style="display:none;">
-      Replace <strong>YOUR_SUPABASE_URL</strong> and <strong>YOUR_SUPABASE_ANON_KEY</strong> in this file.
     </div>
 
     <div class="toolbar">
@@ -189,7 +150,7 @@
         <div class="card"><div class="section-title">Weekly Upcoming Due Loans</div><div id="dashboardDueBox"></div></div>
       </div>
       <div class="grid-2">
-        <div class="card"><div class="section-title">Expected Repayments</div><div id="dashboardExpectedBox"></div></div>
+        <div class="card"><div class="section-title">Expected Repayments by Month</div><div id="dashboardExpectedBox"></div></div>
         <div class="card"><div class="section-title">Top 5 Risk Clients</div><div id="topRiskBox"></div></div>
       </div>
     </section>
@@ -263,7 +224,7 @@
       <div class="card">
         <div class="section-title">Arrears Table</div>
         <table>
-          <thead><tr><th>Client</th><th>Expected To Date</th><th>Paid</th><th>Arrears</th><th>Days</th><th>Bucket</th><th>Risk</th><th>Remarks</th></tr></thead>
+          <thead><tr><th>Client</th><th>Next Due</th><th>Expected To Date</th><th>Paid</th><th>Arrears</th><th>Days</th><th>Bucket</th><th>Risk</th><th>Remarks</th></tr></thead>
           <tbody id="arrearsTableBody"></tbody>
         </table>
       </div>
@@ -290,7 +251,7 @@
 
     <section id="alerts" class="tab">
       <div class="card">
-        <div class="section-title">Weekly Repayment Alerts</div>
+        <div class="section-title">Smart Alerts</div>
         <div class="muted" id="alertsToday"></div>
         <div id="alertsContent"></div>
       </div>
@@ -308,16 +269,16 @@
 
     <section id="growth" class="tab">
       <div class="card">
-        <div class="section-title">Growth Forecast — All Collections Reinvested at 10%</div>
+        <div class="section-title">Growth Dashboard — Reinvestment at 10%</div>
         <div class="kpis" id="growthKpis"></div>
         <div class="grid-2">
-          <div class="card"><div class="section-title">12-Month Reinvestment Growth (10% flat, 5% PAR deduction)</div><canvas id="growthScenarioChart" height="150"></canvas></div>
+          <div class="card"><div class="section-title">Portfolio Growth — PAR 0% vs PAR 5%</div><canvas id="growthScenarioChart" height="150"></canvas></div>
           <div class="card"><div class="section-title">Monthly Interest Earned vs PAR Deduction</div><canvas id="growthMonthlyBarChart" height="150"></canvas></div>
         </div>
         <div class="card">
-          <div class="section-title">Month-by-Month Reinvestment Schedule</div>
+          <div class="section-title">Month-by-Month Growth Schedule</div>
           <table>
-            <thead><tr><th>Month</th><th>Opening ($)</th><th>Interest 10% ($)</th><th>PAR 5% ($)</th><th>Net Closing ($)</th><th>Cumulative Int ($)</th><th>Return %</th></tr></thead>
+            <thead><tr><th>Month</th><th>Opening ($)</th><th>Interest 10% ($)</th><th>PAR 5% ($)</th><th>Closing With PAR ($)</th><th>Closing No PAR ($)</th><th>Cumulative Interest ($)</th><th>Growth %</th></tr></thead>
             <tbody id="growthScheduleBody"></tbody>
           </table>
         </div>
@@ -333,21 +294,48 @@
 
     <section id="profitpar" class="tab">
       <div class="card">
-        <div class="section-title">Net Profit & PAR Analysis — Monthly Model</div>
-        <div class="kpis" id="profitParKpis"></div>
-        <div class="grid-2">
-          <div class="card"><div class="section-title">Monthly Net Profit — PAR 5% vs PAR 0%</div><canvas id="profitCompareChart" height="150"></canvas></div>
-          <div class="card"><div class="section-title">Cumulative Profit — PAR 5% vs PAR 0%</div><canvas id="cumProfitChart" height="150"></canvas></div>
+        <div class="section-title">Monthly Profit Module</div>
+
+        <div class="row">
+          <div class="field">
+            <label>Month</label>
+            <select id="profitMonthFilter" onchange="renderProfitModule()"></select>
+          </div>
+          <div class="field">
+            <label>Monthly Expense</label>
+            <input id="expenseAmountInput" type="number" placeholder="Expense amount">
+          </div>
+          <div class="field" style="display:flex;align-items:end">
+            <button class="btn" onclick="saveExpense()">Save Expense</button>
+          </div>
         </div>
+
+        <div class="kpis" id="profitKpis"></div>
+
         <div class="grid-2">
-          <div class="card"><div class="section-title">Portfolio Growth — Profit Reinvested Each Month</div><canvas id="portfolioGrowthChart" height="150"></canvas></div>
-          <div class="card"><div class="section-title">Monthly PAR Cost vs Interest Income</div><canvas id="parCostChart" height="150"></canvas></div>
+          <div class="card"><div class="section-title">Expected vs Actual Collections</div><canvas id="profitCollectionChart" height="150"></canvas></div>
+          <div class="card"><div class="section-title">Monthly Profit Trend</div><canvas id="profitTrendChart" height="150"></canvas></div>
         </div>
-        <div class="card">
-          <div class="section-title">12-Month Profit & Loss — Full Detail</div>
-          <table>
-            <thead><tr><th>Month</th><th>Portfolio (open)</th><th>Interest Income</th><th>PAR Cost (5%)</th><th>Net Profit (PAR 5%)</th><th>Net Profit (PAR 0%)</th><th>Profit Lost to PAR</th><th>Margin (PAR 5%)</th><th>Margin (PAR 0%)</th><th>Portfolio (close)</th></tr></thead>
-            <tbody id="profitParTableBody"></tbody>
+
+        <div class="summary-box" id="profitMonthSummary"></div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="section-title">Monthly Profit & Cashflow Table</div>
+          <table id="profitTable">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Expected</th>
+                <th>Actual</th>
+                <th>Collection Efficiency %</th>
+                <th>Estimated Interest Income</th>
+                <th>Expenses</th>
+                <th>Profit</th>
+                <th>Opening Cash</th>
+                <th>Closing Cash</th>
+              </tr>
+            </thead>
+            <tbody id="profitTableBody"></tbody>
           </table>
         </div>
       </div>
@@ -355,9 +343,14 @@
 
     <section id="report" class="tab">
       <div class="card">
-        <div class="section-title">Print-Ready Monthly Management Report</div>
-        <div class="row"><div class="field"><label>Select Month</label><select id="reportMonthFilter" onchange="renderMonthlyReport()"></select></div></div>
-        <div class="export-row">
+        <div class="section-title">Monthly Management Report</div>
+        <div class="row">
+          <div class="field">
+            <label>Select Month</label>
+            <select id="reportMonthFilter" onchange="renderMonthlyReport()"></select>
+          </div>
+        </div>
+        <div class="exportbar">
           <button class="btn gold" onclick="window.print()">Print Report</button>
           <button class="btn gold" onclick="exportMonthlyReportPDF()">Export Report to PDF</button>
           <button class="btn gold" onclick="exportTableToExcel('reportSummaryTable','monthly_report.xlsx')">Export Summary to Excel</button>
@@ -376,8 +369,8 @@
     let payments = [];
     let expenses = [];
     let charts = {};
-    let refreshTimer = null;
     let realtimeChannel = null;
+    let refreshTimer = null;
 
     function setSyncStatus(text, cls="blue"){
       const el = document.getElementById("syncStatus");
@@ -386,28 +379,27 @@
       document.getElementById("lastSyncText").textContent = `Last sync: ${new Date().toLocaleTimeString()}`;
     }
 
-    function showConfigNotice(show){
-      document.getElementById("configNotice").style.display = show ? "block" : "none";
-    }
-
     function initSupabase(){
-      const badConfig = SUPABASE_URL.includes("YOUR_SUPABASE") || SUPABASE_ANON_KEY.includes("YOUR_SUPABASE");
-      if (badConfig) {
-        showConfigNotice(true);
-        setSyncStatus("Config needed", "red");
-        return false;
-      }
       supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      showConfigNotice(false);
-      return true;
     }
 
-    function formatMoney(v){ return "$" + Number(v || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
-    function monthKey(dateStr){ return new Date(dateStr).toLocaleString("en-US",{month:"short", year:"numeric"}); }
+    function formatMoney(v){
+      return "$" + Number(v || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+
+    function monthKey(dateStr){
+      return new Date(dateStr).toLocaleString("en-US",{month:"short", year:"numeric"});
+    }
+
+    function monthLabelShort(dateStr){
+      return new Date(dateStr).toLocaleString("en-US",{month:"short"});
+    }
 
     function showTab(id, btn){
       document.querySelectorAll(".tab").forEach(t=>{t.classList.remove("active");t.classList.remove("print-active")});
-      const target=document.getElementById(id); target.classList.add("active"); target.classList.add("print-active");
+      const target=document.getElementById(id);
+      target.classList.add("active");
+      target.classList.add("print-active");
       document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
       if(btn) btn.classList.add("active");
       renderAll();
@@ -417,6 +409,7 @@
       const set = new Set();
       loans.forEach(l => set.add(monthKey(l.disbursement_date)));
       payments.forEach(p => set.add(monthKey(p.payment_date)));
+      loans.forEach(l => getDueSchedule(l).forEach(s => set.add(monthKey(s.dueDate))));
       return Array.from(set).sort((a,b)=>new Date("1 "+a)-new Date("1 "+b));
     }
 
@@ -424,10 +417,12 @@
       return payments.filter(p=>p.loan_id===loanId).sort((a,b)=>new Date(a.payment_date)-new Date(b.payment_date));
     }
 
-    function getPaidAmount(loanId){ return getLoanPayments(loanId).reduce((s,p)=>s+Number(p.amount),0); }
+    function getPaidAmount(loanId){
+      return getLoanPayments(loanId).reduce((s,p)=>s+Number(p.amount),0);
+    }
 
     function getLastRepayment(loanId){
-      const arr=getLoanPayments(loanId);
+      const arr = getLoanPayments(loanId);
       return arr.length ? arr[arr.length-1].payment_date : "No payment yet";
     }
 
@@ -438,7 +433,9 @@
     }
 
     function getTotalRepayable(loan){
-      const p=Number(loan.amount), r=Number(loan.interest_rate)/100, t=Number(loan.term);
+      const p = Number(loan.amount);
+      const r = Number(loan.interest_rate)/100;
+      const t = Number(loan.term);
       return p + (p*r*t);
     }
 
@@ -453,56 +450,93 @@
     }
 
     function getDueSchedule(loan){
-      const schedule=[]; const p=Number(loan.amount), r=Number(loan.interest_rate)/100;
+      const schedule=[];
+      const p=Number(loan.amount), r=Number(loan.interest_rate)/100;
       for(let i=1;i<=loan.term;i++){
-        const d=new Date(loan.disbursement_date); d.setMonth(d.getMonth()+i);
-        let amount=getMonthlyDue(loan);
+        const d = new Date(loan.disbursement_date);
+        d.setMonth(d.getMonth()+i);
+        let amount = getMonthlyDue(loan);
+
         if(loan.loan_type==="Interest Then Balloon"){
           if(i===1) amount = p*r;
           if(i===loan.term) amount = p + (p*r*loan.term);
         }
-        schedule.push({dueDate:d.toISOString().split("T")[0], amount:Number(amount)});
+
+        schedule.push({
+          dueDate:d.toISOString().split("T")[0],
+          amount:Number(amount)
+        });
       }
       return schedule;
     }
 
+    function getNextDue(loan){
+      const today = new Date();
+      return getDueSchedule(loan).find(s => new Date(s.dueDate) >= stripTime(today)) || null;
+    }
+
+    function stripTime(d){
+      const x = new Date(d);
+      x.setHours(0,0,0,0);
+      return x;
+    }
+
     function getExpectedToDate(loan){
-      const today=new Date();
+      const today = stripTime(new Date());
       if(loan.client_name==="Mamhanya") return 601;
-      return getDueSchedule(loan).filter(x=>new Date(x.dueDate)<=today).reduce((s,x)=>s+x.amount,0);
+
+      return getDueSchedule(loan)
+        .filter(x => stripTime(new Date(x.dueDate)) < today)   // fixed arrears logic: only due dates before today count as arrears
+        .reduce((s,x)=>s+Number(x.amount),0);
+    }
+
+    function getExpectedIncludingToday(loan){
+      const today = stripTime(new Date());
+      if(loan.client_name==="Mamhanya") return 601;
+
+      return getDueSchedule(loan)
+        .filter(x => stripTime(new Date(x.dueDate)) <= today)
+        .reduce((s,x)=>s+Number(x.amount),0);
     }
 
     function getArrears(loan){
       if(loan.client_name==="Mamhanya") return 466;
-      return Math.max(0, getExpectedToDate(loan)-getPaidAmount(loan.id));
+      return Math.max(0, getExpectedToDate(loan) - getPaidAmount(loan.id));
     }
 
     function getBalance(loan){
-      const paid=getPaidAmount(loan.id);
+      const paid = getPaidAmount(loan.id);
       if(loan.loan_type==="Interest Only") return Number(loan.amount);
-      return Math.max(0, getTotalRepayable(loan)-paid);
+      return Math.max(0, getTotalRepayable(loan) - paid);
     }
 
     function getStatus(loan){
-      const arrears=getArrears(loan);
-      if(loan.loan_type==="Interest Only") return arrears>0 ? "In Arrears":"Current";
-      if(getBalance(loan)<=0) return "Fully Repaid";
-      if(arrears>0) return "In Arrears";
+      const today = stripTime(new Date());
+      const next = getNextDue(loan);
+      const arrears = getArrears(loan);
+
+      if(getBalance(loan) <= 0 && loan.loan_type!=="Interest Only") return "Fully Repaid";
+      if(arrears > 0) return "In Arrears";
+      if(next && stripTime(new Date(next.dueDate)).getTime() === today.getTime()) return "Due Today";
+      if(next && stripTime(new Date(next.dueDate)) > today) return "Current";
+      if(loan.loan_type==="Interest Only" && arrears===0) return "Current";
       return "Current";
     }
 
     function getDaysInArrears(loan){
-      const arrears=getArrears(loan);
+      const arrears = getArrears(loan);
       if(arrears<=0) return 0;
-      const today=new Date();
-      const overdue=getDueSchedule(loan).filter(x=>new Date(x.dueDate)<today);
+
+      const today = stripTime(new Date());
+      const overdue = getDueSchedule(loan).filter(x => stripTime(new Date(x.dueDate)) < today);
       if(!overdue.length) return 0;
-      const oldest=new Date(overdue[0].dueDate);
+
+      const oldest = stripTime(new Date(overdue[0].dueDate));
       return Math.max(1, Math.floor((today-oldest)/86400000));
     }
 
     function getPARBucket(loan){
-      const d=getDaysInArrears(loan);
+      const d = getDaysInArrears(loan);
       if(d<=0) return "Current";
       if(d<=30) return "PAR 1";
       return "PAR 30";
@@ -516,9 +550,21 @@
       return "Current";
     }
 
-    function getNextDue(loan){
-      const today = new Date();
-      return getDueSchedule(loan).find(s => new Date(s.dueDate) >= today) || null;
+    function getDueBuckets(){
+      const today = stripTime(new Date());
+      const overdue=[], dueToday=[], dueThisWeek=[], dueNextWeek=[];
+      loans.forEach(loan=>{
+        const next = getNextDue(loan);
+        if(getArrears(loan)>0) overdue.push({loan});
+        if(next){
+          const diff = Math.ceil((stripTime(new Date(next.dueDate)) - today)/86400000);
+          const item = {loan, schedule:next, days:diff};
+          if(diff===0) dueToday.push(item);
+          else if(diff>=1 && diff<=7) dueThisWeek.push(item);
+          else if(diff>=8 && diff<=14) dueNextWeek.push(item);
+        }
+      });
+      return {overdue,dueToday,dueThisWeek,dueNextWeek};
     }
 
     function aggregateDisbursements(){
@@ -536,84 +582,109 @@
     function aggregateExpectedCollections(){
       const map={}; getAllMonths().forEach(m=>map[m]=0);
       loans.forEach(l=>{
-        if(l.client_name==="Mamhanya"){ map["Apr 2026"]=(map["Apr 2026"]||0)+601; return; }
+        if(l.client_name==="Mamhanya"){
+          map["Apr 2026"] = (map["Apr 2026"] || 0) + 601;
+          return;
+        }
         getDueSchedule(l).forEach(s=>{
-          const mk=monthKey(s.dueDate);
-          map[mk]=(map[mk]||0)+Number(s.amount);
+          const mk = monthKey(s.dueDate);
+          map[mk] = (map[mk]||0) + Number(s.amount);
         });
       });
       return map;
     }
 
+    function getExpenseAmount(monthKeyValue){
+      const rec = expenses.find(e => e.month_key === monthKeyValue);
+      return rec ? Number(rec.amount) : 0;
+    }
+
+    function getEstimatedInterestFromPayments(monthKeyValue){
+      let total = 0;
+      payments.filter(p => monthKey(p.payment_date)===monthKeyValue).forEach(p=>{
+        const loan = loans.find(l => l.id===p.loan_id);
+        if(!loan) return;
+        const repayable = getTotalRepayable(loan);
+        const totalInterest = repayable - Number(loan.amount);
+        const ratio = repayable > 0 ? totalInterest / repayable : 0;
+        total += Number(p.amount) * ratio;
+      });
+      return total;
+    }
+
+    function getMonthlyProfitRows(){
+      const months = getAllMonths();
+      const expected = aggregateExpectedCollections();
+      const actual = aggregateCollections();
+      const disb = aggregateDisbursements();
+
+      let openingCash = 0;
+      return months.map(m => {
+        const expectedAmt = expected[m] || 0;
+        const actualAmt = actual[m] || 0;
+        const expenseAmt = getExpenseAmount(m);
+        const interestAmt = getEstimatedInterestFromPayments(m);
+        const profit = interestAmt - expenseAmt;
+        const closingCash = openingCash + actualAmt - (disb[m] || 0) - expenseAmt;
+        const row = {
+          month:m,
+          expected:expectedAmt,
+          actual:actualAmt,
+          efficiency: expectedAmt>0 ? (actualAmt/expectedAmt)*100 : 0,
+          interest:interestAmt,
+          expense:expenseAmt,
+          profit,
+          openingCash,
+          closingCash
+        };
+        openingCash = closingCash;
+        return row;
+      });
+    }
+
     function getGrowthScenario(initialPortfolio, interestRate=10, parRate=5){
-      const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       let openWith=initialPortfolio, openNo=initialPortfolio;
       const withPar=[initialPortfolio], noPar=[initialPortfolio], rows=[];
-      let cumInt=0, parCost=0;
+      let cumInt=0;
+
       for(let i=0;i<12;i++){
         const interest = openWith * (interestRate/100);
         const par = interest * (parRate/100);
-        const close = openWith + interest - par;
-        cumInt += interest; parCost += par;
-        rows.push({month: months[i], opening: openWith, interest, par, close, cumInt, returnPct: ((close-initialPortfolio)/initialPortfolio)*100});
-        openWith = close;
-        const intNo = openNo * (interestRate/100);
-        openNo = openNo + intNo;
-        withPar.push(close); noPar.push(openNo);
+        const closeWith = openWith + interest - par;
+
+        const interestNo = openNo * (interestRate/100);
+        const closeNo = openNo + interestNo;
+
+        cumInt += interest;
+        rows.push({
+          month:months[i],
+          opening:openWith,
+          interest,
+          par,
+          closeWith,
+          closeNo,
+          cumulativeInterest:cumInt,
+          growthPct:((closeWith-initialPortfolio)/initialPortfolio)*100
+        });
+
+        openWith = closeWith;
+        openNo = closeNo;
+        withPar.push(closeWith);
+        noPar.push(closeNo);
       }
-      return { months, rows, withPar, noPar, valueWithPar: withPar[12], valueNoPar: noPar[12], parCost, netGrowthWithPar: ((withPar[12]-initialPortfolio)/initialPortfolio)*100, netGrowthNoPar: ((noPar[12]-initialPortfolio)/initialPortfolio)*100 };
-    }
 
-    function getProfitParModel(){
-      const initial = loans.reduce((s,l)=>s+Number(l.amount),0);
-      const scenario = getGrowthScenario(initial,10,5);
-      let cumPar5=0, cumPar0=0;
-      const rows = scenario.rows.map(r => {
-        const np5 = r.interest - r.par;
-        const np0 = r.interest;
-        cumPar5 += np5; cumPar0 += np0;
-        return {
-          month: r.month, opening: r.opening, interest: r.interest, parCost: r.par,
-          netProfitPar5: np5, netProfitPar0: np0, profitLost: np0-np5,
-          marginPar5: r.interest ? (np5/r.interest)*100 : 0, marginPar0: 100,
-          close: r.close, cumPar5, cumPar0
-        };
-      });
-      return {initial, rows, scenario};
-    }
-
-    function buildGradient(ctx, c1, c2){
-      const g = ctx.createLinearGradient(0,0,0,260);
-      g.addColorStop(0,c1); g.addColorStop(1,c2);
-      return g;
-    }
-
-    function destroyChart(id){ if(charts[id]) charts[id].destroy(); }
-    function renderChart(id, config){
-      destroyChart(id);
-      charts[id] = new Chart(document.getElementById(id), config);
-    }
-
-    function getDueBuckets(){
-      const today = new Date();
-      const overdue=[], dueThisWeek=[], dueNextWeek=[], upcoming=[];
-      loans.forEach(loan=>{
-        const next = getNextDue(loan);
-        if(getArrears(loan)>0) overdue.push({loan});
-        if(next){
-          const days = Math.ceil((new Date(next.dueDate)-today)/86400000);
-          const item = {loan, schedule:next, days};
-          if(days>=0 && days<=7) dueThisWeek.push(item);
-          else if(days>=8 && days<=14) dueNextWeek.push(item);
-          else if(days>=15 && days<=30) upcoming.push(item);
-        }
-      });
-      return {overdue,dueThisWeek,dueNextWeek,upcoming};
+      return {
+        months, rows, withPar, noPar,
+        valueWithPar: withPar[12],
+        valueNoPar: noPar[12],
+        totalParCost: rows.reduce((s,r)=>s+r.par,0),
+        netGrowthWithPar: ((withPar[12]-initialPortfolio)/initialPortfolio)*100,
+        netGrowthNoPar: ((noPar[12]-initialPortfolio)/initialPortfolio)*100
+      };
     }
 
     async function fetchLiveData(){
-      if(!supabaseClient) return;
-
       setSyncStatus("Syncing...", "gold");
 
       const [loansRes, paymentsRes, expensesRes] = await Promise.all([
@@ -640,84 +711,130 @@
     }
 
     function startRealtime(){
-      if(!supabaseClient) return;
-
-      try {
-        realtimeChannel = supabaseClient.channel("loantrack-live")
-          .on("postgres_changes", { event: "*", schema: "public", table: "loans" }, fetchLiveData)
-          .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, fetchLiveData)
-          .on("postgres_changes", { event: "*", schema: "public", table: "expenses" }, fetchLiveData)
-          .subscribe();
-      } catch (e) {
-        console.error(e);
-      }
+      realtimeChannel = supabaseClient.channel("loantrack-live-upgrade")
+        .on("postgres_changes", { event:"*", schema:"public", table:"loans" }, fetchLiveData)
+        .on("postgres_changes", { event:"*", schema:"public", table:"payments" }, fetchLiveData)
+        .on("postgres_changes", { event:"*", schema:"public", table:"expenses" }, fetchLiveData)
+        .subscribe();
 
       clearInterval(refreshTimer);
       refreshTimer = setInterval(fetchLiveData, 15000);
-      document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) fetchLiveData();
+
+      document.addEventListener("visibilitychange", ()=>{
+        if(!document.hidden) fetchLiveData();
       });
     }
 
+    function destroyChart(id){
+      if(charts[id]) charts[id].destroy();
+    }
+
+    function renderChart(id, config){
+      destroyChart(id);
+      charts[id] = new Chart(document.getElementById(id), config);
+    }
+
     function renderDashboard(){
-      const totalDisbursed=loans.reduce((s,l)=>s+Number(l.amount),0);
-      const totalCollected=payments.reduce((s,p)=>s+Number(p.amount),0);
-      const totalArrears=loans.reduce((s,l)=>s+getArrears(l),0);
-      const outstanding=loans.reduce((s,l)=>s+getBalance(l),0);
-      const current=loans.filter(l=>getStatus(l)==="Current").length;
-      const inArrears=loans.filter(l=>getStatus(l)==="In Arrears").length;
-      const repaid=loans.filter(l=>getStatus(l)==="Fully Repaid").length;
-      const expectedToDate=loans.reduce((s,l)=>s+getExpectedToDate(l),0);
-      const efficiency=expectedToDate>0 ? (totalCollected/expectedToDate)*100 : 0;
+      const totalDisbursed = loans.reduce((s,l)=>s+Number(l.amount),0);
+      const totalCollected = payments.reduce((s,p)=>s+Number(p.amount),0);
+      const totalArrears = loans.reduce((s,l)=>s+getArrears(l),0);
+      const outstanding = loans.reduce((s,l)=>s+getBalance(l),0);
+      const current = loans.filter(l=>getStatus(l)==="Current").length;
+      const arrearsCount = loans.filter(l=>getStatus(l)==="In Arrears").length;
+      const dueTodayCount = loans.filter(l=>getStatus(l)==="Due Today").length;
+      const expectedToDate = loans.reduce((s,l)=>s+getExpectedIncludingToday(l),0);
+      const efficiency = expectedToDate>0 ? (totalCollected/expectedToDate)*100 : 0;
 
       document.getElementById("dashboardKpis").innerHTML = `
         <div class="kpi"><div class="label">Portfolio Disbursed</div><div class="value">${formatMoney(totalDisbursed)}</div><div class="sub">All loans</div></div>
         <div class="kpi"><div class="label">Collected</div><div class="value good">${formatMoney(totalCollected)}</div><div class="sub">${efficiency.toFixed(1)}% efficiency</div></div>
         <div class="kpi"><div class="label">Outstanding</div><div class="value">${formatMoney(outstanding)}</div><div class="sub">Loan book</div></div>
-        <div class="kpi"><div class="label">Arrears</div><div class="value bad">${formatMoney(totalArrears)}</div><div class="sub">${inArrears} accounts</div></div>
-        <div class="kpi"><div class="label">High Risk + Default</div><div class="value mid">${loans.filter(l=>["At Risk","Default"].includes(l.risk_tag||"")).length}</div><div class="sub">Tagged accounts</div></div>
+        <div class="kpi"><div class="label">Arrears</div><div class="value bad">${formatMoney(totalArrears)}</div><div class="sub">${arrearsCount} accounts</div></div>
+        <div class="kpi"><div class="label">Due Today</div><div class="value mid">${dueTodayCount}</div><div class="sub">Immediate follow-up</div></div>
       `;
 
       const ctxPrincipal=document.getElementById("principalChart").getContext("2d");
       renderChart("principalChart", {
         type:"bar",
-        data:{labels:["Principal Disbursed","Collected","Outstanding"],datasets:[{data:[totalDisbursed,totalCollected,outstanding],backgroundColor:[buildGradient(ctxPrincipal,"rgba(53,105,214,.95)","rgba(53,105,214,.3)"),buildGradient(ctxPrincipal,"rgba(31,157,102,.95)","rgba(31,157,102,.3)"),buildGradient(ctxPrincipal,"rgba(111,89,217,.95)","rgba(111,89,217,.3)")],borderRadius:10}]},
+        data:{
+          labels:["Principal Disbursed","Collected","Outstanding"],
+          datasets:[{
+            data:[totalDisbursed,totalCollected,outstanding],
+            backgroundColor:["#3569d6","#1f9d66","#6f59d9"],
+            borderRadius:10
+          }]
+        },
         options:{plugins:{legend:{display:false}}}
       });
 
       renderChart("statusChart", {
         type:"doughnut",
-        data:{labels:["Current","In Arrears","Fully Repaid"],datasets:[{data:[current,inArrears,repaid],backgroundColor:["#1f9d66","#d14b4b","#d08c1f"],borderWidth:0}]},
+        data:{
+          labels:["Current","Due Today","In Arrears","Fully Repaid"],
+          datasets:[{
+            data:[
+              current,
+              loans.filter(l=>getStatus(l)==="Due Today").length,
+              loans.filter(l=>getStatus(l)==="In Arrears").length,
+              loans.filter(l=>getStatus(l)==="Fully Repaid").length
+            ],
+            backgroundColor:["#1f9d66","#ea8a1a","#d14b4b","#3569d6"],
+            borderWidth:0
+          }]
+        },
         options:{cutout:"60%",plugins:{legend:{position:"bottom"}}}
       });
 
-      const months=getAllMonths(), collections=aggregateCollections();
-      const ctxCol=document.getElementById("collectionsChart").getContext("2d");
-      const ctxOut=document.getElementById("outstandingChart").getContext("2d");
+      const months=getAllMonths();
+      const collections=aggregateCollections();
       const arrearsLoans=loans.filter(l=>getArrears(l)>0).sort((a,b)=>getArrears(b)-getArrears(a)).slice(0,6);
 
       renderChart("collectionsChart", {
         type:"bar",
-        data:{labels:months,datasets:[{label:"Collections",data:months.map(m=>collections[m]||0),backgroundColor:buildGradient(ctxCol,"rgba(31,157,102,.95)","rgba(31,157,102,.3)"),borderRadius:10}]},
+        data:{
+          labels:months,
+          datasets:[{
+            label:"Collections",
+            data:months.map(m=>collections[m]||0),
+            backgroundColor:"#1f9d66",
+            borderRadius:10
+          }]
+        },
         options:{plugins:{legend:{display:false}}}
       });
 
       renderChart("arrearsChart", {
         type:"bar",
-        data:{labels:arrearsLoans.map(l=>l.client_name),datasets:[{label:"Arrears",data:arrearsLoans.map(l=>getArrears(l)),backgroundColor:"#d14b4b",borderRadius:10}]},
+        data:{
+          labels:arrearsLoans.map(l=>l.client_name),
+          datasets:[{
+            label:"Arrears",
+            data:arrearsLoans.map(l=>getArrears(l)),
+            backgroundColor:"#d14b4b",
+            borderRadius:10
+          }]
+        },
         options:{plugins:{legend:{display:false}}}
       });
 
       renderChart("outstandingChart", {
         type:"bar",
-        data:{labels:loans.map(l=>l.client_name),datasets:[{label:"Outstanding",data:loans.map(l=>getBalance(l)),backgroundColor:buildGradient(ctxOut,"rgba(111,89,217,.95)","rgba(111,89,217,.3)"),borderRadius:10}]},
+        data:{
+          labels:loans.map(l=>l.client_name),
+          datasets:[{
+            label:"Outstanding",
+            data:loans.map(l=>getBalance(l)),
+            backgroundColor:"#6f59d9",
+            borderRadius:10
+          }]
+        },
         options:{plugins:{legend:{display:false}}}
       });
 
       renderChart("parChart", {
         type:"bar",
         data:{
-          labels:["PAR 1 Value","PAR 30 Value","Total Arrears"],
+          labels:["PAR 1","PAR 30","Total Arrears"],
           datasets:[{
             data:[
               loans.filter(l=>getPARBucket(l)==="PAR 1").reduce((s,l)=>s+getArrears(l),0),
@@ -731,59 +848,94 @@
         options:{plugins:{legend:{display:false}}}
       });
 
-      document.getElementById("dashboardArrearsBox").innerHTML = arrearsLoans.length
-        ? arrearsLoans.map(l=>`<div class="warn-card overdue"><strong>${l.client_name}</strong> — ${formatMoney(getArrears(l))} | ${getPARBucket(l)} | <span class="pill purple">${l.risk_tag||"Performing"}</span></div>`).join("")
-        : `<div class="muted">No accounts in arrears.</div>`;
+      document.getElementById("dashboardArrearsBox").innerHTML =
+        arrearsLoans.length
+          ? arrearsLoans.map(l=>`
+              <div class="warn-card overdue">
+                <strong>${l.client_name}</strong> — ${formatMoney(getArrears(l))} | ${getPARBucket(l)} | <span class="pill purple">${l.risk_tag||"Performing"}</span><br>
+                <span class="muted">${l.remarks || "No remarks"}</span>
+              </div>
+            `).join("")
+          : `<div class="muted">No accounts in arrears.</div>`;
 
-      const due7 = getDueBuckets().dueThisWeek;
-      document.getElementById("dashboardDueBox").innerHTML = due7.length
-        ? due7.map(x=>`<div class="warn-card week"><strong>${x.loan.client_name}</strong> | Next: ${x.schedule.dueDate} | Instalment: ${formatMoney(x.schedule.amount)}</div>`).join("")
-        : `<div class="muted">No loans due in the next 7 days.</div>`;
+      const dueBuckets = getDueBuckets();
+      const dueCards = [
+        ...dueBuckets.dueToday.map(x=>`<div class="warn-card today"><strong>${x.loan.client_name}</strong> | Due today | ${formatMoney(x.schedule.amount)}</div>`),
+        ...dueBuckets.dueThisWeek.map(x=>`<div class="warn-card week"><strong>${x.loan.client_name}</strong> | ${x.days} day(s) to due | ${formatMoney(x.schedule.amount)}</div>`)
+      ];
+      document.getElementById("dashboardDueBox").innerHTML = dueCards.length ? dueCards.join("") : `<div class="muted">No dues today or this week.</div>`;
 
       const expectedMap = aggregateExpectedCollections();
-      document.getElementById("dashboardExpectedBox").innerHTML = `<table><thead><tr><th>Month</th><th>Expected</th></tr></thead><tbody>${
-        months.map(m=>`<tr><td>${m}</td><td>${formatMoney(expectedMap[m]||0)}</td></tr>`).join("")
-      }</tbody></table>`;
+      document.getElementById("dashboardExpectedBox").innerHTML = `
+        <table>
+          <thead><tr><th>Month</th><th>Expected</th></tr></thead>
+          <tbody>${months.map(m=>`<tr><td>${m}</td><td>${formatMoney(expectedMap[m]||0)}</td></tr>`).join("")}</tbody>
+        </table>
+      `;
 
-      const topRisk = loans.slice().sort((a,b)=>getArrears(b)-getArrears(a)).slice(0,5);
+      const topRisk = loans.slice().sort((a,b)=>(getArrears(b)+getDaysInArrears(b))-(getArrears(a)+getDaysInArrears(a))).slice(0,5);
       document.getElementById("topRiskBox").innerHTML = topRisk.map(l=>`
         <div class="warn-card ${getArrears(l)>0?'overdue':'next'}">
           <strong>${l.client_name}</strong> | Arrears: ${formatMoney(getArrears(l))} | Days: ${getDaysInArrears(l)} | <span class="pill ${l.risk_tag==='Default'?'red':l.risk_tag==='At Risk'?'gold':'blue'}">${l.risk_tag||'Performing'}</span><br>
           <span class="muted">${l.remarks || 'No remarks'}</span>
-        </div>`).join("");
+        </div>
+      `).join("");
     }
 
     function renderAlerts(){
       const today = new Date();
       document.getElementById("alertsToday").textContent = `Today: ${today.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}`;
-      const buckets=getDueBuckets();
-      const html = [];
+      const buckets = getDueBuckets();
 
-      html.push(`<div class="card"><div class="section-title">Overdue Accounts — Action Required (${buckets.overdue.length})</div>${
-        buckets.overdue.length ? buckets.overdue.map(x=>`
-          <div class="warn-card ${getWarningLevel(x.loan)==='Critical'?'critical':'overdue'}">
-            <div><strong>${x.loan.client_name}</strong> | ${x.loan.id} | Instalment: ${formatMoney(getMonthlyDue(x.loan))} | Days OD: ${getDaysInArrears(x.loan)} | Arrears: ${formatMoney(getArrears(x.loan))} <span class="pill red">${getWarningLevel(x.loan)}</span> <span class="pill ${x.loan.risk_tag==='Default'?'red':x.loan.risk_tag==='At Risk'?'gold':'blue'}">${x.loan.risk_tag||'Performing'}</span></div>
-            <div class="muted">${x.loan.remarks || "No remarks"}</div>
-          </div>`).join("") : `<div class="muted">No overdue accounts.</div>`
-      }</div>`);
+      const blocks = [];
 
-      html.push(`<div class="card"><div class="section-title">Due This Week (0–7 Days) (${buckets.dueThisWeek.length})</div>${
-        buckets.dueThisWeek.length ? buckets.dueThisWeek.map(x=>`
-          <div class="warn-card week">
-            <div><strong>${x.loan.client_name}</strong> | ${x.loan.id} | Next: ${x.schedule.dueDate} | Instalment: ${formatMoney(x.schedule.amount)} | Days to due: ${x.days} <span class="pill gold">${x.loan.risk_tag||'Performing'}</span></div>
-            <div class="muted">${x.loan.remarks || "No remarks"}</div>
-          </div>`).join("") : `<div class="muted">No loans due this week.</div>`
-      }</div>`);
+      blocks.push(`
+        <div class="card">
+          <div class="section-title">Overdue Accounts (${buckets.overdue.length})</div>
+          ${buckets.overdue.length ? buckets.overdue.map(x=>`
+            <div class="warn-card ${getWarningLevel(x.loan)==='Critical'?'critical':'overdue'}">
+              <strong>${x.loan.client_name}</strong> | Arrears: ${formatMoney(getArrears(x.loan))} | Days overdue: ${getDaysInArrears(x.loan)} |
+              <span class="pill red">${getWarningLevel(x.loan)}</span>
+              <span class="pill ${x.loan.risk_tag==='Default'?'red':x.loan.risk_tag==='At Risk'?'gold':'blue'}">${x.loan.risk_tag||"Performing"}</span><br>
+              <span class="muted">${x.loan.remarks || "No remarks"}</span>
+            </div>`).join("") : `<div class="muted">No overdue accounts.</div>`}
+        </div>
+      `);
 
-      html.push(`<div class="card"><div class="section-title">Due Next Week (8–14 Days) (${buckets.dueNextWeek.length})</div>${
-        buckets.dueNextWeek.length ? buckets.dueNextWeek.map(x=>`
-          <div class="warn-card next">
-            <div><strong>${x.loan.client_name}</strong> | ${x.loan.id} | Next: ${x.schedule.dueDate} | Instalment: ${formatMoney(x.schedule.amount)} | Days to due: ${x.days} <span class="pill blue">${x.loan.risk_tag||'Performing'}</span></div>
-            <div class="muted">${x.loan.remarks || "No remarks"}</div>
-          </div>`).join("") : `<div class="muted">No loans due next week.</div>`
-      }</div>`);
+      blocks.push(`
+        <div class="card">
+          <div class="section-title">Due Today (${buckets.dueToday.length})</div>
+          ${buckets.dueToday.length ? buckets.dueToday.map(x=>`
+            <div class="warn-card today">
+              <strong>${x.loan.client_name}</strong> | Instalment: ${formatMoney(x.schedule.amount)} | Due: ${x.schedule.dueDate}<br>
+              <span class="muted">${x.loan.remarks || "No remarks"}</span>
+            </div>`).join("") : `<div class="muted">No accounts due today.</div>`}
+        </div>
+      `);
 
-      document.getElementById("alertsContent").innerHTML = html.join("");
+      blocks.push(`
+        <div class="card">
+          <div class="section-title">Due This Week (${buckets.dueThisWeek.length})</div>
+          ${buckets.dueThisWeek.length ? buckets.dueThisWeek.map(x=>`
+            <div class="warn-card week">
+              <strong>${x.loan.client_name}</strong> | ${x.days} day(s) to due | Instalment: ${formatMoney(x.schedule.amount)}<br>
+              <span class="muted">${x.loan.remarks || "No remarks"}</span>
+            </div>`).join("") : `<div class="muted">No accounts due this week.</div>`}
+        </div>
+      `);
+
+      blocks.push(`
+        <div class="card">
+          <div class="section-title">Due Next Week (${buckets.dueNextWeek.length})</div>
+          ${buckets.dueNextWeek.length ? buckets.dueNextWeek.map(x=>`
+            <div class="warn-card next">
+              <strong>${x.loan.client_name}</strong> | ${x.days} day(s) to due | Instalment: ${formatMoney(x.schedule.amount)}<br>
+              <span class="muted">${x.loan.remarks || "No remarks"}</span>
+            </div>`).join("") : `<div class="muted">No accounts due next week.</div>`}
+        </div>
+      `);
+
+      document.getElementById("alertsContent").innerHTML = blocks.join("");
     }
 
     function renderSchedules(){
@@ -807,31 +959,19 @@
 
       document.getElementById("growthKpis").innerHTML = `
         <div class="kpi"><div class="label">Initial Portfolio</div><div class="value">${formatMoney(initial)}</div><div class="sub">Starting capital</div></div>
-        <div class="kpi"><div class="label">12M Value (With PAR)</div><div class="value">${formatMoney(sc.valueWithPar)}</div><div class="sub">After 5% monthly PAR</div></div>
-        <div class="kpi"><div class="label">12M Value (No PAR)</div><div class="value good">${formatMoney(sc.valueNoPar)}</div><div class="sub">Ideal scenario</div></div>
-        <div class="kpi"><div class="label">PAR Cost (12M)</div><div class="value bad">${formatMoney(sc.parCost)}</div><div class="sub">Lost to PAR deductions</div></div>
-        <div class="kpi"><div class="label">Net Growth (With PAR)</div><div class="value mid">${sc.netGrowthWithPar.toFixed(1)}%</div><div class="sub">vs ${sc.netGrowthNoPar.toFixed(1)}% no PAR</div></div>
+        <div class="kpi"><div class="label">12M Value (PAR 5%)</div><div class="value">${formatMoney(sc.valueWithPar)}</div><div class="sub">${sc.netGrowthWithPar.toFixed(1)}% growth</div></div>
+        <div class="kpi"><div class="label">12M Value (PAR 0%)</div><div class="value good">${formatMoney(sc.valueNoPar)}</div><div class="sub">${sc.netGrowthNoPar.toFixed(1)}% growth</div></div>
+        <div class="kpi"><div class="label">PAR Cost (12M)</div><div class="value bad">${formatMoney(sc.totalParCost)}</div><div class="sub">Growth lost to PAR</div></div>
+        <div class="kpi"><div class="label">12M Cumulative Interest</div><div class="value mid">${formatMoney(sc.rows[sc.rows.length-1]?.cumulativeInterest || 0)}</div><div class="sub">At 10% reinvestment</div></div>
       `;
-
-      document.getElementById("growthScheduleBody").innerHTML = sc.rows.map(r=>`
-        <tr>
-          <td>${r.month}</td>
-          <td>${formatMoney(r.opening)}</td>
-          <td class="good">${formatMoney(r.interest)}</td>
-          <td class="bad">(${formatMoney(r.par)})</td>
-          <td><strong>${formatMoney(r.close)}</strong></td>
-          <td>${formatMoney(r.cumInt)}</td>
-          <td class="good">${r.returnPct.toFixed(1)}%</td>
-        </tr>
-      `).join("");
 
       renderChart("growthScenarioChart", {
         type:"line",
         data:{
           labels:["Start",...sc.months],
           datasets:[
-            {label:"With PAR (5%/m)",data:sc.withPar,borderColor:"#1f3b73",backgroundColor:"rgba(31,59,115,.10)",pointRadius:4,tension:.35,fill:true},
-            {label:"No PAR (ideal)",data:sc.noPar,borderColor:"#1f9d55",backgroundColor:"rgba(31,157,85,.08)",borderDash:[6,4],pointRadius:3,tension:.35,fill:false}
+            {label:"PAR 5%",data:sc.withPar,borderColor:"#27457a",backgroundColor:"rgba(39,69,122,.08)",fill:true,tension:.35},
+            {label:"PAR 0%",data:sc.noPar,borderColor:"#1f9d66",backgroundColor:"rgba(31,157,102,.06)",borderDash:[6,4],fill:false,tension:.35}
           ]
         },
         options:{plugins:{legend:{position:"top"}}}
@@ -841,300 +981,249 @@
         data:{
           labels:sc.months,
           datasets:[
-            {type:"bar",label:"Interest earned",data:sc.rows.map(r=>r.interest),backgroundColor:"#5aa276",borderRadius:8},
-            {type:"bar",label:"PAR deduction",data:sc.rows.map(r=>r.par),backgroundColor:"#d16f61",borderRadius:8}
-          ]
-        },
-        options:{plugins:{legend:{position:"top"}}}
-      });
-    }
-
-    function renderRecommendations(){
-      const content = [];
-      const arrearsSorted = loans.filter(l=>getArrears(l)>0).sort((a,b)=>getArrears(b)-getArrears(a));
-
-      if(arrearsSorted.length){
-        const urgent = arrearsSorted[0];
-        content.push(`
-          <div class="rec-card">
-            <div>
-              <div><strong>Urgent — ${urgent.client_name} (${urgent.id}) — Arrears: ${formatMoney(getArrears(urgent))}</strong></div>
-              <div class="muted">Days overdue: ${getDaysInArrears(urgent)} | Outstanding: ${formatMoney(getBalance(urgent))} | Status: ${getStatus(urgent)} | Risk: ${urgent.risk_tag||"Performing"}</div>
-              <div class="muted">Remarks: ${urgent.remarks || "No remarks"}</div>
-            </div>
-            <span class="pill red">Urgent</span>
-          </div>`);
-      }
-
-      arrearsSorted.slice(1,3).forEach(l=>{
-        content.push(`
-          <div class="rec-card">
-            <div>
-              <div><strong>Monitor — ${l.client_name} (${l.id}) — Arrears: ${formatMoney(getArrears(l))}</strong></div>
-              <div class="muted">Days overdue: ${getDaysInArrears(l)} | Outstanding: ${formatMoney(getBalance(l))} | Risk: ${l.risk_tag||"Performing"}</div>
-              <div class="muted">Remarks: ${l.remarks || "No remarks"}</div>
-            </div>
-            <span class="pill gold">Watch</span>
-          </div>`);
-      });
-
-      const sc = getGrowthScenario(loans.reduce((s,l)=>s+Number(l.amount),0),10,5);
-      content.push(`
-        <div class="rec-card">
-          <div>
-            <div><strong>Reinvestment opportunity — collect and redeploy</strong></div>
-            <div class="muted">If all collected funds are reinvested at 10% with 5% PAR deduction, the current portfolio grows to approximately ${formatMoney(sc.valueWithPar)} in 12 months. With PAR 0%, it grows to ${formatMoney(sc.valueNoPar)}.</div>
-          </div>
-          <span class="pill green">Opportunity</span>
-        </div>`);
-
-      content.push(`
-        <div class="rec-card">
-          <div>
-            <div><strong>Early warning use</strong></div>
-            <div class="muted">Use "Remarks" to capture promise-to-pay dates, field visit outcomes, guarantor calls, salary delays, and business observations. Keep remarks operational, not financial.</div>
-          </div>
-          <span class="pill blue">Practice</span>
-        </div>`);
-
-      document.getElementById("recommendationsContent").innerHTML = content.join("");
-    }
-
-    function renderProfitPAR(){
-      const model = getProfitParModel();
-      const totalInterest = model.rows.reduce((s,r)=>s+r.interest,0);
-      const totalPar = model.rows.reduce((s,r)=>s+r.parCost,0);
-      const netPar5 = model.rows.reduce((s,r)=>s+r.netProfitPar5,0);
-      const netPar0 = model.rows.reduce((s,r)=>s+r.netProfitPar0,0);
-      const lost = netPar0 - netPar5;
-
-      document.getElementById("profitParKpis").innerHTML = `
-        <div class="kpi"><div class="label">Total Interest Income</div><div class="value" style="color:#3569d6">${formatMoney(totalInterest)}</div><div class="sub">12m @ 10% flat rate</div></div>
-        <div class="kpi"><div class="label">Total PAR Cost (5%)</div><div class="value bad">${formatMoney(totalPar)}</div><div class="sub">5% of profit/month</div></div>
-        <div class="kpi"><div class="label">Net Profit — PAR 5%</div><div class="value">${formatMoney(netPar5)}</div><div class="sub">Margin ${(netPar5/totalInterest*100).toFixed(1)}%</div></div>
-        <div class="kpi"><div class="label">Net Profit — PAR 0%</div><div class="value good">${formatMoney(netPar0)}</div><div class="sub">Margin 100%</div></div>
-        <div class="kpi"><div class="label">Cost of PAR (12M)</div><div class="value mid">${formatMoney(lost)}</div><div class="sub">${((lost/netPar0)*100).toFixed(1)}% of ideal profit</div></div>
-      `;
-
-      renderChart("profitCompareChart", {
-        data:{
-          labels:model.rows.map(r=>r.month),
-          datasets:[
-            {type:"bar",label:"Net profit (PAR 5%)",data:model.rows.map(r=>r.netProfitPar5),backgroundColor:"#27457a",borderRadius:8},
-            {type:"bar",label:"Net profit (PAR 0%)",data:model.rows.map(r=>r.netProfitPar0),backgroundColor:"#63a879",borderRadius:8},
-            {type:"bar",label:"PAR cost",data:model.rows.map(r=>r.parCost),backgroundColor:"#e0a79e",borderRadius:8}
+            {type:"bar",label:"Interest",data:sc.rows.map(r=>r.interest),backgroundColor:"#1f9d66",borderRadius:8},
+            {type:"line",label:"PAR Cost",data:sc.rows.map(r=>r.par),borderColor:"#d14b4b",backgroundColor:"#d14b4b",tension:.35}
           ]
         },
         options:{plugins:{legend:{position:"top"}}}
       });
 
-      renderChart("cumProfitChart", {
-        type:"line",
-        data:{
-          labels:model.rows.map(r=>r.month),
-          datasets:[
-            {label:"PAR 5%",data:model.rows.map(r=>r.cumPar5),borderColor:"#27457a",backgroundColor:"rgba(39,69,122,.10)",fill:true,tension:.35},
-            {label:"PAR 0%",data:model.rows.map(r=>r.cumPar0),borderColor:"#1f9d55",backgroundColor:"rgba(31,157,85,.08)",borderDash:[6,4],fill:false,tension:.35}
-          ]
-        },
-        options:{plugins:{legend:{position:"top"}}}
-      });
-
-      renderChart("portfolioGrowthChart", {
-        type:"line",
-        data:{
-          labels:["Start",...model.scenario.months],
-          datasets:[
-            {label:"PAR 5%",data:model.scenario.withPar,borderColor:"#27457a",backgroundColor:"rgba(39,69,122,.10)",fill:true,tension:.35},
-            {label:"PAR 0%",data:model.scenario.noPar,borderColor:"#1f9d55",backgroundColor:"rgba(31,157,85,.08)",borderDash:[6,4],fill:false,tension:.35}
-          ]
-        },
-        options:{plugins:{legend:{position:"top"}}}
-      });
-
-      renderChart("parCostChart", {
-        data:{
-          labels:model.rows.map(r=>r.month),
-          datasets:[
-            {type:"bar",label:"Interest income",data:model.rows.map(r=>r.interest),backgroundColor:"#5aa276",borderRadius:8},
-            {type:"bar",label:"PAR cost",data:model.rows.map(r=>r.parCost),backgroundColor:"#d16f61",borderRadius:8}
-          ]
-        },
-        options:{plugins:{legend:{position:"top"}}}
-      });
-
-      document.getElementById("profitParTableBody").innerHTML = model.rows.map(r=>`
+      document.getElementById("growthScheduleBody").innerHTML = sc.rows.map(r=>`
         <tr>
           <td>${r.month}</td>
           <td>${formatMoney(r.opening)}</td>
           <td class="good">${formatMoney(r.interest)}</td>
-          <td class="bad">(${formatMoney(r.parCost)})</td>
-          <td>${formatMoney(r.netProfitPar5)}</td>
-          <td class="good">${formatMoney(r.netProfitPar0)}</td>
-          <td class="mid">${formatMoney(r.profitLost)}</td>
-          <td>${r.marginPar5.toFixed(1)}%</td>
-          <td>${r.marginPar0.toFixed(1)}%</td>
-          <td><strong>${formatMoney(r.close)}</strong></td>
+          <td class="bad">${formatMoney(r.par)}</td>
+          <td><strong>${formatMoney(r.closeWith)}</strong></td>
+          <td class="good">${formatMoney(r.closeNo)}</td>
+          <td>${formatMoney(r.cumulativeInterest)}</td>
+          <td>${r.growthPct.toFixed(1)}%</td>
         </tr>
       `).join("");
     }
 
-    async function saveLoan(){
-      if(!supabaseClient) return;
-      const editingId=document.getElementById("editingLoanId").value || `LN${Date.now()}`;
-      const data={
-        id: editingId,
-        client_name: document.getElementById("clientName").value.trim(),
-        client_phone: document.getElementById("clientPhone").value.trim(),
-        next_of_kin: document.getElementById("nextOfKin").value.trim(),
-        next_of_kin_phone: document.getElementById("nextOfKinPhone").value.trim(),
-        amount: Number(document.getElementById("loanAmount").value),
-        interest_rate: Number(document.getElementById("interestRate").value),
-        term: Number(document.getElementById("loanTerm").value),
-        disbursement_date: document.getElementById("disbursementDate").value,
-        loan_officer: document.getElementById("loanOfficer").value.trim() || "Loan Officer A",
-        loan_type: document.getElementById("loanType").value,
-        risk_tag: document.getElementById("riskTag").value,
-        remarks: document.getElementById("remarks").value.trim(),
+    function renderRecommendations(){
+      const items = [];
+      const arrearsSorted = loans.filter(l=>getArrears(l)>0).sort((a,b)=>getArrears(b)-getArrears(a));
+
+      if(arrearsSorted.length){
+        const top = arrearsSorted[0];
+        items.push(`
+          <div class="rec-card">
+            <div>
+              <strong>Urgent collection priority — ${top.client_name}</strong>
+              <div class="muted">Arrears: ${formatMoney(getArrears(top))} | Days overdue: ${getDaysInArrears(top)} | Risk: ${top.risk_tag||"Performing"}</div>
+              <div class="muted">Remarks: ${top.remarks || "No remarks"}</div>
+            </div>
+            <span class="pill red">Urgent</span>
+          </div>
+        `);
+      }
+
+      const dueToday = getDueBuckets().dueToday;
+      if(dueToday.length){
+        items.push(`
+          <div class="rec-card">
+            <div>
+              <strong>Same-day follow-up required</strong>
+              <div class="muted">${dueToday.length} client(s) are due today. Call before close of business.</div>
+            </div>
+            <span class="pill gold">Today</span>
+          </div>
+        `);
+      }
+
+      const growth = getGrowthScenario(loans.reduce((s,l)=>s+Number(l.amount),0),10,5);
+      items.push(`
+        <div class="rec-card">
+          <div>
+            <strong>Reinvestment growth opportunity</strong>
+            <div class="muted">At 10% reinvestment, portfolio grows to ${formatMoney(growth.valueWithPar)} with PAR 5%, or ${formatMoney(growth.valueNoPar)} with PAR 0%.</div>
+          </div>
+          <span class="pill green">Growth</span>
+        </div>
+      `);
+
+      items.push(`
+        <div class="rec-card">
+          <div>
+            <strong>Use remarks as operational memory</strong>
+            <div class="muted">Capture promise-to-pay dates, salary delays, employer issues, and field visits. Keep remarks operational, not formula-based.</div>
+          </div>
+          <span class="pill blue">Practice</span>
+        </div>
+      `);
+
+      document.getElementById("recommendationsContent").innerHTML = items.join("");
+    }
+
+    function renderProfitModule(){
+      fillFilters();
+
+      const rows = getMonthlyProfitRows();
+      const selected = document.getElementById("profitMonthFilter").value || rows[0]?.month || "";
+      const currentRow = rows.find(r=>r.month===selected);
+
+      document.getElementById("expenseAmountInput").value = currentRow ? currentRow.expense : 0;
+
+      const totalExpected = rows.reduce((s,r)=>s+r.expected,0);
+      const totalActual = rows.reduce((s,r)=>s+r.actual,0);
+      const totalInterest = rows.reduce((s,r)=>s+r.interest,0);
+      const totalExpenses = rows.reduce((s,r)=>s+r.expense,0);
+      const totalProfit = rows.reduce((s,r)=>s+r.profit,0);
+
+      document.getElementById("profitKpis").innerHTML = `
+        <div class="kpi"><div class="label">Total Expected</div><div class="value">${formatMoney(totalExpected)}</div><div class="sub">All months</div></div>
+        <div class="kpi"><div class="label">Total Actual</div><div class="value good">${formatMoney(totalActual)}</div><div class="sub">Collections received</div></div>
+        <div class="kpi"><div class="label">Estimated Interest Income</div><div class="value">${formatMoney(totalInterest)}</div><div class="sub">From actual payments</div></div>
+        <div class="kpi"><div class="label">Expenses</div><div class="value bad">${formatMoney(totalExpenses)}</div><div class="sub">Saved monthly expenses</div></div>
+        <div class="kpi"><div class="label">Net Profit</div><div class="value ${totalProfit>=0?'good':'bad'}">${formatMoney(totalProfit)}</div><div class="sub">Interest less expenses</div></div>
+      `;
+
+      renderChart("profitCollectionChart", {
+        data:{
+          labels:rows.map(r=>r.month),
+          datasets:[
+            {type:"bar",label:"Expected",data:rows.map(r=>r.expected),backgroundColor:"#3569d6",borderRadius:8},
+            {type:"bar",label:"Actual",data:rows.map(r=>r.actual),backgroundColor:"#1f9d66",borderRadius:8}
+          ]
+        },
+        options:{plugins:{legend:{position:"top"}}}
+      });
+
+      renderChart("profitTrendChart", {
+        data:{
+          labels:rows.map(r=>r.month),
+          datasets:[
+            {type:"bar",label:"Profit",data:rows.map(r=>r.profit),backgroundColor:"#d08c1f",borderRadius:8},
+            {type:"line",label:"Closing Cash",data:rows.map(r=>r.closingCash),borderColor:"#6f59d9",backgroundColor:"#6f59d9",tension:.35}
+          ]
+        },
+        options:{plugins:{legend:{position:"top"}}}
+      });
+
+      document.getElementById("profitMonthSummary").innerHTML = currentRow ? `
+        <strong>${selected} summary</strong><br>
+        Expected collections: ${formatMoney(currentRow.expected)} |
+        Actual collections: ${formatMoney(currentRow.actual)} |
+        Collection efficiency: ${currentRow.efficiency.toFixed(1)}% |
+        Estimated interest income: ${formatMoney(currentRow.interest)} |
+        Expenses: ${formatMoney(currentRow.expense)} |
+        Profit: <span class="${currentRow.profit>=0?'good':'bad'}">${formatMoney(currentRow.profit)}</span> |
+        Opening cash: ${formatMoney(currentRow.openingCash)} |
+        Closing cash: ${formatMoney(currentRow.closingCash)}
+      ` : `<span class="muted">No month selected.</span>`;
+
+      document.getElementById("profitTableBody").innerHTML = rows.map(r=>`
+        <tr>
+          <td>${r.month}</td>
+          <td>${formatMoney(r.expected)}</td>
+          <td>${formatMoney(r.actual)}</td>
+          <td>${r.efficiency.toFixed(1)}%</td>
+          <td>${formatMoney(r.interest)}</td>
+          <td>${formatMoney(r.expense)}</td>
+          <td class="${r.profit>=0?'good':'bad'}">${formatMoney(r.profit)}</td>
+          <td>${formatMoney(r.openingCash)}</td>
+          <td>${formatMoney(r.closingCash)}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function saveExpense(){
+      const month = document.getElementById("profitMonthFilter").value;
+      const amount = Number(document.getElementById("expenseAmountInput").value || 0);
+      if(!month){
+        alert("Select month first.");
+        return;
+      }
+
+      const existing = expenses.find(e=>e.month_key===month);
+      const payload = {
+        id: existing?.id || `EX${Date.now()}`,
+        month_key: month,
+        amount: amount,
         updated_at: new Date().toISOString()
       };
 
-      if(!data.client_name || !data.client_phone || !data.amount || !data.interest_rate || !data.term || !data.disbursement_date){
-        alert("Complete all required fields.");
-        return;
-      }
-
-      setSyncStatus("Saving loan...", "gold");
-      const { error } = await supabaseClient.from("loans").upsert(data);
+      setSyncStatus("Saving expense...", "gold");
+      const { error } = await supabaseClient.from("expenses").upsert(payload);
       if(error){
         console.error(error);
-        setSyncStatus("Save failed", "red");
-        alert("Loan save failed.");
+        setSyncStatus("Expense save failed", "red");
+        alert("Expense save failed.");
         return;
       }
-      clearLoanForm();
+
       await fetchLiveData();
-      alert("Loan saved live.");
-    }
-
-    function editLoan(id){
-      const l=loans.find(x=>x.id===id); if(!l) return;
-      document.getElementById("editingLoanId").value=l.id;
-      document.getElementById("clientName").value=l.client_name || "";
-      document.getElementById("clientPhone").value=l.client_phone || "";
-      document.getElementById("nextOfKin").value=l.next_of_kin || "";
-      document.getElementById("nextOfKinPhone").value=l.next_of_kin_phone || "";
-      document.getElementById("loanAmount").value=l.amount || "";
-      document.getElementById("interestRate").value=l.interest_rate || "10";
-      document.getElementById("loanTerm").value=l.term || "3";
-      document.getElementById("disbursementDate").value=l.disbursement_date || "";
-      document.getElementById("loanType").value=l.loan_type || "Standard";
-      document.getElementById("loanOfficer").value=l.loan_officer || "Loan Officer A";
-      document.getElementById("riskTag").value=l.risk_tag || "Performing";
-      document.getElementById("remarks").value=l.remarks || "";
-      showTab('register', document.querySelectorAll('nav button')[1]);
-    }
-
-    function clearLoanForm(){
-      document.getElementById("editingLoanId").value="";
-      document.getElementById("clientName").value="";
-      document.getElementById("clientPhone").value="";
-      document.getElementById("nextOfKin").value="";
-      document.getElementById("nextOfKinPhone").value="";
-      document.getElementById("loanAmount").value="";
-      document.getElementById("interestRate").value="10";
-      document.getElementById("loanTerm").value="3";
-      document.getElementById("disbursementDate").value="";
-      document.getElementById("loanType").value="Standard";
-      document.getElementById("loanOfficer").value="Loan Officer A";
-      document.getElementById("riskTag").value="Performing";
-      document.getElementById("remarks").value="";
-    }
-
-    async function savePayment(){
-      if(!supabaseClient) return;
-      const editingId=document.getElementById("editingPaymentId").value || `PM${Date.now()}`;
-      const data={
-        id: editingId,
-        loan_id: document.getElementById("paymentLoanSelect").value,
-        amount: Number(document.getElementById("paymentAmount").value),
-        payment_date: document.getElementById("paymentDate").value,
-        updated_at: new Date().toISOString()
-      };
-      if(!data.loan_id || !data.amount || !data.payment_date){
-        alert("Complete payment fields.");
-        return;
-      }
-      setSyncStatus("Saving payment...", "gold");
-      const { error } = await supabaseClient.from("payments").upsert(data);
-      if(error){
-        console.error(error);
-        setSyncStatus("Save failed", "red");
-        alert("Payment save failed.");
-        return;
-      }
-      clearPaymentForm();
-      await fetchLiveData();
-      alert("Payment saved live.");
-    }
-
-    function editPayment(id){
-      const p=payments.find(x=>x.id===id); if(!p) return;
-      document.getElementById("editingPaymentId").value=p.id;
-      document.getElementById("paymentLoanSelect").value=p.loan_id;
-      document.getElementById("paymentAmount").value=p.amount;
-      document.getElementById("paymentDate").value=p.payment_date;
-      showTab('payments', document.querySelectorAll('nav button')[2]);
-    }
-
-    async function deletePayment(id){
-      if(!supabaseClient) return;
-      setSyncStatus("Deleting...", "gold");
-      const { error } = await supabaseClient.from("payments").delete().eq("id", id);
-      if(error){
-        console.error(error);
-        setSyncStatus("Delete failed", "red");
-        return;
-      }
-      await fetchLiveData();
-    }
-
-    function clearPaymentForm(){
-      document.getElementById("editingPaymentId").value="";
-      document.getElementById("paymentLoanSelect").value="";
-      document.getElementById("paymentAmount").value="";
-      document.getElementById("paymentDate").value="";
-    }
-
-    function renderPayments(){
-      document.getElementById("paymentLoanSelect").innerHTML = `<option value="">Select Client</option>` + loans.map(l=>`<option value="${l.id}">${l.client_name}</option>`).join("");
-      document.getElementById("paymentTableBody").innerHTML = payments.slice().sort((a,b)=>new Date(b.payment_date)-new Date(a.payment_date)).map(p=>{
-        const loan=loans.find(l=>l.id===p.loan_id);
-        return `<tr>
-          <td>${loan ? loan.client_name : "-"}</td>
-          <td>${p.payment_date}</td>
-          <td>${formatMoney(p.amount)}</td>
-          <td><button class="btn secondary small" onclick="editPayment('${p.id}')">Edit</button> <button class="btn danger small" onclick="deletePayment('${p.id}')">Delete</button></td>
-        </tr>`;
-      }).join("");
+      alert("Expense saved.");
     }
 
     function fillFilters(){
-      const months=getAllMonths();
-      const disb=document.getElementById("disbursementMonthFilter");
-      const report=document.getElementById("reportMonthFilter");
-      if(disb){
-        const cur=disb.value; disb.innerHTML=`<option value="ALL">All</option>`+months.map(m=>`<option value="${m}">${m}</option>`).join(""); disb.value=months.includes(cur)?cur:"ALL";
-      }
-      if(report){
-        const cur=report.value; report.innerHTML=`<option value="">Select Month</option>`+months.map(m=>`<option value="${m}">${m}</option>`).join(""); report.value=months.includes(cur)?cur:(months[0]||"");
-      }
+      const months = getAllMonths();
+      const disb = document.getElementById("disbursementMonthFilter");
+      const report = document.getElementById("reportMonthFilter");
+      const profit = document.getElementById("profitMonthFilter");
+
+      [disb, report, profit].forEach(el=>{
+        if(!el) return;
+        const cur = el.value;
+        const opts = months.map(m=>`<option value="${m}">${m}</option>`).join("");
+        if(el.id==="disbursementMonthFilter"){
+          el.innerHTML = `<option value="ALL">All</option>${opts}`;
+          el.value = months.includes(cur) ? cur : "ALL";
+        } else {
+          el.innerHTML = opts;
+          el.value = months.includes(cur) ? cur : (months[0] || "");
+        }
+      });
+    }
+
+    function renderPayments(){
+      document.getElementById("paymentLoanSelect").innerHTML =
+        `<option value="">Select Client</option>` + loans.map(l=>`<option value="${l.id}">${l.client_name}</option>`).join("");
+
+      document.getElementById("paymentTableBody").innerHTML = payments
+        .slice()
+        .sort((a,b)=>new Date(b.payment_date)-new Date(a.payment_date))
+        .map(p=>{
+          const loan = loans.find(l=>l.id===p.loan_id);
+          return `<tr>
+            <td>${loan ? loan.client_name : "-"}</td>
+            <td>${p.payment_date}</td>
+            <td>${formatMoney(p.amount)}</td>
+            <td>
+              <button class="btn secondary small" onclick="editPayment('${p.id}')">Edit</button>
+              <button class="btn danger small" onclick="deletePayment('${p.id}')">Delete</button>
+            </td>
+          </tr>`;
+        }).join("");
+    }
+
+    function renderArrears(){
+      const rows = loans.filter(l=>getArrears(l)>0);
+      document.getElementById("arrearsTableBody").innerHTML = rows.map(l=>{
+        const next = getNextDue(l);
+        return `<tr>
+          <td>${l.client_name}</td>
+          <td>${next ? next.dueDate : "—"}</td>
+          <td>${formatMoney(getExpectedToDate(l))}</td>
+          <td>${formatMoney(getPaidAmount(l.id))}</td>
+          <td class="bad">${formatMoney(getArrears(l))}</td>
+          <td>${getDaysInArrears(l)}</td>
+          <td>${getPARBucket(l)}</td>
+          <td>${l.risk_tag||"Performing"}</td>
+          <td>${l.remarks||"-"}</td>
+        </tr>`;
+      }).join("");
     }
 
     function renderDisbursements(){
       fillFilters();
       const filterMonth=document.getElementById("disbursementMonthFilter").value;
-      const list=loans.filter(l=>filterMonth==="ALL" || monthKey(l.disbursement_date)===filterMonth).sort((a,b)=>new Date(b.disbursement_date)-new Date(a.disbursement_date));
+      const list = loans
+        .filter(l=>filterMonth==="ALL" || monthKey(l.disbursement_date)===filterMonth)
+        .sort((a,b)=>new Date(b.disbursement_date)-new Date(a.disbursement_date));
+
       document.getElementById("disbursementTableBody").innerHTML = list.map(l=>`<tr>
         <td>${l.client_name}</td>
         <td>${l.disbursement_date}</td>
@@ -1147,26 +1236,21 @@
       </tr>`).join("");
     }
 
-    function renderArrears(){
-      const rows=loans.filter(l=>getArrears(l)>0);
-      document.getElementById("arrearsTableBody").innerHTML = rows.map(l=>`<tr>
-        <td>${l.client_name}</td>
-        <td>${formatMoney(getExpectedToDate(l))}</td>
-        <td>${formatMoney(getPaidAmount(l.id))}</td>
-        <td class="bad">${formatMoney(getArrears(l))}</td>
-        <td>${getDaysInArrears(l)}</td>
-        <td>${getPARBucket(l)}</td>
-        <td>${l.risk_tag||"Performing"}</td>
-        <td>${l.remarks || "-"}</td>
-      </tr>`).join("");
-    }
-
     function renderSearch(){
-      const q=document.getElementById("searchInput").value.toLowerCase().trim();
-      const el=document.getElementById("searchResults");
+      const q = document.getElementById("searchInput").value.toLowerCase().trim();
+      const el = document.getElementById("searchResults");
       if(!q){ el.innerHTML=""; return; }
-      const matches=loans.filter(l=>(l.client_name||"").toLowerCase().includes(q)||(l.client_phone||"").toLowerCase().includes(q));
-      if(!matches.length){ el.innerHTML=`<div class="muted">No client found.</div>`; return; }
+
+      const matches = loans.filter(l =>
+        (l.client_name||"").toLowerCase().includes(q) ||
+        (l.client_phone||"").toLowerCase().includes(q)
+      );
+
+      if(!matches.length){
+        el.innerHTML = `<div class="muted">No client found.</div>`;
+        return;
+      }
+
       el.innerHTML = matches.map(l=>`<div class="card">
         <div class="section-title">${l.client_name}</div>
         <div class="search-grid">
@@ -1192,27 +1276,45 @@
     function renderMonthlyReport(){
       fillFilters();
       const month=document.getElementById("reportMonthFilter").value;
-      const expected=aggregateExpectedCollections(), actual=aggregateCollections(), disb=aggregateDisbursements();
-      if(!month){ document.getElementById("monthlyReportContent").innerHTML=`<div class="muted">Select month.</div>`; return; }
-      const dueThisMonth=loans.flatMap(l=>getDueSchedule(l).filter(s=>monthKey(s.dueDate)===month).map(s=>({client:l.client_name,dueDate:s.dueDate,amount:s.amount})));
+      const rows = getMonthlyProfitRows();
+      const current = rows.find(r=>r.month===month);
+      const dueThisMonth = loans.flatMap(l =>
+        getDueSchedule(l)
+          .filter(s=>monthKey(s.dueDate)===month)
+          .map(s=>({client:l.client_name,dueDate:s.dueDate,amount:s.amount}))
+      );
+
+      if(!month){
+        document.getElementById("monthlyReportContent").innerHTML = `<div class="muted">Select month.</div>`;
+        return;
+      }
 
       document.getElementById("monthlyReportContent").innerHTML = `
         <table id="reportSummaryTable">
           <thead><tr><th>Metric</th><th>Value</th></tr></thead>
           <tbody>
             <tr><td>Month</td><td>${month}</td></tr>
-            <tr><td>Expected Collections</td><td>${formatMoney(expected[month]||0)}</td></tr>
-            <tr><td>Actual Collections</td><td>${formatMoney(actual[month]||0)}</td></tr>
-            <tr><td>Disbursements</td><td>${formatMoney(disb[month]||0)}</td></tr>
+            <tr><td>Expected Collections</td><td>${formatMoney(current?.expected || 0)}</td></tr>
+            <tr><td>Actual Collections</td><td>${formatMoney(current?.actual || 0)}</td></tr>
+            <tr><td>Collection Efficiency</td><td>${(current?.efficiency || 0).toFixed(1)}%</td></tr>
+            <tr><td>Estimated Interest Income</td><td>${formatMoney(current?.interest || 0)}</td></tr>
+            <tr><td>Expenses</td><td>${formatMoney(current?.expense || 0)}</td></tr>
+            <tr><td>Profit</td><td>${formatMoney(current?.profit || 0)}</td></tr>
+            <tr><td>Opening Cash</td><td>${formatMoney(current?.openingCash || 0)}</td></tr>
+            <tr><td>Closing Cash</td><td>${formatMoney(current?.closingCash || 0)}</td></tr>
           </tbody>
         </table>
         <br>
         <table id="reportDueTable">
           <thead><tr><th>Client</th><th>Due Date</th><th>Expected Amount</th></tr></thead>
           <tbody>
-            ${dueThisMonth.length ? dueThisMonth.map(d=>`<tr><td>${d.client}</td><td>${d.dueDate}</td><td>${formatMoney(d.amount)}</td></tr>`).join("") : `<tr><td colspan="3">No due loans this month.</td></tr>`}
+            ${dueThisMonth.length
+              ? dueThisMonth.map(d=>`<tr><td>${d.client}</td><td>${d.dueDate}</td><td>${formatMoney(d.amount)}</td></tr>`).join("")
+              : `<tr><td colspan="3">No due loans this month.</td></tr>`
+            }
           </tbody>
-        </table>`;
+        </table>
+      `;
     }
 
     function exportMonthlyReportPDF(){
@@ -1220,7 +1322,8 @@
       if(!month){ alert("Select month first."); return; }
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF("l","pt","a4");
-      doc.setFontSize(16); doc.text(`Monthly Management Report - ${month}`,40,30);
+      doc.setFontSize(16);
+      doc.text(`Monthly Management Report - ${month}`,40,30);
       doc.autoTable({html:"#reportSummaryTable",startY:50,theme:"grid",headStyles:{fillColor:[111,143,123]}});
       doc.autoTable({html:"#reportDueTable",startY:doc.lastAutoTable.finalY+20,theme:"grid",headStyles:{fillColor:[111,143,123]}});
       doc.save(`monthly_management_report_${month.replace(/\s+/g,'_').toLowerCase()}.pdf`);
@@ -1232,22 +1335,157 @@
       XLSX.writeFile(wb, filename);
     }
 
+    async function saveLoan(){
+      const editingId = document.getElementById("editingLoanId").value || `LN${Date.now()}`;
+      const data = {
+        id: editingId,
+        client_name: document.getElementById("clientName").value.trim(),
+        client_phone: document.getElementById("clientPhone").value.trim(),
+        next_of_kin: document.getElementById("nextOfKin").value.trim(),
+        next_of_kin_phone: document.getElementById("nextOfKinPhone").value.trim(),
+        amount: Number(document.getElementById("loanAmount").value),
+        interest_rate: Number(document.getElementById("interestRate").value),
+        term: Number(document.getElementById("loanTerm").value),
+        disbursement_date: document.getElementById("disbursementDate").value,
+        loan_type: document.getElementById("loanType").value,
+        loan_officer: document.getElementById("loanOfficer").value.trim() || "Loan Officer A",
+        risk_tag: document.getElementById("riskTag").value,
+        remarks: document.getElementById("remarks").value.trim(),
+        updated_at: new Date().toISOString()
+      };
+
+      if(!data.client_name || !data.client_phone || !data.amount || !data.interest_rate || !data.term || !data.disbursement_date){
+        alert("Complete all required fields.");
+        return;
+      }
+
+      setSyncStatus("Saving loan...", "gold");
+      const { error } = await supabaseClient.from("loans").upsert(data);
+      if(error){
+        console.error(error);
+        setSyncStatus("Save failed", "red");
+        alert("Loan save failed.");
+        return;
+      }
+
+      clearLoanForm();
+      await fetchLiveData();
+      alert("Loan saved live.");
+    }
+
+    function editLoan(id){
+      const l = loans.find(x=>x.id===id);
+      if(!l) return;
+      document.getElementById("editingLoanId").value = l.id;
+      document.getElementById("clientName").value = l.client_name || "";
+      document.getElementById("clientPhone").value = l.client_phone || "";
+      document.getElementById("nextOfKin").value = l.next_of_kin || "";
+      document.getElementById("nextOfKinPhone").value = l.next_of_kin_phone || "";
+      document.getElementById("loanAmount").value = l.amount || "";
+      document.getElementById("interestRate").value = l.interest_rate || 10;
+      document.getElementById("loanTerm").value = l.term || 3;
+      document.getElementById("disbursementDate").value = l.disbursement_date || "";
+      document.getElementById("loanType").value = l.loan_type || "Standard";
+      document.getElementById("loanOfficer").value = l.loan_officer || "Loan Officer A";
+      document.getElementById("riskTag").value = l.risk_tag || "Performing";
+      document.getElementById("remarks").value = l.remarks || "";
+      showTab('register', document.querySelectorAll('nav button')[1]);
+    }
+
+    function clearLoanForm(){
+      document.getElementById("editingLoanId").value = "";
+      document.getElementById("clientName").value = "";
+      document.getElementById("clientPhone").value = "";
+      document.getElementById("nextOfKin").value = "";
+      document.getElementById("nextOfKinPhone").value = "";
+      document.getElementById("loanAmount").value = "";
+      document.getElementById("interestRate").value = 10;
+      document.getElementById("loanTerm").value = 3;
+      document.getElementById("disbursementDate").value = "";
+      document.getElementById("loanType").value = "Standard";
+      document.getElementById("loanOfficer").value = "Loan Officer A";
+      document.getElementById("riskTag").value = "Performing";
+      document.getElementById("remarks").value = "";
+    }
+
+    async function savePayment(){
+      const editingId = document.getElementById("editingPaymentId").value || `PM${Date.now()}`;
+      const data = {
+        id: editingId,
+        loan_id: document.getElementById("paymentLoanSelect").value,
+        amount: Number(document.getElementById("paymentAmount").value),
+        payment_date: document.getElementById("paymentDate").value,
+        updated_at: new Date().toISOString()
+      };
+
+      if(!data.loan_id || !data.amount || !data.payment_date){
+        alert("Complete payment fields.");
+        return;
+      }
+
+      setSyncStatus("Saving payment...", "gold");
+      const { error } = await supabaseClient.from("payments").upsert(data);
+      if(error){
+        console.error(error);
+        setSyncStatus("Save failed", "red");
+        alert("Payment save failed.");
+        return;
+      }
+
+      clearPaymentForm();
+      await fetchLiveData();
+      alert("Payment saved live.");
+    }
+
+    function editPayment(id){
+      const p = payments.find(x=>x.id===id);
+      if(!p) return;
+      document.getElementById("editingPaymentId").value = p.id;
+      document.getElementById("paymentLoanSelect").value = p.loan_id;
+      document.getElementById("paymentAmount").value = p.amount;
+      document.getElementById("paymentDate").value = p.payment_date;
+      showTab('payments', document.querySelectorAll('nav button')[2]);
+    }
+
+    async function deletePayment(id){
+      setSyncStatus("Deleting...", "gold");
+      const { error } = await supabaseClient.from("payments").delete().eq("id", id);
+      if(error){
+        console.error(error);
+        setSyncStatus("Delete failed", "red");
+        return;
+      }
+      await fetchLiveData();
+    }
+
+    function clearPaymentForm(){
+      document.getElementById("editingPaymentId").value = "";
+      document.getElementById("paymentLoanSelect").value = "";
+      document.getElementById("paymentAmount").value = "";
+      document.getElementById("paymentDate").value = "";
+    }
+
+    async function fetchLiveDataAndRender(){
+      await fetchLiveData();
+    }
+
     function renderAll(){
+      fillFilters();
       renderDashboard();
       renderPayments();
       renderArrears();
       renderDisbursements();
+      renderSearch();
       renderAlerts();
       renderSchedules();
       renderGrowth();
       renderRecommendations();
-      renderProfitPAR();
+      renderProfitModule();
       renderMonthlyReport();
-      renderSearch();
     }
 
     window.addEventListener("load", async () => {
-      if (!initSupabase()) return;
+      initSupabase();
       await fetchLiveData();
       startRealtime();
     });
