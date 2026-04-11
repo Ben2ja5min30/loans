@@ -26,9 +26,7 @@
     .brand-title{font-size:28px;font-weight:800}
     .brand-sub{font-size:12px;color:#ffd95f}
     nav{display:flex;gap:8px;flex-wrap:wrap}
-    nav button,.btn{
-      border:none;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer
-    }
+    nav button,.btn{border:none;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
     nav button{background:transparent;color:#fff}
     nav button.active,nav button:hover{background:rgba(255,255,255,.15)}
     .wrap{padding:16px}
@@ -88,7 +86,6 @@
     .rec-card{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
     .search-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
     .search-box{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
-    .notice{padding:10px 12px;border-radius:10px;background:#fff9db;border:1px solid #f3d982;color:#7c5f00}
     .summary-box{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--soft)}
     @media print{
       nav,.toolbar,.statusbar,.exportbar,.btn{display:none!important}
@@ -103,7 +100,7 @@
   <header>
     <div>
       <div class="brand-title">LoanTrack</div>
-      <div class="brand-sub">Supabase Live Sync</div>
+      <div class="brand-sub">Officer A Portfolio</div>
     </div>
     <nav>
       <button class="active" onclick="showTab('dashboard', this)">Dashboard</button>
@@ -111,6 +108,7 @@
       <button onclick="showTab('payments', this)">Payments</button>
       <button onclick="showTab('arrears', this)">Arrears</button>
       <button onclick="showTab('disbursements', this)">Disbursements</button>
+      <button onclick="showTab('structure', this)">Loan Structure</button>
       <button onclick="showTab('search', this)">Search</button>
       <button onclick="showTab('alerts', this)">Alerts</button>
       <button onclick="showTab('schedules', this)">Schedules</button>
@@ -128,7 +126,7 @@
     </div>
 
     <div class="toolbar">
-      <button class="btn" onclick="refreshAll()">Refresh Live Data</button>
+      <button class="btn" onclick="loadGivenData()">Reload Given Data</button>
       <button class="btn secondary" onclick="clearLoanForm()">Clear Loan Form</button>
       <button class="btn secondary" onclick="clearPaymentForm()">Clear Payment Form</button>
     </div>
@@ -237,6 +235,27 @@
         <table>
           <thead><tr><th>Client</th><th>Disbursement Date</th><th>Month</th><th>Amount</th><th>Term</th><th>Loan Type</th><th>Risk</th><th>Action</th></tr></thead>
           <tbody id="disbursementTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="structure" class="tab">
+      <div class="card">
+        <div class="section-title">Loan Structure Summary</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Principal</th>
+              <th>Interest</th>
+              <th>Loan Disbursed</th>
+              <th>Tenure</th>
+              <th>Disbursement Date</th>
+              <th>Loan Type</th>
+            </tr>
+          </thead>
+          <tbody id="structureTableBody"></tbody>
+          <tfoot id="structureTableFoot"></tfoot>
         </table>
       </div>
     </section>
@@ -372,6 +391,36 @@
     let realtimeChannel = null;
     let refreshTimer = null;
 
+    const GIVEN_LOANS = [
+      { id:'LN1001', client_name:'Fosirai Gadhi', client_phone:'0770000003', next_of_kin:'', next_of_kin_phone:'', amount:500, interest_rate:10, term:5, disbursement_date:'2026-03-31', loan_type:'Standard', loan_officer:'Loan Officer A', risk_tag:'Performing', remarks:'' },
+      { id:'LN1002', client_name:'Gift Manyengavana', client_phone:'0770000009', next_of_kin:'', next_of_kin_phone:'', amount:2500, interest_rate:10, term:6, disbursement_date:'2025-11-01', loan_type:'Standard', loan_officer:'Loan Officer A', risk_tag:'Performing', remarks:'' },
+      { id:'LN1003', client_name:'Gororo', client_phone:'0770000001', next_of_kin:'', next_of_kin_phone:'', amount:1500, interest_rate:10, term:12, disbursement_date:'2026-01-01', loan_type:'Interest Only', loan_officer:'Loan Officer A', risk_tag:'Performing', remarks:'' },
+      { id:'LN1004', client_name:'Barber Adolf', client_phone:'0770000005', next_of_kin:'', next_of_kin_phone:'', amount:1000, interest_rate:10, term:3, disbursement_date:'2026-03-30', loan_type:'Standard', loan_officer:'Loan Officer A', risk_tag:'Performing', remarks:'' },
+      { id:'LN1005', client_name:'Hare TVS', client_phone:'0770000011', next_of_kin:'', next_of_kin_phone:'', amount:400, interest_rate:10, term:2, disbursement_date:'2026-04-10', loan_type:'Interest Then Balloon', loan_officer:'Loan Officer A', risk_tag:'Performing', remarks:'' },
+      { id:'LN1006', client_name:'Ziwani Mukoma', client_phone:'0770000006', next_of_kin:'', next_of_kin_phone:'', amount:1000, interest_rate:10, term:6, disbursement_date:'2026-11-16', loan_type:'Standard', loan_officer:'Loan Officer A', risk_tag:'Watchlist', remarks:'' },
+      { id:'LN1007', client_name:'Pukuta Mhoiki', client_phone:'0770000008', next_of_kin:'', next_of_kin_phone:'', amount:350, interest_rate:20, term:3, disbursement_date:'2026-03-01', loan_type:'Standard', loan_officer:'Loan Officer A', risk_tag:'Watchlist', remarks:'' },
+      { id:'LN1008', client_name:'Ororo Chamhanya', client_phone:'0770000007', next_of_kin:'', next_of_kin_phone:'', amount:300, interest_rate:30, term:2, disbursement_date:'2026-03-11', loan_type:'Interest Then Balloon', loan_officer:'Loan Officer A', risk_tag:'Watchlist', remarks:'' },
+      { id:'LN1009', client_name:'Mamhanya', client_phone:'0770000002', next_of_kin:'', next_of_kin_phone:'', amount:390, interest_rate:10, term:2, disbursement_date:'2026-02-01', loan_type:'Standard', loan_officer:'Loan Officer A', risk_tag:'At Risk', remarks:'' },
+      { id:'LN1010', client_name:'Harare Brian', client_phone:'0770000010', next_of_kin:'', next_of_kin_phone:'', amount:2600, interest_rate:10, term:3, disbursement_date:'2026-02-21', loan_type:'Standard', loan_officer:'Loan Officer A', risk_tag:'Watchlist', remarks:'' },
+      { id:'LN1011', client_name:'Tagaza Puru', client_phone:'0770000004', next_of_kin:'', next_of_kin_phone:'', amount:1000, interest_rate:10, term:2, disbursement_date:'2026-03-04', loan_type:'Standard', loan_officer:'Loan Officer A', risk_tag:'At Risk', remarks:'' }
+    ];
+
+    const GIVEN_PAYMENTS = [];
+
+    const STRUCTURE_ROWS = [
+      { client: "Fosirai Gadhi", principal: 500, interest: 250, disbursed: 500, tenure: 5, disbursementDate: "2026-03-31", loanType: "Standard" },
+      { client: "Gift Manyengavana", principal: 416, interest: 260, disbursed: 2500, tenure: 6, disbursementDate: "2025-11-01", loanType: "Standard" },
+      { client: "Gororo", principal: 1500, interest: 300, disbursed: 1500, tenure: 12, disbursementDate: "2026-01-01", loanType: "Interest Only" },
+      { client: "Barber Adolf", principal: 1000, interest: 300, disbursed: 1000, tenure: 3, disbursementDate: "2026-03-30", loanType: "Standard" },
+      { client: "Hare TVS", principal: 400, interest: 80, disbursed: 400, tenure: 2, disbursementDate: "2026-04-10", loanType: "Interest Then Balloon" },
+      { client: "Ziwani Mukoma", principal: 333, interest: 100, disbursed: 1000, tenure: 6, disbursementDate: "2026-11-16", loanType: "Standard" },
+      { client: "Pukuta Mhoiki", principal: 233, interest: 140, disbursed: 350, tenure: 3, disbursementDate: "2026-03-01", loanType: "Standard" },
+      { client: "Ororo Chamhanya", principal: 300, interest: 180, disbursed: 300, tenure: 2, disbursementDate: "2026-03-11", loanType: "Interest Then Balloon" },
+      { client: "Mamhanya", principal: 231, interest: 100, disbursed: 390, tenure: 2, disbursementDate: "2026-02-01", loanType: "Standard" },
+      { client: "Harare Brian", principal: 1733, interest: 520, disbursed: 2600, tenure: 3, disbursementDate: "2026-02-21", loanType: "Standard" },
+      { client: "Tagaza Puru", principal: 1000, interest: 200, disbursed: 1000, tenure: 2, disbursementDate: "2026-03-04", loanType: "Standard" }
+    ];
+
     function setSyncStatus(text, cls="blue"){
       const el = document.getElementById("syncStatus");
       el.className = `pill ${cls}`;
@@ -391,10 +440,6 @@
       return new Date(dateStr).toLocaleString("en-US",{month:"short", year:"numeric"});
     }
 
-    function monthLabelShort(dateStr){
-      return new Date(dateStr).toLocaleString("en-US",{month:"short"});
-    }
-
     function showTab(id, btn){
       document.querySelectorAll(".tab").forEach(t=>{t.classList.remove("active");t.classList.remove("print-active")});
       const target=document.getElementById(id);
@@ -403,6 +448,12 @@
       document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
       if(btn) btn.classList.add("active");
       renderAll();
+    }
+
+    function stripTime(d){
+      const x = new Date(d);
+      x.setHours(0,0,0,0);
+      return x;
     }
 
     function getAllMonths(){
@@ -443,9 +494,6 @@
       const p=Number(loan.amount), r=Number(loan.interest_rate)/100;
       if(loan.loan_type==="Interest Only") return p*r;
       if(loan.loan_type==="Interest Then Balloon") return p*r;
-      if(loan.client_name==="Fosirai Gadhi") return 150;
-      if(loan.client_name==="Tagaza Puru") return 600;
-      if(loan.client_name==="Pukuta Mhoiki") return 187;
       return getTotalRepayable(loan)/Number(loan.term);
     }
 
@@ -456,58 +504,42 @@
         const d = new Date(loan.disbursement_date);
         d.setMonth(d.getMonth()+i);
         let amount = getMonthlyDue(loan);
-
         if(loan.loan_type==="Interest Then Balloon"){
           if(i===1) amount = p*r;
           if(i===loan.term) amount = p + (p*r*loan.term);
         }
-
-        schedule.push({
-          dueDate:d.toISOString().split("T")[0],
-          amount:Number(amount)
-        });
+        schedule.push({ dueDate:d.toISOString().split("T")[0], amount:Number(amount) });
       }
       return schedule;
     }
 
     function getNextDue(loan){
-      const today = new Date();
-      return getDueSchedule(loan).find(s => new Date(s.dueDate) >= stripTime(today)) || null;
-    }
-
-    function stripTime(d){
-      const x = new Date(d);
-      x.setHours(0,0,0,0);
-      return x;
+      const today = stripTime(new Date());
+      return getDueSchedule(loan).find(s => new Date(s.dueDate) >= today) || null;
     }
 
     function getExpectedToDate(loan){
       const today = stripTime(new Date());
-      if(loan.client_name==="Mamhanya") return 601;
-
       return getDueSchedule(loan)
-        .filter(x => stripTime(new Date(x.dueDate)) < today)   // fixed arrears logic: only due dates before today count as arrears
+        .filter(x => stripTime(new Date(x.dueDate)) < today)
         .reduce((s,x)=>s+Number(x.amount),0);
     }
 
     function getExpectedIncludingToday(loan){
       const today = stripTime(new Date());
-      if(loan.client_name==="Mamhanya") return 601;
-
       return getDueSchedule(loan)
         .filter(x => stripTime(new Date(x.dueDate)) <= today)
         .reduce((s,x)=>s+Number(x.amount),0);
     }
 
     function getArrears(loan){
-      if(loan.client_name==="Mamhanya") return 466;
       return Math.max(0, getExpectedToDate(loan) - getPaidAmount(loan.id));
     }
 
     function getBalance(loan){
       const paid = getPaidAmount(loan.id);
       if(loan.loan_type==="Interest Only") return Number(loan.amount);
-      return Math.max(0, getTotalRepayable(loan) - paid);
+      return Math.max(0, getTotalRepayable(loan)-paid);
     }
 
     function getStatus(loan){
@@ -519,18 +551,15 @@
       if(arrears > 0) return "In Arrears";
       if(next && stripTime(new Date(next.dueDate)).getTime() === today.getTime()) return "Due Today";
       if(next && stripTime(new Date(next.dueDate)) > today) return "Current";
-      if(loan.loan_type==="Interest Only" && arrears===0) return "Current";
       return "Current";
     }
 
     function getDaysInArrears(loan){
       const arrears = getArrears(loan);
       if(arrears<=0) return 0;
-
       const today = stripTime(new Date());
       const overdue = getDueSchedule(loan).filter(x => stripTime(new Date(x.dueDate)) < today);
       if(!overdue.length) return 0;
-
       const oldest = stripTime(new Date(overdue[0].dueDate));
       return Math.max(1, Math.floor((today-oldest)/86400000));
     }
@@ -582,10 +611,6 @@
     function aggregateExpectedCollections(){
       const map={}; getAllMonths().forEach(m=>map[m]=0);
       loans.forEach(l=>{
-        if(l.client_name==="Mamhanya"){
-          map["Apr 2026"] = (map["Apr 2026"] || 0) + 601;
-          return;
-        }
         getDueSchedule(l).forEach(s=>{
           const mk = monthKey(s.dueDate);
           map[mk] = (map[mk]||0) + Number(s.amount);
@@ -617,7 +642,6 @@
       const expected = aggregateExpectedCollections();
       const actual = aggregateCollections();
       const disb = aggregateDisbursements();
-
       let openingCash = 0;
       return months.map(m => {
         const expectedAmt = expected[m] || 0;
@@ -627,15 +651,9 @@
         const profit = interestAmt - expenseAmt;
         const closingCash = openingCash + actualAmt - (disb[m] || 0) - expenseAmt;
         const row = {
-          month:m,
-          expected:expectedAmt,
-          actual:actualAmt,
+          month:m, expected:expectedAmt, actual:actualAmt,
           efficiency: expectedAmt>0 ? (actualAmt/expectedAmt)*100 : 0,
-          interest:interestAmt,
-          expense:expenseAmt,
-          profit,
-          openingCash,
-          closingCash
+          interest:interestAmt, expense:expenseAmt, profit, openingCash, closingCash
         };
         openingCash = closingCash;
         return row;
@@ -647,33 +665,23 @@
       let openWith=initialPortfolio, openNo=initialPortfolio;
       const withPar=[initialPortfolio], noPar=[initialPortfolio], rows=[];
       let cumInt=0;
-
       for(let i=0;i<12;i++){
         const interest = openWith * (interestRate/100);
         const par = interest * (parRate/100);
         const closeWith = openWith + interest - par;
-
         const interestNo = openNo * (interestRate/100);
         const closeNo = openNo + interestNo;
-
         cumInt += interest;
         rows.push({
-          month:months[i],
-          opening:openWith,
-          interest,
-          par,
-          closeWith,
-          closeNo,
-          cumulativeInterest:cumInt,
+          month:months[i], opening:openWith, interest, par,
+          closeWith, closeNo, cumulativeInterest:cumInt,
           growthPct:((closeWith-initialPortfolio)/initialPortfolio)*100
         });
-
         openWith = closeWith;
         openNo = closeNo;
         withPar.push(closeWith);
         noPar.push(closeNo);
       }
-
       return {
         months, rows, withPar, noPar,
         valueWithPar: withPar[12],
@@ -686,7 +694,6 @@
 
     async function fetchLiveData(){
       setSyncStatus("Syncing...", "gold");
-
       const [loansRes, paymentsRes, expensesRes] = await Promise.all([
         supabaseClient.from("loans").select("*").order("disbursement_date", { ascending: false }),
         supabaseClient.from("payments").select("*").order("payment_date", { ascending: false }),
@@ -710,8 +717,39 @@
       await fetchLiveData();
     }
 
+    async function loadGivenData(){
+      setSyncStatus("Loading data...", "gold");
+
+      const { error: delPayErr } = await supabaseClient.from("payments").delete().neq("id", "");
+      const { error: delLoanErr } = await supabaseClient.from("loans").delete().neq("id", "");
+      if(delPayErr || delLoanErr){
+        console.error(delPayErr, delLoanErr);
+      }
+
+      const { error: loanErr } = await supabaseClient.from("loans").upsert(GIVEN_LOANS);
+      if(loanErr){
+        console.error(loanErr);
+        setSyncStatus("Load failed", "red");
+        alert("Loan data load failed.");
+        return;
+      }
+
+      if(GIVEN_PAYMENTS.length){
+        const { error: payErr } = await supabaseClient.from("payments").upsert(GIVEN_PAYMENTS);
+        if(payErr){
+          console.error(payErr);
+          setSyncStatus("Load failed", "red");
+          alert("Payment data load failed.");
+          return;
+        }
+      }
+
+      await fetchLiveData();
+      alert("Updated data loaded.");
+    }
+
     function startRealtime(){
-      realtimeChannel = supabaseClient.channel("loantrack-live-upgrade")
+      realtimeChannel = supabaseClient.channel("loantrack-live-updated")
         .on("postgres_changes", { event:"*", schema:"public", table:"loans" }, fetchLiveData)
         .on("postgres_changes", { event:"*", schema:"public", table:"payments" }, fetchLiveData)
         .on("postgres_changes", { event:"*", schema:"public", table:"expenses" }, fetchLiveData)
@@ -734,6 +772,37 @@
       charts[id] = new Chart(document.getElementById(id), config);
     }
 
+    function renderStructureTab(){
+      const rows = STRUCTURE_ROWS;
+      const principalTotal = rows.reduce((s,r)=>s+r.principal,0);
+      const interestTotal = rows.reduce((s,r)=>s+r.interest,0);
+      const disbursedTotal = rows.reduce((s,r)=>s+r.disbursed,0);
+
+      document.getElementById("structureTableBody").innerHTML = rows.map(r=>`
+        <tr>
+          <td>${r.client}</td>
+          <td>${formatMoney(r.principal)}</td>
+          <td>${formatMoney(r.interest)}</td>
+          <td>${formatMoney(r.disbursed)}</td>
+          <td>${r.tenure}</td>
+          <td>${r.disbursementDate}</td>
+          <td>${r.loanType}</td>
+        </tr>
+      `).join("");
+
+      document.getElementById("structureTableFoot").innerHTML = `
+        <tr>
+          <th>Total</th>
+          <th>${formatMoney(principalTotal)}</th>
+          <th>${formatMoney(interestTotal)}</th>
+          <th>${formatMoney(disbursedTotal)}</th>
+          <th></th>
+          <th></th>
+          <th></th>
+        </tr>
+      `;
+    }
+
     function renderDashboard(){
       const totalDisbursed = loans.reduce((s,l)=>s+Number(l.amount),0);
       const totalCollected = payments.reduce((s,p)=>s+Number(p.amount),0);
@@ -753,17 +822,9 @@
         <div class="kpi"><div class="label">Due Today</div><div class="value mid">${dueTodayCount}</div><div class="sub">Immediate follow-up</div></div>
       `;
 
-      const ctxPrincipal=document.getElementById("principalChart").getContext("2d");
       renderChart("principalChart", {
         type:"bar",
-        data:{
-          labels:["Principal Disbursed","Collected","Outstanding"],
-          datasets:[{
-            data:[totalDisbursed,totalCollected,outstanding],
-            backgroundColor:["#3569d6","#1f9d66","#6f59d9"],
-            borderRadius:10
-          }]
-        },
+        data:{labels:["Principal Disbursed","Collected","Outstanding"],datasets:[{data:[totalDisbursed,totalCollected,outstanding],backgroundColor:["#3569d6","#1f9d66","#6f59d9"],borderRadius:10}]},
         options:{plugins:{legend:{display:false}}}
       });
 
@@ -791,43 +852,19 @@
 
       renderChart("collectionsChart", {
         type:"bar",
-        data:{
-          labels:months,
-          datasets:[{
-            label:"Collections",
-            data:months.map(m=>collections[m]||0),
-            backgroundColor:"#1f9d66",
-            borderRadius:10
-          }]
-        },
+        data:{labels:months,datasets:[{label:"Collections",data:months.map(m=>collections[m]||0),backgroundColor:"#1f9d66",borderRadius:10}]},
         options:{plugins:{legend:{display:false}}}
       });
 
       renderChart("arrearsChart", {
         type:"bar",
-        data:{
-          labels:arrearsLoans.map(l=>l.client_name),
-          datasets:[{
-            label:"Arrears",
-            data:arrearsLoans.map(l=>getArrears(l)),
-            backgroundColor:"#d14b4b",
-            borderRadius:10
-          }]
-        },
+        data:{labels:arrearsLoans.map(l=>l.client_name),datasets:[{label:"Arrears",data:arrearsLoans.map(l=>getArrears(l)),backgroundColor:"#d14b4b",borderRadius:10}]},
         options:{plugins:{legend:{display:false}}}
       });
 
       renderChart("outstandingChart", {
         type:"bar",
-        data:{
-          labels:loans.map(l=>l.client_name),
-          datasets:[{
-            label:"Outstanding",
-            data:loans.map(l=>getBalance(l)),
-            backgroundColor:"#6f59d9",
-            borderRadius:10
-          }]
-        },
+        data:{labels:loans.map(l=>l.client_name),datasets:[{label:"Outstanding",data:loans.map(l=>getBalance(l)),backgroundColor:"#6f59d9",borderRadius:10}]},
         options:{plugins:{legend:{display:false}}}
       });
 
@@ -888,7 +925,6 @@
       const buckets = getDueBuckets();
 
       const blocks = [];
-
       blocks.push(`
         <div class="card">
           <div class="section-title">Overdue Accounts (${buckets.overdue.length})</div>
@@ -1044,17 +1080,27 @@
         </div>
       `);
 
-      items.push(`
-        <div class="rec-card">
-          <div>
-            <strong>Use remarks as operational memory</strong>
-            <div class="muted">Capture promise-to-pay dates, salary delays, employer issues, and field visits. Keep remarks operational, not formula-based.</div>
-          </div>
-          <span class="pill blue">Practice</span>
-        </div>
-      `);
-
       document.getElementById("recommendationsContent").innerHTML = items.join("");
+    }
+
+    function fillFilters(){
+      const months = getAllMonths();
+      const disb = document.getElementById("disbursementMonthFilter");
+      const report = document.getElementById("reportMonthFilter");
+      const profit = document.getElementById("profitMonthFilter");
+
+      [disb, report, profit].forEach(el=>{
+        if(!el) return;
+        const cur = el.value;
+        const opts = months.map(m=>`<option value="${m}">${m}</option>`).join("");
+        if(el.id==="disbursementMonthFilter"){
+          el.innerHTML = `<option value="ALL">All</option>${opts}`;
+          el.value = months.includes(cur) ? cur : "ALL";
+        } else {
+          el.innerHTML = opts;
+          el.value = months.includes(cur) ? cur : (months[0] || "");
+        }
+      });
     }
 
     function renderProfitModule(){
@@ -1156,26 +1202,6 @@
 
       await fetchLiveData();
       alert("Expense saved.");
-    }
-
-    function fillFilters(){
-      const months = getAllMonths();
-      const disb = document.getElementById("disbursementMonthFilter");
-      const report = document.getElementById("reportMonthFilter");
-      const profit = document.getElementById("profitMonthFilter");
-
-      [disb, report, profit].forEach(el=>{
-        if(!el) return;
-        const cur = el.value;
-        const opts = months.map(m=>`<option value="${m}">${m}</option>`).join("");
-        if(el.id==="disbursementMonthFilter"){
-          el.innerHTML = `<option value="ALL">All</option>${opts}`;
-          el.value = months.includes(cur) ? cur : "ALL";
-        } else {
-          el.innerHTML = opts;
-          el.value = months.includes(cur) ? cur : (months[0] || "");
-        }
-      });
     }
 
     function renderPayments(){
@@ -1465,16 +1491,13 @@
       document.getElementById("paymentDate").value = "";
     }
 
-    async function fetchLiveDataAndRender(){
-      await fetchLiveData();
-    }
-
     function renderAll(){
       fillFilters();
       renderDashboard();
       renderPayments();
       renderArrears();
       renderDisbursements();
+      renderStructureTab();
       renderSearch();
       renderAlerts();
       renderSchedules();
