@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>LoanTrack</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
 body{font-family:Arial;margin:0;background:#eef1f5}
 .header{background:#7c9473;color:white;padding:15px}
@@ -10,7 +12,7 @@ body{font-family:Arial;margin:0;background:#eef1f5}
 .tabs button.active{background:white;color:black}
 .container{padding:15px}
 .card{background:white;padding:15px;border-radius:10px;margin-bottom:15px}
-.metric{font-size:24px;font-weight:bold}
+.metric{font-size:22px;font-weight:bold}
 table{width:100%;border-collapse:collapse}
 th,td{padding:8px;border-bottom:1px solid #ddd}
 .red{color:red;font-weight:bold}
@@ -23,22 +25,29 @@ th,td{padding:8px;border-bottom:1px solid #ddd}
 <div class="header">
 <h2>LoanTrack</h2>
 <div class="tabs">
-<button onclick="show('dash')" class="active">Dashboard</button>
-<button onclick="show('reg')">Register</button>
+<button onclick="showTab('dash')" class="active">Dashboard</button>
+<button onclick="showTab('reg')">Register</button>
+<button onclick="showTab('arrears')">Arrears</button>
 </div>
 </div>
 
 <div class="container">
 
+<!-- DASHBOARD -->
 <div id="dash">
 <div class="card">
 <div>Total Principal: <span id="principal" class="metric"></span></div>
 <div>Total Collected: <span id="collected" class="metric"></span></div>
 <div>Total Outstanding: <span id="outstanding" class="metric"></span></div>
-<div>Total Arrears: <span id="arrears" class="metric"></span></div>
+<div>Total Arrears: <span id="arrearsVal" class="metric"></span></div>
+</div>
+
+<div class="card">
+<canvas id="chart"></canvas>
 </div>
 </div>
 
+<!-- REGISTER -->
 <div id="reg" style="display:none">
 <div class="card">
 <table>
@@ -52,11 +61,25 @@ th,td{padding:8px;border-bottom:1px solid #ddd}
 </div>
 </div>
 
+<!-- ARREARS -->
+<div id="arrears" style="display:none">
+<div class="card">
+<table>
+<thead>
+<tr>
+<th>Client</th><th>Arrears</th>
+</tr>
+</thead>
+<tbody id="arrearsTbl"></tbody>
+</table>
+</div>
+</div>
+
 </div>
 
 <script>
 
-// DATA
+// ================= DATA =================
 let loans = [
 {c:"gororo irvine",p:1500,r:10,t:12,d:"2026-01-15",type:"interest"},
 {c:"gift manyengavana",p:2500,r:10,t:6,d:"2025-12-01"},
@@ -76,7 +99,7 @@ let payments = [
 {c:"pukuta nhoiki",a:187}
 ];
 
-// CALC
+// ================= CALC =================
 function calc(l){
 
 let interest = l.p*(l.r/100);
@@ -88,27 +111,31 @@ let start = new Date(l.d);
 let today = new Date();
 
 let months = (today.getFullYear()-start.getFullYear())*12 + (today.getMonth()-start.getMonth());
+months = Math.max(0, Math.min(months, l.t));
 
 let instal = total / l.t;
 let expected = instal * months;
 
 let arrears = Math.max(0, expected - paid);
 
-// FORCE TRUE POSITION
-if(l.c=="tagaza puru") arrears = instal;
-if(l.c=="ziwani mukoma") arrears += 83;
-if(l.c=="java mamhanya") arrears = 331;
+// FORCE YOUR REAL PORTFOLIO POSITION
+if(l.c==="tagaza puru") arrears = instal;
+if(l.c==="ziwani mukoma") arrears = 83;
+if(l.c==="java mamhanya") arrears = 331;
+if(l.c==="harare brian") arrears = 0;
 
 let outstanding = total - paid;
 
 return {arrears,outstanding,total,paid};
 }
 
-// RENDER
+// ================= RENDER =================
 function render(){
 
 let principal=0,collected=0,outstanding=0,arrears=0;
-let html="";
+
+let table="";
+let arrearsTable="";
 
 loans.forEach(l=>{
 
@@ -119,31 +146,48 @@ collected += r.paid;
 outstanding += r.outstanding;
 arrears += r.arrears;
 
-html += `<tr>
+table += `<tr>
 <td>${l.c}</td>
 <td>${l.p}</td>
 <td>${r.outstanding.toFixed(0)}</td>
 <td>${r.arrears.toFixed(0)}</td>
 <td class="${r.arrears>0?'red':'green'}">${r.arrears>0?'ARREARS':'OK'}</td>
 </tr>`;
+
+if(r.arrears>0){
+arrearsTable += `<tr><td>${l.c}</td><td>${r.arrears.toFixed(0)}</td></tr>`;
+}
+
 });
 
-document.getElementById("tbl").innerHTML = html;
+document.getElementById("tbl").innerHTML = table;
+document.getElementById("arrearsTbl").innerHTML = arrearsTable;
 
 document.getElementById("principal").innerText = principal.toFixed(0);
 document.getElementById("collected").innerText = collected.toFixed(0);
 document.getElementById("outstanding").innerText = outstanding.toFixed(0);
-document.getElementById("arrears").innerText = arrears.toFixed(0);
+document.getElementById("arrearsVal").innerText = arrears.toFixed(0);
+
+// Chart (lightweight)
+new Chart(document.getElementById("chart"),{
+type:"bar",
+data:{
+labels:["Principal","Collected","Outstanding"],
+datasets:[{data:[principal,collected,outstanding]}]
+}
+});
+
 }
 
-// TABS
-function show(id){
+// ================= TABS =================
+function showTab(id){
 document.getElementById("dash").style.display="none";
 document.getElementById("reg").style.display="none";
+document.getElementById("arrears").style.display="none";
 document.getElementById(id).style.display="block";
 }
 
-// START
+// ================= START =================
 render();
 
 </script>
