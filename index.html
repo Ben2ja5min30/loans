@@ -1,1189 +1,177 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LoanTrack</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #eef1f5;
-      color: #1f2937;
-    }
-    .header {
-      background: #89a08b;
-      color: #fff;
-      padding: 20px;
-    }
-    .title {
-      font-size: 28px;
-      font-weight: 700;
-      margin: 0 0 4px 0;
-    }
-    .subtitle {
-      margin: 0;
-      color: #ffd966;
-      font-size: 14px;
-    }
-    .tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 18px;
-    }
-    .tab-btn {
-      background: transparent;
-      border: none;
-      color: #fff;
-      padding: 12px 14px;
-      font-size: 15px;
-      font-weight: 700;
-      border-radius: 12px;
-      cursor: pointer;
-    }
-    .tab-btn.active {
-      background: rgba(255,255,255,0.18);
-    }
-    .topbar {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-      padding: 14px 16px;
-    }
-    .pill {
-      display: inline-block;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: #dbeafe;
-      color: #2563eb;
-      font-weight: 700;
-      font-size: 14px;
-    }
-    .sync-text {
-      color: #6b7280;
-      font-size: 14px;
-    }
-    .action-row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      padding: 0 16px 16px 16px;
-    }
-    .blue-btn {
-      background: #3467d6;
-      color: white;
-      border: none;
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .container {
-      padding: 16px;
-    }
-    .tab-content {
-      display: none;
-    }
-    .tab-content.active {
-      display: block;
-    }
-    .cards-2, .cards-3, .cards-4 {
-      display: grid;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-    .cards-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .cards-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .cards-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-
-    .card {
-      background: #fff;
-      border-radius: 22px;
-      padding: 18px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      min-height: 140px;
-    }
-    .card h3 {
-      margin: 0 0 12px 0;
-      font-size: 14px;
-      color: #546b8c;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .metric {
-      font-size: 30px;
-      font-weight: 800;
-      margin-top: 10px;
-      color: #1f2937;
-    }
-    .chart-box {
-      height: 280px;
-      position: relative;
-    }
-    .small-chart-box {
-      height: 220px;
-      position: relative;
-    }
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-    }
-    .form-grid-2 {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-    label {
-      display: block;
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 6px;
-      color: #475569;
-    }
-    input, select, textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      font-size: 14px;
-      background: #fff;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-    th, td {
-      text-align: left;
-      padding: 10px 8px;
-      border-bottom: 1px solid #e5e7eb;
-      vertical-align: top;
-    }
-    th {
-      color: #475569;
-      background: #f8fafc;
-      position: sticky;
-      top: 0;
-    }
-    .table-wrap {
-      overflow-x: auto;
-      background: #fff;
-      border-radius: 18px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      padding: 8px 12px 12px 12px;
-    }
-    .section-space { margin-bottom: 16px; }
-    .danger-btn {
-      background: #c0392b;
-      color: #fff;
-      border: none;
-      padding: 8px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 700;
-    }
-    .success-btn {
-      background: #15803d;
-      color: #fff;
-      border: none;
-      padding: 12px 16px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 700;
-    }
-    .muted {
-      color: #64748b;
-      font-size: 13px;
-    }
-    .alert-item {
-      padding: 12px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .status-current {
-      color: #15803d;
-      font-weight: 700;
-    }
-    .status-arrears {
-      color: #b91c1c;
-      font-weight: 700;
-    }
-    .status-closed {
-      color: #334155;
-      font-weight: 700;
-    }
-    @media (max-width: 1000px) {
-      .cards-2, .cards-3, .cards-4,
-      .form-grid, .form-grid-2 {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+<meta charset="UTF-8">
+<title>LoanTrack PRO</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body{font-family:Arial;margin:0;background:#eef1f5}
+.header{background:#7c9473;color:white;padding:20px}
+.tabs button{margin:4px;padding:10px;border:none;border-radius:10px;background:#ffffff30;color:white;font-weight:bold;cursor:pointer}
+.tabs button.active{background:white;color:#333}
+.container{padding:15px}
+.card{background:white;border-radius:15px;padding:15px;margin-bottom:15px}
+.metric{font-size:26px;font-weight:bold}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px;border-bottom:1px solid #ddd}
+.status-arrears{color:red;font-weight:bold}
+.status-ok{color:green;font-weight:bold}
+</style>
 </head>
+
 <body>
-  <div class="header">
-    <div class="title">LoanTrack</div>
-    <div class="subtitle">Officer A Portfolio</div>
-
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-      <button class="tab-btn" data-tab="register">Register</button>
-      <button class="tab-btn" data-tab="payments">Payments</button>
-      <button class="tab-btn" data-tab="arrears">Arrears</button>
-      <button class="tab-btn" data-tab="disbursements">Disbursements</button>
-      <button class="tab-btn" data-tab="loanStructure">Loan Structure</button>
-      <button class="tab-btn" data-tab="search">Search</button>
-      <button class="tab-btn" data-tab="alerts">Alerts</button>
-      <button class="tab-btn" data-tab="schedules">Schedules</button>
-      <button class="tab-btn" data-tab="growth">Growth</button>
-      <button class="tab-btn" data-tab="recommendations">Recommendations</button>
-      <button class="tab-btn" data-tab="profitpar">Profit/PAR</button>
-      <button class="tab-btn" data-tab="share">Share</button>
-    </div>
-  </div>
-
-  <div class="topbar">
-    <span class="pill" id="connectionStatus">Connecting...</span>
-    <span class="sync-text" id="lastSync">Last sync: --</span>
-  </div>
-
-  <div class="action-row">
-    <button class="blue-btn" id="clearLoanFormBtn">Clear Loan Form</button>
-    <button class="blue-btn" id="clearPaymentFormBtn">Clear Payment Form</button>
-  </div>
-
-  <div class="container">
-    <div id="dashboard" class="tab-content active">
-      <div class="cards-4">
-        <div class="card">
-          <h3>Total Principal</h3>
-          <div class="metric" id="totalPrincipal">0.00</div>
-        </div>
-        <div class="card">
-          <h3>Total Collected</h3>
-          <div class="metric" id="totalCollected">0.00</div>
-        </div>
-        <div class="card">
-          <h3>Total Outstanding</h3>
-          <div class="metric" id="totalOutstanding">0.00</div>
-        </div>
-        <div class="card">
-          <h3>Total Arrears</h3>
-          <div class="metric" id="totalArrears">0.00</div>
-        </div>
-      </div>
-
-      <div class="cards-2">
-        <div class="card">
-          <h3>Principal vs Collected vs Outstanding</h3>
-          <div class="chart-box"><canvas id="principalVsCollectedChart"></canvas></div>
-        </div>
-        <div class="card">
-          <h3>Loan Status Distribution</h3>
-          <div class="chart-box"><canvas id="loanStatusChart"></canvas></div>
-        </div>
-      </div>
-
-      <div class="cards-3">
-        <div class="card">
-          <h3>Monthly Collections Trend</h3>
-          <div class="small-chart-box"><canvas id="monthlyCollectionsChart"></canvas></div>
-        </div>
-        <div class="card">
-          <h3>Arrears by Borrower ($)</h3>
-          <div class="small-chart-box"><canvas id="arrearsBorrowerChart"></canvas></div>
-        </div>
-        <div class="card">
-          <h3>Outstanding Balances ($)</h3>
-          <div class="small-chart-box"><canvas id="outstandingChart"></canvas></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="register" class="tab-content">
-      <div class="card section-space">
-        <h3>Add / Edit Loan</h3>
-        <div class="form-grid">
-          <div>
-            <label>Client</label>
-            <input id="client" type="text" placeholder="Borrower name" />
-          </div>
-          <div>
-            <label>Principal</label>
-            <input id="principal" type="number" step="0.01" placeholder="0.00" />
-          </div>
-          <div>
-            <label>Interest</label>
-            <input id="interest" type="number" step="0.01" placeholder="0.00" />
-          </div>
-          <div>
-            <label>Tenure (months)</label>
-            <input id="tenure" type="number" step="1" placeholder="6" />
-          </div>
-          <div>
-            <label>Disbursement Date</label>
-            <input id="disbursementDate" type="date" />
-          </div>
-          <div>
-            <label>Loan Type</label>
-            <select id="loanType">
-              <option value="standard">Standard</option>
-              <option value="interest only">Interest Only</option>
-            </select>
-          </div>
-          <div>
-            <label>Next of Kin Name</label>
-            <input id="nokName" type="text" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Next of Kin Phone</label>
-            <input id="nokPhone" type="text" placeholder="Optional" />
-          </div>
-          <div>
-            <label>Phone Number</label>
-            <input id="phoneNumber" type="text" placeholder="Optional" />
-          </div>
-        </div>
-        <div style="margin-top:14px;">
-          <button class="success-btn" id="addLoanBtn">Save Loan</button>
-        </div>
-      </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Client</th>
-              <th>Principal</th>
-              <th>Interest</th>
-              <th>Tenure</th>
-              <th>Disbursement Date</th>
-              <th>Loan Type</th>
-              <th>Total Collected</th>
-              <th>Outstanding</th>
-              <th>Arrears</th>
-              <th>Status</th>
-              <th>Last Repayment</th>
-              <th>Next Repayment</th>
-              <th>Phone</th>
-              <th>Next of Kin</th>
-            </tr>
-          </thead>
-          <tbody id="registerTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="payments" class="tab-content">
-      <div class="card section-space">
-        <h3>Add Payment</h3>
-        <div class="form-grid-2">
-          <div>
-            <label>Client</label>
-            <input id="paymentClient" type="text" placeholder="Borrower name" />
-          </div>
-          <div>
-            <label>Amount</label>
-            <input id="paymentAmount" type="number" step="0.01" placeholder="0.00" />
-          </div>
-          <div>
-            <label>Payment Date</label>
-            <input id="paymentDate" type="date" />
-          </div>
-          <div>
-            <label>Note</label>
-            <input id="paymentNote" type="text" placeholder="Optional note" />
-          </div>
-        </div>
-        <div style="margin-top:14px;">
-          <button class="success-btn" id="addPaymentBtn">Save Payment</button>
-        </div>
-      </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Client</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Note</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="paymentsTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="arrears" class="tab-content">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Client</th>
-              <th>Arrears</th>
-              <th>Outstanding</th>
-              <th>Last Repayment</th>
-              <th>Next Repayment</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="arrearsTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="disbursements" class="tab-content">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Client</th>
-              <th>Disbursement Date</th>
-              <th>Principal</th>
-              <th>Tenure</th>
-              <th>Loan Type</th>
-            </tr>
-          </thead>
-          <tbody id="disbursementsTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="loanStructure" class="tab-content">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Client</th>
-              <th>Principal</th>
-              <th>Interest</th>
-              <th>Tenure</th>
-              <th>Loan Type</th>
-              <th>Monthly Installment</th>
-              <th>Expected To Date</th>
-              <th>Collected</th>
-              <th>Arrears</th>
-              <th>Principal Outstanding</th>
-            </tr>
-          </thead>
-          <tbody id="loanStructureTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="search" class="tab-content">
-      <div class="card section-space">
-        <h3>Search Client / Loan Record</h3>
-        <div>
-          <label>Search</label>
-          <input id="searchInput" type="text" placeholder="Type client name, phone, next of kin, status..." />
-        </div>
-      </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Client</th>
-              <th>Principal</th>
-              <th>Outstanding</th>
-              <th>Arrears</th>
-              <th>Last Repayment</th>
-              <th>Next Repayment</th>
-              <th>Status</th>
-              <th>Phone</th>
-              <th>Next of Kin</th>
-            </tr>
-          </thead>
-          <tbody id="searchResultsBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="alerts" class="tab-content">
-      <div class="card">
-        <h3>Alerts</h3>
-        <div id="alertsContainer"></div>
-      </div>
-    </div>
-
-    <div id="schedules" class="tab-content">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Client</th>
-              <th>Disbursement Date</th>
-              <th>Next Repayment</th>
-              <th>Monthly Installment</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="scheduleTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="growth" class="tab-content">
-      <div class="cards-3">
-        <div class="card">
-          <h3>Projected Growth (PAR 0%)</h3>
-          <div class="metric" id="growthPar0">0.00</div>
-          <div class="muted">Simple projection using current book and collections.</div>
-        </div>
-        <div class="card">
-          <h3>Projected Growth (PAR 5%)</h3>
-          <div class="metric" id="growthPar5">0.00</div>
-          <div class="muted">Moderate stress scenario.</div>
-        </div>
-        <div class="card">
-          <h3>Current Loan Book</h3>
-          <div class="metric" id="currentLoanBook">0.00</div>
-          <div class="muted">Outstanding gross balance estimate.</div>
-        </div>
-      </div>
-    </div>
-
-    <div id="recommendations" class="tab-content">
-      <div class="card">
-        <h3>Recommendations</h3>
-        <div id="recommendationsBox" style="line-height:1.7;"></div>
-      </div>
-    </div>
-
-    <div id="profitpar" class="tab-content">
-      <div class="cards-3">
-        <div class="card">
-          <h3>Estimated Interest Income</h3>
-          <div class="metric" id="interestIncomeMetric">0.00</div>
-        </div>
-        <div class="card">
-          <h3>PAR Exposure</h3>
-          <div class="metric" id="parExposureMetric">0.00</div>
-        </div>
-        <div class="card">
-          <h3>Estimated Net Position</h3>
-          <div class="metric" id="netPositionMetric">0.00</div>
-        </div>
-      </div>
-    </div>
-
-    <div id="share" class="tab-content">
-      <div class="card">
-        <h3>Share</h3>
-        <p class="muted">Share this app link after committing your file to GitHub Pages.</p>
-        <input id="shareLink" type="text" readonly />
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let loans = [];
-    let payments = [];
-    let currentTab = "dashboard";
-
-    function el(id) { return document.getElementById(id); }
-    function qs(selector) { return document.querySelector(selector); }
-    function qsa(selector) { return document.querySelectorAll(selector); }
-    function safeValue(v, fallback = 0) { return isNaN(Number(v)) ? fallback : Number(v); }
-
-    function formatMoney(v) {
-      return safeValue(v).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      });
-    }
-
-    function parseDate(dateStr) {
-      if (!dateStr) return null;
-      const dt = new Date(dateStr);
-      return isNaN(dt.getTime()) ? null : dt;
-    }
-
-    function toISODate(date) {
-      if (!(date instanceof Date) || isNaN(date.getTime())) return "";
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      const d = String(date.getDate()).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    }
-
-    function addMonths(date, months) {
-      const d = new Date(date);
-      const originalDay = d.getDate();
-      d.setMonth(d.getMonth() + months);
-      if (d.getDate() < originalDay) d.setDate(0);
-      return d;
-    }
-
-    function saveLocalData() {
-      localStorage.setItem("loantrack_loans", JSON.stringify(loans));
-      localStorage.setItem("loantrack_payments", JSON.stringify(payments));
-      if (el("lastSync")) el("lastSync").textContent = "Last sync: " + new Date().toLocaleString();
-      if (el("connectionStatus")) el("connectionStatus").textContent = "Saved locally";
-    }
-
-    function loadLocalData() {
-      try {
-        const storedLoans = localStorage.getItem("loantrack_loans");
-        const storedPayments = localStorage.getItem("loantrack_payments");
-        if (storedLoans) loans = JSON.parse(storedLoans);
-        if (storedPayments) payments = JSON.parse(storedPayments);
-      } catch (e) {
-        console.error("Local storage load failed:", e);
-        loans = [];
-        payments = [];
-      }
-    }
-
-    function loanPaymentsForClient(clientName) {
-      return payments.filter(p =>
-        (p.client || "").trim().toLowerCase() === (clientName || "").trim().toLowerCase()
-      );
-    }
-
-    function totalCollected(clientName) {
-      return loanPaymentsForClient(clientName).reduce((sum, p) => sum + safeValue(p.amount), 0);
-    }
-
-    function calcMonthlyInstallment(loan) {
-      const principal = safeValue(loan.principal);
-      const interest = safeValue(loan.interest);
-      const tenure = Math.max(1, safeValue(loan.tenure, 1));
-      const loanType = (loan.loanType || "standard").toLowerCase();
-
-      if (loanType === "interest only") return interest;
-      return (principal + interest) / tenure;
-    }
-
-    function calcExpectedToDate(loan) {
-      const start = parseDate(loan.disbursementDate);
-      if (!start) return 0;
-
-      const today = new Date();
-      const tenure = Math.max(1, safeValue(loan.tenure, 1));
-      const installment = calcMonthlyInstallment(loan);
-
-      let dueCount = 0;
-      for (let i = 1; i <= tenure; i++) {
-        const dueDate = addMonths(start, i);
-        if (today >= dueDate) dueCount++;
-      }
-      return dueCount * installment;
-    }
-
-    function calcArrears(loan) {
-      const expected = calcExpectedToDate(loan);
-      const collected = totalCollected(loan.client);
-      return Math.max(0, expected - collected);
-    }
-
-    function calcOutstanding(loan) {
-      const principal = safeValue(loan.principal);
-      const interest = safeValue(loan.interest);
-      const totalLoan = principal + interest;
-      const collected = totalCollected(loan.client);
-      return Math.max(0, totalLoan - collected);
-    }
-
-    function calcPrincipalOutstanding(loan) {
-      const principal = safeValue(loan.principal);
-      const interest = safeValue(loan.interest);
-      const collected = totalCollected(loan.client);
-      const tenure = Math.max(1, safeValue(loan.tenure, 1));
-
-      if ((loan.loanType || "standard").toLowerCase() === "interest only") return principal;
-
-      const monthlyInterest = interest / tenure;
-      const principalRecovered = Math.max(0, collected - monthlyInterest);
-      return Math.max(0, principal - principalRecovered);
-    }
-
-    function calcStatus(loan) {
-      const outstanding = calcOutstanding(loan);
-      const arrears = calcArrears(loan);
-      if (outstanding <= 0) return "Closed";
-      if (arrears > 0) return "In Arrears";
-      return "Current";
-    }
-
-    function statusClass(status) {
-      if (status === "Current") return "status-current";
-      if (status === "In Arrears") return "status-arrears";
-      return "status-closed";
-    }
-
-    function nextRepaymentDate(loan) {
-      const start = parseDate(loan.disbursementDate);
-      if (!start) return "";
-
-      const tenure = Math.max(1, safeValue(loan.tenure, 1));
-      const today = new Date();
-
-      for (let i = 1; i <= tenure; i++) {
-        const dueDate = addMonths(start, i);
-        if (dueDate >= today) return toISODate(dueDate);
-      }
-      return "";
-    }
-
-    function lastRepaymentDate(loan) {
-      const items = loanPaymentsForClient(loan.client)
-        .map(p => parseDate(p.date))
-        .filter(Boolean)
-        .sort((a, b) => b - a);
-
-      return items.length ? toISODate(items[0]) : "";
-    }
-
-    function monthlyCollectionsSummary() {
-      const map = {};
-      payments.forEach(p => {
-        const d = parseDate(p.date);
-        if (!d) return;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        map[key] = (map[key] || 0) + safeValue(p.amount);
-      });
-      return map;
-    }
-
-    function showTab(tabName) {
-      currentTab = tabName;
-
-      qsa(".tab-content").forEach(section => {
-        section.style.display = "none";
-        section.classList.remove("active");
-      });
-
-      qsa(".tab-btn").forEach(btn => {
-        btn.classList.remove("active");
-      });
-
-      const section = el(tabName);
-      if (section) {
-        section.style.display = "block";
-        section.classList.add("active");
-      }
-
-      const activeButton = qs(`.tab-btn[data-tab="${tabName}"]`);
-      if (activeButton) activeButton.classList.add("active");
-
-      renderAll();
-    }
-
-    function clearLoanForm() {
-      ["client","principal","interest","tenure","disbursementDate","nokName","nokPhone","phoneNumber"].forEach(id => {
-        if (el(id)) el(id).value = "";
-      });
-      if (el("loanType")) el("loanType").value = "standard";
-    }
-
-    function clearPaymentForm() {
-      ["paymentClient","paymentAmount","paymentDate","paymentNote"].forEach(id => {
-        if (el(id)) el(id).value = "";
-      });
-    }
-
-    function addLoanFromForm() {
-      const client = el("client")?.value?.trim() || "";
-      const principal = safeValue(el("principal")?.value);
-      const interest = safeValue(el("interest")?.value);
-      const tenure = safeValue(el("tenure")?.value, 1);
-      const disbursementDate = el("disbursementDate")?.value || "";
-      const loanType = el("loanType")?.value || "standard";
-      const nokName = el("nokName")?.value?.trim() || "";
-      const nokPhone = el("nokPhone")?.value?.trim() || "";
-      const phoneNumber = el("phoneNumber")?.value?.trim() || "";
-
-      if (!client || !principal || !tenure || !disbursementDate) {
-        alert("Please fill in client, principal, tenure, and disbursement date.");
-        return;
-      }
-
-      const existingIndex = loans.findIndex(
-        l => (l.client || "").trim().toLowerCase() === client.toLowerCase()
-      );
-
-      const record = { client, principal, interest, tenure, disbursementDate, loanType, nokName, nokPhone, phoneNumber };
-
-      if (existingIndex >= 0) loans[existingIndex] = record;
-      else loans.push(record);
-
-      saveLocalData();
-      clearLoanForm();
-      renderAll();
-      showTab("register");
-    }
-
-    function addPaymentFromForm() {
-      const client = el("paymentClient")?.value?.trim() || "";
-      const amount = safeValue(el("paymentAmount")?.value);
-      const date = el("paymentDate")?.value || "";
-      const note = el("paymentNote")?.value || "";
-
-      if (!client || !amount || !date) {
-        alert("Please fill in client, amount, and payment date.");
-        return;
-      }
-
-      payments.push({ client, amount, date, note });
-
-      saveLocalData();
-      clearPaymentForm();
-      renderAll();
-      showTab("payments");
-    }
-
-    function deletePayment(index) {
-      if (index < 0 || index >= payments.length) return;
-      payments.splice(index, 1);
-      saveLocalData();
-      renderAll();
-    }
-
-    function renderDashboardCards() {
-      const totalPrincipal = loans.reduce((s, l) => s + safeValue(l.principal), 0);
-      const totalCollectedAll = loans.reduce((s, l) => s + totalCollected(l.client), 0);
-      const totalOutstanding = loans.reduce((s, l) => s + calcOutstanding(l), 0);
-      const totalArrears = loans.reduce((s, l) => s + calcArrears(l), 0);
-
-      if (el("totalPrincipal")) el("totalPrincipal").textContent = formatMoney(totalPrincipal);
-      if (el("totalCollected")) el("totalCollected").textContent = formatMoney(totalCollectedAll);
-      if (el("totalOutstanding")) el("totalOutstanding").textContent = formatMoney(totalOutstanding);
-      if (el("totalArrears")) el("totalArrears").textContent = formatMoney(totalArrears);
-      if (el("currentLoanBook")) el("currentLoanBook").textContent = formatMoney(totalOutstanding);
-    }
-
-    function renderRegisterTable() {
-      const tbody = el("registerTableBody");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-
-      loans.forEach((loan, index) => {
-        const status = calcStatus(loan);
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${loan.client}</td>
-          <td>${formatMoney(loan.principal)}</td>
-          <td>${formatMoney(loan.interest)}</td>
-          <td>${loan.tenure}</td>
-          <td>${loan.disbursementDate}</td>
-          <td>${loan.loanType}</td>
-          <td>${formatMoney(totalCollected(loan.client))}</td>
-          <td>${formatMoney(calcOutstanding(loan))}</td>
-          <td>${formatMoney(calcArrears(loan))}</td>
-          <td class="${statusClass(status)}">${status}</td>
-          <td>${lastRepaymentDate(loan)}</td>
-          <td>${nextRepaymentDate(loan)}</td>
-          <td>${loan.phoneNumber || ""}</td>
-          <td>${[loan.nokName || "", loan.nokPhone || ""].filter(Boolean).join(" ")}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function renderPaymentsTable() {
-      const tbody = el("paymentsTableBody");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-
-      payments.forEach((p, index) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${p.client}</td>
-          <td>${p.date}</td>
-          <td>${formatMoney(p.amount)}</td>
-          <td>${p.note || ""}</td>
-          <td><button class="danger-btn" onclick="deletePayment(${index})">Delete</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function renderArrearsTable() {
-      const tbody = el("arrearsTableBody");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-
-      loans.filter(l => calcArrears(l) > 0).forEach((loan, index) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${loan.client}</td>
-          <td>${formatMoney(calcArrears(loan))}</td>
-          <td>${formatMoney(calcOutstanding(loan))}</td>
-          <td>${lastRepaymentDate(loan)}</td>
-          <td>${nextRepaymentDate(loan)}</td>
-          <td class="status-arrears">In Arrears</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function renderDisbursementsTable() {
-      const tbody = el("disbursementsTableBody");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-
-      loans.forEach((loan, index) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${loan.client}</td>
-          <td>${loan.disbursementDate}</td>
-          <td>${formatMoney(loan.principal)}</td>
-          <td>${loan.tenure}</td>
-          <td>${loan.loanType}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function renderLoanStructureTable() {
-      const tbody = el("loanStructureTableBody");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-
-      loans.forEach((loan, index) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${loan.client}</td>
-          <td>${formatMoney(loan.principal)}</td>
-          <td>${formatMoney(loan.interest)}</td>
-          <td>${loan.tenure}</td>
-          <td>${loan.loanType}</td>
-          <td>${formatMoney(calcMonthlyInstallment(loan))}</td>
-          <td>${formatMoney(calcExpectedToDate(loan))}</td>
-          <td>${formatMoney(totalCollected(loan.client))}</td>
-          <td>${formatMoney(calcArrears(loan))}</td>
-          <td>${formatMoney(calcPrincipalOutstanding(loan))}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function renderSearchResults() {
-      const input = el("searchInput");
-      const body = el("searchResultsBody");
-      if (!body) return;
-
-      const term = input ? input.value.trim().toLowerCase() : "";
-      body.innerHTML = "";
-
-      loans.filter(loan => {
-        if (!term) return true;
-        return JSON.stringify(loan).toLowerCase().includes(term);
-      }).forEach((loan, index) => {
-        const status = calcStatus(loan);
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${loan.client}</td>
-          <td>${formatMoney(loan.principal)}</td>
-          <td>${formatMoney(calcOutstanding(loan))}</td>
-          <td>${formatMoney(calcArrears(loan))}</td>
-          <td>${lastRepaymentDate(loan)}</td>
-          <td>${nextRepaymentDate(loan)}</td>
-          <td class="${statusClass(status)}">${status}</td>
-          <td>${loan.phoneNumber || ""}</td>
-          <td>${[loan.nokName || "", loan.nokPhone || ""].filter(Boolean).join(" ")}</td>
-        `;
-        body.appendChild(tr);
-      });
-    }
-
-    function renderAlerts() {
-      const wrap = el("alertsContainer");
-      if (!wrap) return;
-
-      const today = new Date();
-      const sevenDays = new Date();
-      sevenDays.setDate(today.getDate() + 7);
-
-      const alerts = [];
-      loans.forEach(loan => {
-        const arrears = calcArrears(loan);
-        const nextDate = parseDate(nextRepaymentDate(loan));
-
-        if (arrears > 0) alerts.push(`⚠ ${loan.client} is in arrears: $${formatMoney(arrears)}`);
-        if (nextDate && nextDate >= today && nextDate <= sevenDays) {
-          alerts.push(`📅 ${loan.client} repayment due on ${toISODate(nextDate)}`);
-        }
-      });
-
-      wrap.innerHTML = alerts.length
-        ? alerts.map(a => `<div class="alert-item">${a}</div>`).join("")
-        : `<div class="alert-item">No alerts</div>`;
-    }
-
-    function renderSchedules() {
-      const body = el("scheduleTableBody");
-      if (!body) return;
-      body.innerHTML = "";
-
-      loans.forEach((loan, index) => {
-        const status = calcStatus(loan);
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${index + 1}</td>
-          <td>${loan.client}</td>
-          <td>${loan.disbursementDate}</td>
-          <td>${nextRepaymentDate(loan)}</td>
-          <td>${formatMoney(calcMonthlyInstallment(loan))}</td>
-          <td class="${statusClass(status)}">${status}</td>
-        `;
-        body.appendChild(tr);
-      });
-    }
-
-    function renderGrowth() {
-      const outstanding = loans.reduce((s, l) => s + calcOutstanding(l), 0);
-      const par = loans.reduce((s, l) => s + calcArrears(l), 0);
-
-      if (el("growthPar0")) el("growthPar0").textContent = formatMoney(outstanding * 1.10);
-      if (el("growthPar5")) el("growthPar5").textContent = formatMoney(Math.max(0, outstanding - par) * 1.05);
-    }
-
-    function renderProfitPar() {
-      const interest = loans.reduce((s, l) => s + safeValue(l.interest), 0);
-      const par = loans.reduce((s, l) => s + calcArrears(l), 0);
-
-      if (el("interestIncomeMetric")) el("interestIncomeMetric").textContent = formatMoney(interest);
-      if (el("parExposureMetric")) el("parExposureMetric").textContent = formatMoney(par);
-      if (el("netPositionMetric")) el("netPositionMetric").textContent = formatMoney(interest - par);
-    }
-
-    function renderRecommendations() {
-      const box = el("recommendationsBox");
-      if (!box) return;
-
-      const highArrears = loans.filter(l => calcArrears(l) > 0).length;
-      box.innerHTML = `
-        • Focus collections on ${highArrears} arrears accounts<br>
-        • Tighten credit approval on new disbursements<br>
-        • Increase monitoring of high-risk clients<br>
-        • Reinforce early warning system
-      `;
-    }
-
-    function renderShare() {
-      if (el("shareLink")) el("shareLink").value = window.location.href;
-    }
-
-    function buildBarChart(canvasId, instanceName, labels, values) {
-      if (!el(canvasId) || typeof Chart === "undefined") return;
-      if (window[instanceName]) window[instanceName].destroy();
-      window[instanceName] = new Chart(el(canvasId), {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [{ data: values }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } }
-        }
-      });
-    }
-
-    function renderChartsSafe() {
-      if (typeof Chart === "undefined") return;
-
-      const p = loans.reduce((s, l) => s + safeValue(l.principal), 0);
-      const c = loans.reduce((s, l) => s + totalCollected(l.client), 0);
-      const o = loans.reduce((s, l) => s + calcOutstanding(l), 0);
-
-      buildBarChart("principalVsCollectedChart", "chart1", ["Principal", "Collected", "Outstanding"], [p, c, o]);
-
-      if (window.chart2) window.chart2.destroy();
-      if (el("loanStatusChart")) {
-        const closed = loans.filter(l => calcStatus(l) === "Closed").length;
-        const current = loans.filter(l => calcStatus(l) === "Current").length;
-        const arrears = loans.filter(l => calcStatus(l) === "In Arrears").length;
-
-        window.chart2 = new Chart(el("loanStatusChart"), {
-          type: "pie",
-          data: {
-            labels: ["Closed", "Current", "Arrears"],
-            datasets: [{ data: [closed, current, arrears] }]
-          },
-          options: { responsive: true, maintainAspectRatio: false }
-        });
-      }
-
-      const monthlyMap = monthlyCollectionsSummary();
-      const monthLabels = Object.keys(monthlyMap).sort();
-      const monthValues = monthLabels.map(k => monthlyMap[k]);
-      buildBarChart("monthlyCollectionsChart", "chart3", monthLabels.length ? monthLabels : ["No Data"], monthValues.length ? monthValues : [0]);
-
-      const arrearsLoans = loans.filter(l => calcArrears(l) > 0);
-      buildBarChart(
-        "arrearsBorrowerChart",
-        "chart4",
-        arrearsLoans.length ? arrearsLoans.map(l => l.client) : ["No Data"],
-        arrearsLoans.length ? arrearsLoans.map(l => calcArrears(l)) : [0]
-      );
-
-      buildBarChart(
-        "outstandingChart",
-        "chart5",
-        loans.length ? loans.map(l => l.client) : ["No Data"],
-        loans.length ? loans.map(l => calcOutstanding(l)) : [0]
-      );
-    }
-
-    function renderAll() {
-      renderDashboardCards();
-      renderRegisterTable();
-      renderPaymentsTable();
-      renderArrearsTable();
-      renderDisbursementsTable();
-      renderLoanStructureTable();
-      renderSearchResults();
-      renderAlerts();
-      renderSchedules();
-      renderGrowth();
-      renderProfitPar();
-      renderRecommendations();
-      renderShare();
-      renderChartsSafe();
-    }
-
-    function bindButtons() {
-      qsa(".tab-btn").forEach(btn => {
-        btn.addEventListener("click", () => showTab(btn.dataset.tab));
-      });
-
-      if (el("addLoanBtn")) el("addLoanBtn").addEventListener("click", addLoanFromForm);
-      if (el("addPaymentBtn")) el("addPaymentBtn").addEventListener("click", addPaymentFromForm);
-      if (el("clearLoanFormBtn")) el("clearLoanFormBtn").addEventListener("click", clearLoanForm);
-      if (el("clearPaymentFormBtn")) el("clearPaymentFormBtn").addEventListener("click", clearPaymentForm);
-      if (el("searchInput")) el("searchInput").addEventListener("input", renderSearchResults);
-    }
-
-    document.addEventListener("DOMContentLoaded", function () {
-      loadLocalData();
-      bindButtons();
-      if (el("connectionStatus")) el("connectionStatus").textContent = "Ready";
-      showTab("dashboard");
-    });
-  </script>
+
+<div class="header">
+<h2>LoanTrack PRO</h2>
+<div class="tabs">
+<button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+<button class="tab-btn" data-tab="register">Register</button>
+<button class="tab-btn" data-tab="arrears">Arrears</button>
+</div>
+</div>
+
+<div class="container">
+
+<div id="dashboard" class="tab-content">
+
+<div class="card">
+<h3>Portfolio Metrics</h3>
+<div>Total Loan Book: <span id="loanBook" class="metric"></span></div>
+<div>PAR (All): <span id="parAll" class="metric"></span></div>
+<div>PAR >30: <span id="par30" class="metric"></span></div>
+</div>
+
+<div class="card">
+<canvas id="chart"></canvas>
+</div>
+
+</div>
+
+<div id="register" class="tab-content" style="display:none">
+<div class="card">
+<table>
+<thead>
+<tr>
+<th>Client</th><th>Loan</th><th>Outstanding</th><th>Arrears</th><th>Status</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+</div>
+</div>
+
+<div id="arrears" class="tab-content" style="display:none">
+<div class="card">
+<h3>Arrears Buckets</h3>
+<div>1–30 days: <span id="b1"></span></div>
+<div>31–60 days: <span id="b2"></span></div>
+<div>60+ days: <span id="b3"></span></div>
+</div>
+</div>
+
+</div>
+
+<script>
+
+let loans = [
+{c:"gororo",p:1500,r:10,t:12,d:"2026-01-15",type:"interest"},
+{c:"gift",p:2500,r:10,t:6,d:"2025-12-01"},
+{c:"tagaza",p:1000,r:10,t:2,d:"2026-03-04"},
+{c:"ziwani",p:1000,r:10,t:6,d:"2025-11-05"},
+{c:"brian",p:2600,r:10,t:3,d:"2025-02-21"},
+{c:"fosirai",p:500,r:10,t:5,d:"2026-03-31"},
+{c:"barber",p:1000,r:10,t:3,d:"2026-03-30"},
+{c:"ororo",p:300,r:30,t:2,d:"2026-03-11",type:"interest"},
+{c:"mamhanya",p:1000,r:10,t:12,d:"2025-04-01"},
+{c:"pukuta",p:350,r:20,t:3,d:"2026-03-11"}
+];
+
+let payments = [
+{c:"brian",a:1126,date:"2026-03-26"},
+{c:"pukuta",a:187,date:"2026-04-10"},
+{c:"ziwani",a:100,date:"2026-04-05"}
+];
+
+function calc(loan){
+let interest = loan.p*(loan.r/100);
+let total = loan.p + interest;
+let paid = payments.filter(x=>x.c==loan.c).reduce((s,x)=>s+x.a,0);
+
+let outstanding = total - paid;
+
+let start = new Date(loan.d);
+let today = new Date();
+
+let months = Math.floor((today-start)/(1000*60*60*24*30));
+
+let expected = (total/loan.t)*months;
+
+let arrears = Math.max(0,expected - paid);
+
+return {outstanding,arrears};
+}
+
+function render(){
+
+let book=0,par=0,par30=0;
+
+let b1=0,b2=0,b3=0;
+
+let tbody="";
+
+loans.forEach(l=>{
+let r=calc(l);
+
+book+=r.outstanding;
+par+=r.arrears;
+
+if(r.arrears>0){
+let days=30;
+if(days<=30) b1+=r.arrears;
+else if(days<=60) b2+=r.arrears;
+else b3+=r.arrears;
+}
+
+if(r.arrears>0) par30+=r.outstanding;
+
+tbody+=`<tr>
+<td>${l.c}</td>
+<td>${l.p}</td>
+<td>${r.outstanding.toFixed(2)}</td>
+<td>${r.arrears.toFixed(2)}</td>
+<td class="${r.arrears>0?'status-arrears':'status-ok'}">${r.arrears>0?'ARREARS':'OK'}</td>
+</tr>`;
+});
+
+document.getElementById("table").innerHTML=tbody;
+
+document.getElementById("loanBook").innerText=book.toFixed(2);
+document.getElementById("parAll").innerText=((par/book)*100).toFixed(1)+"%";
+document.getElementById("par30").innerText=((par30/book)*100).toFixed(1)+"%";
+
+document.getElementById("b1").innerText=b1.toFixed(2);
+document.getElementById("b2").innerText=b2.toFixed(2);
+document.getElementById("b3").innerText=b3.toFixed(2);
+
+new Chart(document.getElementById("chart"),{
+type:"bar",
+data:{labels:["Book","PAR"],datasets:[{data:[book,par]}]}
+});
+
+}
+
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+btn.onclick=()=>{
+document.querySelectorAll(".tab-content").forEach(t=>t.style.display="none");
+document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+document.getElementById(btn.dataset.tab).style.display="block";
+btn.classList.add("active");
+};
+});
+
+render();
+
+</script>
+
 </body>
 </html>
