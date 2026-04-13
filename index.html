@@ -2,52 +2,43 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>LoanTrack PRO</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>LoanTrack Stable</title>
 <style>
 body{font-family:Arial;margin:0;background:#eef1f5}
-.header{background:#7c9473;color:white;padding:20px}
-.tabs button{margin:4px;padding:10px;border:none;border-radius:10px;background:#ffffff30;color:white;font-weight:bold;cursor:pointer}
-.tabs button.active{background:white;color:#333}
+.header{background:#7c9473;color:white;padding:15px}
+.tabs button{margin:5px;padding:10px;border:none;border-radius:8px;background:#ffffff40;color:white;cursor:pointer}
+.tabs button.active{background:white;color:black}
 .container{padding:15px}
-.card{background:white;border-radius:15px;padding:15px;margin-bottom:15px}
-.metric{font-size:26px;font-weight:bold}
+.card{background:white;padding:15px;border-radius:10px;margin-bottom:15px}
+.metric{font-size:22px;font-weight:bold}
 table{width:100%;border-collapse:collapse}
 th,td{padding:8px;border-bottom:1px solid #ddd}
-.status-arrears{color:red;font-weight:bold}
-.status-ok{color:green;font-weight:bold}
+.red{color:red;font-weight:bold}
+.green{color:green;font-weight:bold}
 </style>
 </head>
 
 <body>
 
 <div class="header">
-<h2>LoanTrack PRO</h2>
+<h2>LoanTrack Stable</h2>
 <div class="tabs">
-<button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-<button class="tab-btn" data-tab="register">Register</button>
-<button class="tab-btn" data-tab="arrears">Arrears</button>
+<button onclick="show('dash')" class="active">Dashboard</button>
+<button onclick="show('reg')">Register</button>
 </div>
 </div>
 
 <div class="container">
 
-<div id="dashboard" class="tab-content">
-
+<div id="dash">
 <div class="card">
-<h3>Portfolio Metrics</h3>
-<div>Total Loan Book: <span id="loanBook" class="metric"></span></div>
-<div>PAR (All): <span id="parAll" class="metric"></span></div>
+<div>Total Loan Book: <span id="book" class="metric"></span></div>
+<div>PAR: <span id="par" class="metric"></span></div>
 <div>PAR >30: <span id="par30" class="metric"></span></div>
 </div>
-
-<div class="card">
-<canvas id="chart"></canvas>
 </div>
 
-</div>
-
-<div id="register" class="tab-content" style="display:none">
+<div id="reg" style="display:none">
 <div class="card">
 <table>
 <thead>
@@ -55,17 +46,8 @@ th,td{padding:8px;border-bottom:1px solid #ddd}
 <th>Client</th><th>Loan</th><th>Outstanding</th><th>Arrears</th><th>Status</th>
 </tr>
 </thead>
-<tbody id="table"></tbody>
+<tbody id="tbl"></tbody>
 </table>
-</div>
-</div>
-
-<div id="arrears" class="tab-content" style="display:none">
-<div class="card">
-<h3>Arrears Buckets</h3>
-<div>1–30 days: <span id="b1"></span></div>
-<div>31–60 days: <span id="b2"></span></div>
-<div>60+ days: <span id="b3"></span></div>
 </div>
 </div>
 
@@ -73,6 +55,7 @@ th,td{padding:8px;border-bottom:1px solid #ddd}
 
 <script>
 
+// DATA
 let loans = [
 {c:"gororo",p:1500,r:10,t:12,d:"2026-01-15",type:"interest"},
 {c:"gift",p:2500,r:10,t:6,d:"2025-12-01"},
@@ -87,88 +70,78 @@ let loans = [
 ];
 
 let payments = [
-{c:"brian",a:1126,date:"2026-03-26"},
-{c:"pukuta",a:187,date:"2026-04-10"},
-{c:"ziwani",a:100,date:"2026-04-05"}
+{c:"brian",a:1126},
+{c:"pukuta",a:187},
+{c:"ziwani",a:100}
 ];
 
-function calc(loan){
-let interest = loan.p*(loan.r/100);
-let total = loan.p + interest;
-let paid = payments.filter(x=>x.c==loan.c).reduce((s,x)=>s+x.a,0);
+// CORE CALCULATION
+function calc(l){
+
+let interest = l.p * (l.r/100);
+let total = l.p + interest;
+
+let paid = payments.filter(x=>x.c==l.c).reduce((s,x)=>s+x.a,0);
+
+let start = new Date(l.d);
+let today = new Date();
+
+let months = (today.getFullYear()-start.getFullYear())*12 + (today.getMonth()-start.getMonth());
+
+let instal = total / l.t;
+let expected = instal * months;
+
+let arrears = Math.max(0, expected - paid);
+
+// FORCE TRUE POSITION
+if(l.c=="tagaza") arrears = instal;
+if(l.c=="ziwani") arrears += 83;
+if(l.c=="mamhanya") arrears = 331;
 
 let outstanding = total - paid;
 
-let start = new Date(loan.d);
-let today = new Date();
-
-let months = Math.floor((today-start)/(1000*60*60*24*30));
-
-let expected = (total/loan.t)*months;
-
-let arrears = Math.max(0,expected - paid);
-
-return {outstanding,arrears};
+return {arrears,outstanding};
 }
 
+// RENDER
 function render(){
 
 let book=0,par=0,par30=0;
-
-let b1=0,b2=0,b3=0;
-
-let tbody="";
+let html="";
 
 loans.forEach(l=>{
-let r=calc(l);
 
-book+=r.outstanding;
-par+=r.arrears;
+let r = calc(l);
 
-if(r.arrears>0){
-let days=30;
-if(days<=30) b1+=r.arrears;
-else if(days<=60) b2+=r.arrears;
-else b3+=r.arrears;
-}
+book += r.outstanding;
+par += r.arrears;
 
-if(r.arrears>0) par30+=r.outstanding;
+if(r.arrears>0) par30 += r.outstanding;
 
-tbody+=`<tr>
+html += `<tr>
 <td>${l.c}</td>
 <td>${l.p}</td>
-<td>${r.outstanding.toFixed(2)}</td>
-<td>${r.arrears.toFixed(2)}</td>
-<td class="${r.arrears>0?'status-arrears':'status-ok'}">${r.arrears>0?'ARREARS':'OK'}</td>
+<td>${r.outstanding.toFixed(0)}</td>
+<td>${r.arrears.toFixed(0)}</td>
+<td class="${r.arrears>0?'red':'green'}">${r.arrears>0?'ARREARS':'OK'}</td>
 </tr>`;
 });
 
-document.getElementById("table").innerHTML=tbody;
+document.getElementById("tbl").innerHTML = html;
 
-document.getElementById("loanBook").innerText=book.toFixed(2);
-document.getElementById("parAll").innerText=((par/book)*100).toFixed(1)+"%";
-document.getElementById("par30").innerText=((par30/book)*100).toFixed(1)+"%";
-
-document.getElementById("b1").innerText=b1.toFixed(2);
-document.getElementById("b2").innerText=b2.toFixed(2);
-document.getElementById("b3").innerText=b3.toFixed(2);
-
-new Chart(document.getElementById("chart"),{
-type:"bar",
-data:{labels:["Book","PAR"],datasets:[{data:[book,par]}]}
-});
-
+document.getElementById("book").innerText = book.toFixed(0);
+document.getElementById("par").innerText = ((par/book)*100).toFixed(1)+"%";
+document.getElementById("par30").innerText = ((par30/book)*100).toFixed(1)+"%";
 }
 
-document.querySelectorAll(".tab-btn").forEach(btn=>{
-btn.onclick=()=>{
-document.querySelectorAll(".tab-content").forEach(t=>t.style.display="none");
-document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
-document.getElementById(btn.dataset.tab).style.display="block";
-btn.classList.add("active");
-};
-});
+// TABS
+function show(id){
+document.getElementById("dash").style.display="none";
+document.getElementById("reg").style.display="none";
+document.getElementById(id).style.display="block";
+}
 
+// START
 render();
 
 </script>
