@@ -1,135 +1,299 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LoanTrack</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LoanTrack - Supabase Live</title>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<style>
-body{font-family:Arial;background:#f4f7f9;margin:0}
-header{background:#6f8f7b;color:#fff;padding:15px}
-nav button{margin:3px;padding:8px;border:none;border-radius:6px;background:#fff;cursor:pointer}
-.tab{display:none;padding:10px}
-.tab.active{display:block}
-.card{background:#fff;padding:10px;margin:10px;border-radius:10px}
-.btn{background:#6f8f7b;color:#fff;padding:8px;border:none;border-radius:6px}
-table{width:100%;border-collapse:collapse}
-th,td{border:1px solid #ddd;padding:6px}
-th{background:#6f8f7b;color:#fff}
-</style>
+  <style>
+    :root{
+      --bg:#f4f7f9; --card:#fff; --line:#dde7ed; --text:#243447; --muted:#667085;
+      --primary:#6f8f7b; --primary-dark:#5f7c6c; --green:#1f9d66; --red:#d14b4b;
+      --gold:#d08c1f; --blue:#3569d6; --purple:#6f59d9; --orange:#ea8a1a; --soft:#f8fbfc;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+    header{
+      background:linear-gradient(135deg,#6f8f7b,#7d9988);
+      color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap
+    }
+    .brand-title{font-size:28px;font-weight:800}
+    .brand-sub{font-size:12px;color:#ffd95f}
+    nav{display:flex;gap:8px;flex-wrap:wrap}
+    nav button,.btn{border:none;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
+    nav button{background:transparent;color:#fff}
+    nav button.active,nav button:hover{background:rgba(255,255,255,.15)}
+    .wrap{padding:16px}
+    .toolbar,.statusbar,.exportbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    .btn{background:var(--primary);color:#fff}
+    .btn:hover{background:var(--primary-dark)}
+    .btn.secondary{background:var(--blue)}
+    .btn.gold{background:var(--gold);color:#1f2937}
+    .btn.danger{background:var(--red)}
+    .btn.small{padding:7px 10px;font-size:12px}
+    .tab{display:none}
+    .tab.active{display:block}
+    .card{
+      background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;
+      box-shadow:0 6px 18px rgba(15,23,42,.05);margin-bottom:16px
+    }
+    .section-title{
+      font-size:12px;text-transform:uppercase;font-weight:800;color:#607086;
+      border-bottom:1px solid #e6edf2;padding-bottom:10px;margin-bottom:12px;letter-spacing:.4px
+    }
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:16px}
+    .kpi{
+      background:linear-gradient(180deg,#fff,#fbfdff);border:1px solid #e6edf2;border-radius:16px;
+      padding:14px;box-shadow:0 3px 10px rgba(0,0,0,.03)
+    }
+    .kpi .label{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:6px}
+    .kpi .value{font-size:22px;font-weight:800;margin-bottom:4px}
+    .kpi .sub{font-size:12px;color:var(--muted)}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .field{flex:1 1 220px}
+    input,select,textarea{
+      width:100%;padding:10px;border:1px solid #cfd8df;border-radius:10px;background:#fff;margin-bottom:10px
+    }
+    table{width:100%;border-collapse:collapse;background:#fff}
+    th,td{border:1px solid #e4ebf0;padding:8px;text-align:left;font-size:14px;vertical-align:top}
+    th{background:#6f8f7b;color:#fff}
+    .good{color:var(--green);font-weight:800}
+    .bad{color:var(--red);font-weight:800}
+    .mid{color:var(--orange);font-weight:800}
+    .muted{font-size:12px;color:var(--muted)}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .pill.red{background:#fde8e8;color:#b42318}
+    .pill.green{background:#e8f7ef;color:#027a48}
+    .pill.gold{background:#fff3d8;color:#b97900}
+    .pill.blue{background:#e8f0ff;color:#2859c5}
+    .pill.purple{background:#f2ebff;color:#6941c6}
+    .warn-card,.rec-card{
+      border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:#fff
+    }
+    .warn-card.overdue{border-left:4px solid var(--red);background:#fff7f7}
+    .warn-card.today{border-left:4px solid var(--orange);background:#fffaf2}
+    .warn-card.week{border-left:4px solid var(--gold);background:#fffcef}
+    .warn-card.next{border-left:4px solid var(--green);background:#f8fcfa}
+    .warn-card.critical{border-left:4px solid #7a1c1c;background:#fff1f1}
+    .rec-card{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    .search-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+    .search-box{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+    .summary-box{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--soft)}
+    @media print{
+      nav,.toolbar,.statusbar,.exportbar,.btn{display:none!important}
+      .tab{display:none!important}
+      .tab.print-active{display:block!important}
+      body{background:#fff}
+    }
+    @media (max-width:980px){.grid-2,.grid-3{grid-template-columns:1fr}}
+  </style>
 </head>
-
 <body>
+  <header>
+    <div>
+      <div class="brand-title">LoanTrack</div>
+      <div class="brand-sub">Officer A Portfolio</div>
+    </div>
+    <nav>
+      <button class="active" onclick="showTab('dashboard', this)">Dashboard</button>
+      <button onclick="showTab('register', this)">Register</button>
+      <button onclick="showTab('payments', this)">Payments</button>
+      <button onclick="showTab('arrears', this)">Arrears</button>
+      <button onclick="showTab('disbursements', this)">Disbursements</button>
+      <button onclick="showTab('structure', this)">Loan Structure</button>
+      <button onclick="showTab('search', this)">Search</button>
+      <button onclick="showTab('alerts', this)">Alerts</button>
+      <button onclick="showTab('schedules', this)">Schedules</button>
+      <button onclick="showTab('growth', this)">Growth</button>
+      <button onclick="showTab('recommendations', this)">Recommendations</button>
+      <button onclick="showTab('profitpar', this)">Profit/PAR</button>
+      <button onclick="showTab('report', this)">Share</button>
+    </nav>
+  </header>
 
-<header>
-<h2>LoanTrack</h2>
-<nav>
-<button onclick="showTab('dashboard')">Dashboard</button>
-<button onclick="showTab('register')">Register</button>
-<button onclick="showTab('payments')">Payments</button>
-<button onclick="showTab('structure')">Loan Structure</button>
-</nav>
-</header>
+  <div class="wrap">
+    <div class="statusbar">
+      <span class="pill blue" id="syncStatus">Connecting...</span>
+      <span class="muted" id="lastSyncText">Last sync: --</span>
+    </div>
 
-<div id="dashboard" class="tab active">
-<div class="card">
-<h3>Portfolio Summary</h3>
-<div id="summary"></div>
-</div>
-</div>
+    <div class="toolbar">
+      <button class="btn secondary" onclick="clearLoanForm()">Clear Loan Form</button>
+      <button class="btn secondary" onclick="clearPaymentForm()">Clear Payment Form</button>
+    </div>
 
-<div id="register" class="tab">
-<div class="card">
-<input id="name" placeholder="Client Name"><br>
-<input id="amount" type="number" placeholder="Loan Amount"><br>
-<input id="date" type="date"><br>
-<button class="btn" onclick="saveLoan()">Save Loan</button>
-</div>
-</div>
+    <section id="dashboard" class="tab active">
+      <div class="kpis" id="dashboardKpis"></div>
+      <div class="grid-2">
+        <div class="card"><div class="section-title">Principal vs Collected vs Outstanding</div><canvas id="principalChart" height="140"></canvas></div>
+        <div class="card"><div class="section-title">Loan Status Distribution</div><canvas id="statusChart" height="140"></canvas></div>
+      </div>
+      <div class="grid-3">
+        <div class="card"><div class="section-title">Monthly Collections Trend</div><canvas id="collectionsChart" height="150"></canvas></div>
+        <div class="card"><div class="section-title">Arrears by Borrower ($)</div><canvas id="arrearsChart" height="150"></canvas></div>
+        <div class="card"><div class="section-title">Outstanding Balances ($)</div><canvas id="outstandingChart" height="150"></canvas></div>
+      </div>
+      <div class="card"><div class="section-title">PAR Analysis — Portfolio at Risk</div><canvas id="parChart" height="120"></canvas></div>
+      <div class="grid-2">
+        <div class="card"><div class="section-title">Accounts in Arrears</div><div id="dashboardArrearsBox"></div></div>
+        <div class="card"><div class="section-title">Weekly Upcoming Due Loans</div><div id="dashboardDueBox"></div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="section-title">Expected Repayments by Month</div><div id="dashboardExpectedBox"></div></div>
+        <div class="card"><div class="section-title">Top 5 Risk Clients</div><div id="topRiskBox"></div></div>
+      </div>
+    </section>
 
-<div id="payments" class="tab">
-<div class="card">
-<input id="payId" placeholder="Loan ID"><br>
-<input id="payAmount" type="number" placeholder="Amount"><br>
-<input id="payDate" type="date"><br>
-<button class="btn" onclick="savePayment()">Save Payment</button>
-</div>
-</div>
+    <section id="register" class="tab">
+      <div class="card">
+        <div class="section-title">Register / Edit Client and Loan</div>
+        <input type="hidden" id="editingLoanId">
+        <div class="row">
+          <div class="field"><input id="clientName" placeholder="Client Name"></div>
+          <div class="field"><input id="clientPhone" placeholder="Phone"></div>
+        </div>
+        <div class="row">
+          <div class="field"><input id="nextOfKin" placeholder="Next of Kin"></div>
+          <div class="field"><input id="nextOfKinPhone" placeholder="Next of Kin Phone"></div>
+        </div>
+        <div class="row">
+          <div class="field"><input id="loanAmount" type="number" placeholder="Loan Amount"></div>
+          <div class="field"><input id="interestRate" type="number" placeholder="Monthly Interest %" value="10"></div>
+          <div class="field"><input id="loanTerm" type="number" placeholder="Term (months)" value="3"></div>
+        </div>
+        <div class="row">
+          <div class="field"><input id="disbursementDate" type="date"></div>
+          <div class="field">
+            <select id="loanType">
+              <option value="Standard">Standard</option>
+              <option value="Interest Only">Interest Only</option>
+              <option value="Interest Then Balloon">Interest Then Balloon</option>
+            </select>
+          </div>
+          <div class="field"><input id="loanOfficer" value="Loan Officer A"></div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <select id="riskTag">
+              <option value="Performing">Performing</option>
+              <option value="Watchlist">Watchlist</option>
+              <option value="At Risk">At Risk</option>
+              <option value="Default">Default</option>
+            </select>
+          </div>
+          <div class="field" style="flex:2 1 460px">
+            <textarea id="remarks" rows="3" placeholder="Remarks / collection notes / promise to pay / field visit notes"></textarea>
+          </div>
+        </div>
+        <button class="btn" onclick="saveLoan()">Save Loan</button>
+      </div>
+    </section>
 
-<div id="structure" class="tab">
-<div class="card">
-<h3>Loan Structure</h3>
-<table>
-<thead>
-<tr>
-<th>Client</th>
-<th>Principal</th>
-<th>Interest</th>
-<th>Disbursed</th>
-</tr>
-</thead>
-<tbody id="structureBody"></tbody>
-</table>
-</div>
-</div>
+    <section id="payments" class="tab">
+      <div class="card">
+        <div class="section-title">Add / Edit Payment</div>
+        <input type="hidden" id="editingPaymentId">
+        <div class="row">
+          <div class="field"><select id="paymentLoanSelect"></select></div>
+          <div class="field"><input id="paymentAmount" type="number" placeholder="Amount"></div>
+          <div class="field"><input id="paymentDate" type="date"></div>
+        </div>
+        <button class="btn" onclick="savePayment()">Save Payment</button>
+      </div>
+      <div class="card">
+        <div class="section-title">Payment History</div>
+        <table>
+          <thead><tr><th>Client</th><th>Date</th><th>Amount</th><th>Action</th></tr></thead>
+          <tbody id="paymentTableBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-<script>
-const supabase = window.supabase.createClient(
-"https://gxbtqgaminuvxknweuof.supabase.co",
-"sb_publishable_2b49PfBI6NNMf84ftisnXA_sFR9lNAY"
-);
+    <section id="arrears" class="tab">
+      <div class="card">
+        <div class="section-title">Arrears Table</div>
+        <table>
+          <thead><tr><th>Client</th><th>Next Due</th><th>Expected To Date</th><th>Paid</th><th>Arrears</th><th>Days</th><th>Bucket</th><th>Risk</th><th>Remarks</th></tr></thead>
+          <tbody id="arrearsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-let loans=[], payments=[];
+    <section id="disbursements" class="tab">
+      <div class="card">
+        <div class="section-title">Disbursement Summary</div>
+        <div class="row"><div class="field"><label>Filter Month</label><select id="disbursementMonthFilter" onchange="renderDisbursements()"></select></div></div>
+        <table>
+          <thead><tr><th>Client</th><th>Disbursement Date</th><th>Month</th><th>Amount</th><th>Term</th><th>Loan Type</th><th>Risk</th><th>Action</th></tr></thead>
+          <tbody id="disbursementTableBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-function showTab(id){
-document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-document.getElementById(id).classList.add("active");
-render();
-}
+    <section id="structure" class="tab">
+      <div class="card">
+        <div class="section-title">Loan Structure Summary</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Principal</th>
+              <th>Interest</th>
+              <th>Loan Disbursed</th>
+              <th>Tenure</th>
+              <th>Disbursement Date</th>
+              <th>Loan Type</th>
+            </tr>
+          </thead>
+          <tbody id="structureTableBody"></tbody>
+          <tfoot id="structureTableFoot"></tfoot>
+        </table>
+      </div>
+    </section>
 
-async function load(){
-let l=await supabase.from("loans").select("*");
-let p=await supabase.from("payments").select("*");
-loans=l.data||[];
-payments=p.data||[];
-render();
-}
-load();
+    <section id="search" class="tab">
+      <div class="card">
+        <div class="section-title">Client Search</div>
+        <input id="searchInput" placeholder="Search by client name or phone" onkeyup="renderSearch()">
+        <div id="searchResults"></div>
+      </div>
+    </section>
 
-function render(){
-document.getElementById("summary").innerHTML=
-"Loans: "+loans.length+" | Payments: "+payments.length;
+    <section id="alerts" class="tab">
+      <div class="card">
+        <div class="section-title">Smart Alerts</div>
+        <div class="muted" id="alertsToday"></div>
+        <div id="alertsContent"></div>
+      </div>
+    </section>
 
-document.getElementById("structureBody").innerHTML=
-loans.map(l=>`
-<tr>
-<td>${l.client_name}</td>
-<td>${l.amount}</td>
-<td>${l.amount*0.1}</td>
-<td>${l.amount}</td>
-</tr>`).join("");
-}
+    <section id="schedules" class="tab">
+      <div class="card">
+        <div class="section-title">Repayment Schedules</div>
+        <table>
+          <thead><tr><th>Client</th><th>Loan ID</th><th>Next Due Date</th><th>Instalment</th><th>Final Repayment</th><th>Status</th><th>Risk</th></tr></thead>
+          <tbody id="scheduleTableBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-async function saveLoan(){
-await supabase.from("loans").insert([{
-client_name:document.getElementById("name").value,
-amount:Number(document.getElementById("amount").value),
-disbursement_date:document.getElementById("date").value
-}]);
-load();
-}
-
-async function savePayment(){
-await supabase.from("payments").insert([{
-loan_id:document.getElementById("payId").value,
-amount:Number(document.getElementById("payAmount").value),
-payment_date:document.getElementById("payDate").value
-}]);
-load();
-}
-</script>
-
-</body>
-</html>
+    <section id="growth" class="tab">
+      <div class="card">
+        <div class="section-title">Growth Dashboard — Reinvestment at 10%</div>
+        <div class="kpis" id="growthKpis"></div>
+        <div class="grid-2">
+          <div class="card"><div class="section-title">Portfolio Growth — PAR 0% vs PAR 5%</div><canvas id="growthScenarioChart" height="150"></canvas></div>
+          <div class="card"><div class="section-title">Monthly Interest Earned vs PAR Deduction</div><canvas id="growthMonthlyBarChart" height="150"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Month-by-Month Growth Schedule</div>
+          <table>
+            <thead><tr><th>Month</th><th>Opening ($)</th><th>Interest 10% ($)</th><th>PAR 5% ($)</th><th>Closing With PAR ($)</th><th>Closing No PAR ($)</th><th>Cumulative Interest
