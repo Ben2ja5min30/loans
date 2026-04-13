@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>LoanTrack Stable</title>
+<title>LoanTrack</title>
 <style>
 body{font-family:Arial;margin:0;background:#eef1f5}
 .header{background:#7c9473;color:white;padding:15px}
@@ -10,7 +10,7 @@ body{font-family:Arial;margin:0;background:#eef1f5}
 .tabs button.active{background:white;color:black}
 .container{padding:15px}
 .card{background:white;padding:15px;border-radius:10px;margin-bottom:15px}
-.metric{font-size:22px;font-weight:bold}
+.metric{font-size:24px;font-weight:bold}
 table{width:100%;border-collapse:collapse}
 th,td{padding:8px;border-bottom:1px solid #ddd}
 .red{color:red;font-weight:bold}
@@ -21,7 +21,7 @@ th,td{padding:8px;border-bottom:1px solid #ddd}
 <body>
 
 <div class="header">
-<h2>LoanTrack Stable</h2>
+<h2>LoanTrack</h2>
 <div class="tabs">
 <button onclick="show('dash')" class="active">Dashboard</button>
 <button onclick="show('reg')">Register</button>
@@ -32,9 +32,10 @@ th,td{padding:8px;border-bottom:1px solid #ddd}
 
 <div id="dash">
 <div class="card">
-<div>Total Loan Book: <span id="book" class="metric"></span></div>
-<div>PAR: <span id="par" class="metric"></span></div>
-<div>PAR >30: <span id="par30" class="metric"></span></div>
+<div>Total Principal: <span id="principal" class="metric"></span></div>
+<div>Total Collected: <span id="collected" class="metric"></span></div>
+<div>Total Outstanding: <span id="outstanding" class="metric"></span></div>
+<div>Total Arrears: <span id="arrears" class="metric"></span></div>
 </div>
 </div>
 
@@ -57,28 +58,28 @@ th,td{padding:8px;border-bottom:1px solid #ddd}
 
 // DATA
 let loans = [
-{c:"gororo",p:1500,r:10,t:12,d:"2026-01-15",type:"interest"},
-{c:"gift",p:2500,r:10,t:6,d:"2025-12-01"},
-{c:"tagaza",p:1000,r:10,t:2,d:"2026-03-04"},
-{c:"ziwani",p:1000,r:10,t:6,d:"2025-11-05"},
-{c:"brian",p:2600,r:10,t:3,d:"2025-02-21"},
-{c:"fosirai",p:500,r:10,t:5,d:"2026-03-31"},
-{c:"barber",p:1000,r:10,t:3,d:"2026-03-30"},
-{c:"ororo",p:300,r:30,t:2,d:"2026-03-11",type:"interest"},
-{c:"mamhanya",p:1000,r:10,t:12,d:"2025-04-01"},
-{c:"pukuta",p:350,r:20,t:3,d:"2026-03-11"}
+{c:"gororo irvine",p:1500,r:10,t:12,d:"2026-01-15",type:"interest"},
+{c:"gift manyengavana",p:2500,r:10,t:6,d:"2025-12-01"},
+{c:"tagaza puru",p:1000,r:10,t:2,d:"2026-03-04"},
+{c:"ziwani mukoma",p:1000,r:10,t:6,d:"2025-11-05"},
+{c:"harare brian",p:2600,r:10,t:3,d:"2025-02-21"},
+{c:"fosirai gadhi",p:500,r:10,t:5,d:"2026-03-31"},
+{c:"barber adolf",p:1000,r:10,t:3,d:"2026-03-30"},
+{c:"ororo chamhanya",p:300,r:30,t:2,d:"2026-03-11",type:"interest"},
+{c:"java mamhanya",p:1000,r:10,t:12,d:"2025-04-01"},
+{c:"pukuta nhoiki",p:350,r:20,t:3,d:"2026-03-11"}
 ];
 
 let payments = [
-{c:"brian",a:1126},
-{c:"pukuta",a:187},
-{c:"ziwani",a:100}
+{c:"harare brian",a:1126},
+{c:"ziwani mukoma",a:100},
+{c:"pukuta nhoiki",a:187}
 ];
 
-// CORE CALCULATION
+// CALC
 function calc(l){
 
-let interest = l.p * (l.r/100);
+let interest = l.p*(l.r/100);
 let total = l.p + interest;
 
 let paid = payments.filter(x=>x.c==l.c).reduce((s,x)=>s+x.a,0);
@@ -94,29 +95,29 @@ let expected = instal * months;
 let arrears = Math.max(0, expected - paid);
 
 // FORCE TRUE POSITION
-if(l.c=="tagaza") arrears = instal;
-if(l.c=="ziwani") arrears += 83;
-if(l.c=="mamhanya") arrears = 331;
+if(l.c=="tagaza puru") arrears = instal;
+if(l.c=="ziwani mukoma") arrears += 83;
+if(l.c=="java mamhanya") arrears = 331;
 
 let outstanding = total - paid;
 
-return {arrears,outstanding};
+return {arrears,outstanding,total,paid};
 }
 
 // RENDER
 function render(){
 
-let book=0,par=0,par30=0;
+let principal=0,collected=0,outstanding=0,arrears=0;
 let html="";
 
 loans.forEach(l=>{
 
 let r = calc(l);
 
-book += r.outstanding;
-par += r.arrears;
-
-if(r.arrears>0) par30 += r.outstanding;
+principal += l.p;
+collected += r.paid;
+outstanding += r.outstanding;
+arrears += r.arrears;
 
 html += `<tr>
 <td>${l.c}</td>
@@ -129,9 +130,10 @@ html += `<tr>
 
 document.getElementById("tbl").innerHTML = html;
 
-document.getElementById("book").innerText = book.toFixed(0);
-document.getElementById("par").innerText = ((par/book)*100).toFixed(1)+"%";
-document.getElementById("par30").innerText = ((par30/book)*100).toFixed(1)+"%";
+document.getElementById("principal").innerText = principal.toFixed(0);
+document.getElementById("collected").innerText = collected.toFixed(0);
+document.getElementById("outstanding").innerText = outstanding.toFixed(0);
+document.getElementById("arrears").innerText = arrears.toFixed(0);
 }
 
 // TABS
