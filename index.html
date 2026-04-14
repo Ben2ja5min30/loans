@@ -1,197 +1,2752 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>LoanTrack</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>MicroFinance BI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-body{font-family:Arial;margin:0;background:#eef1f5}
-.header{background:#89a08b;color:white;padding:20px}
-.tabs button{margin:5px;padding:10px;border:none;border-radius:10px;background:#ffffff40;color:white;font-weight:bold;cursor:pointer}
-.tabs button.active{background:white;color:black}
-.container{padding:15px}
-.card{background:white;padding:15px;border-radius:15px;margin-bottom:15px}
-.metric{font-size:26px;font-weight:bold}
-table{width:100%;border-collapse:collapse}
-th,td{padding:10px;border-bottom:1px solid #ddd}
-.red{color:red;font-weight:bold}
-.green{color:green;font-weight:bold}
+:root{
+  --bg:#F0F2F5;--surf:#fff;--surf2:#F8F9FB;
+  --bdr:#E4E7EC;--bdr2:#CDD1DA;
+  --txt:#101828;--muted:#667085;--hint:#98A2B3;
+  --g:#039855;--gb:#ECFDF3;--gt:#027A48;
+  --r:#D92D20;--rb:#FEF3F2;--rt:#B42318;
+  --a:#DC6803;--ab:#FFFAEB;--at:#B54708;
+  --p:#6941C6;--pb:#F9F5FF;--pt:#53389E;
+  --b:#1D4ED8;--bb:#EFF6FF;--bt:#1E40AF;
+  --teal:#0E9F6E;--teal-bg:#ECFDF5;
+  --rad:12px;--rads:8px;
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-serif;
+  --sh:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);font-family:var(--font);color:var(--txt);overscroll-behavior:none}
+body{display:flex;flex-direction:column;max-width:480px;margin:0 auto}
+
+/* ── HEADER ── */
+.hdr{background:var(--surf);padding:10px 14px 0;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--bdr)}
+.hdr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.logo{font-size:16px;font-weight:700;letter-spacing:-.3px;color:var(--txt)}.logo em{color:var(--g);font-style:normal}
+.hdot{width:8px;height:8px;border-radius:50%;background:var(--g);display:inline-block;margin-right:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.tabs{display:flex;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:8px 11px;font-size:12px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--font);transition:color .12s}
+.tab.on{color:var(--txt);border-bottom-color:var(--g)}
+.tab.red.on{color:var(--r);border-bottom-color:var(--r)}
+.tab.amber.on{color:var(--a);border-bottom-color:var(--a)}
+.tab.teal.on{color:var(--teal);border-bottom-color:var(--teal)}
+.tab.blue.on{color:var(--b);border-bottom-color:var(--b)}
+.tab.purple.on{color:var(--p);border-bottom-color:var(--p)}
+
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:12px 12px 84px;-webkit-overflow-scrolling:touch}
+.page{display:none}.page.on{display:block}
+
+/* ── BOTTOM NAV ── */
+.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surf);border-top:1px solid var(--bdr);display:flex;padding:6px 0 env(safe-area-inset-bottom,6px);z-index:100}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;font-family:var(--font)}
+.nb-ic{font-size:18px;line-height:1.2}
+.nb-lb{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:-.1px}
+.nb.on .nb-lb{color:var(--g);font-weight:700}
+
+/* ── KPI GRIDS ── */
+.kg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+.kg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:11px}
+.kc{background:var(--surf);border-radius:var(--rad);padding:11px 12px;box-shadow:var(--sh)}
+.kl{font-size:11px;color:var(--muted);font-weight:500;margin-bottom:4px;line-height:1.3}
+.kv{font-size:19px;font-weight:700;line-height:1;letter-spacing:-.3px}
+.ks{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* ── CARDS ── */
+.card{background:var(--surf);border-radius:var(--rad);padding:13px;box-shadow:var(--sh);margin-bottom:10px}
+.ct{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+.ch{position:relative}
+.st{font-size:15px;font-weight:700;margin:14px 0 8px;color:var(--txt)}
+
+/* ── LOAN CARDS ── */
+.lc{background:var(--surf);border-radius:var(--rad);padding:12px 13px;box-shadow:var(--sh);margin-bottom:8px;border-left:4px solid var(--bdr2)}
+.lc.cur{border-left-color:var(--g)}.lc.p1{border-left-color:var(--a)}.lc.p30{border-left-color:var(--r)}
+.lh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px}
+.ln{font-size:14px;font-weight:700;color:var(--txt)}.li{font-size:11px;color:var(--muted);margin-top:2px}
+.lg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px}
+.ls{background:var(--surf2);border-radius:6px;padding:6px 8px}
+.lsl{font-size:10px;color:var(--muted);font-weight:500;line-height:1.3}
+.lsv{font-size:12px;font-weight:700;margin-top:1px}
+.la{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ── BADGES ── */
+.bdg{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-g{background:var(--gb);color:var(--gt)}.b-r{background:var(--rb);color:var(--rt)}
+.b-a{background:var(--ab);color:var(--at)}.b-b{background:var(--bb);color:var(--bt)}
+.b-p{background:var(--pb);color:var(--pt)}
+
+/* ── BUTTONS ── */
+.btn{padding:8px 13px;border-radius:var(--rads);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:var(--font);transition:opacity .12s}
+.btn:active{opacity:.75}
+.btn-g{background:var(--g);color:#fff}
+.btn-o{background:var(--surf2);color:var(--txt);border:1px solid var(--bdr2)}
+.btn-r{background:var(--rb);color:var(--rt);border:1px solid #FECACA}
+.btn-b{background:var(--bb);color:var(--bt);border:1px solid #BFDBFE}
+.btn-full{width:100%}
+.btn-sm{padding:5px 10px;font-size:11px}
+
+/* ── FORMS ── */
+.fg{margin-bottom:11px}
+.fl{font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.fi{width:100%;padding:10px 12px;border:1.5px solid var(--bdr2);border-radius:var(--rads);font-size:14px;font-family:var(--font);color:var(--txt);background:var(--surf);outline:none;-webkit-appearance:none;transition:border-color .12s}
+.fi:focus{border-color:var(--g)}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+
+/* ── RATE CARDS ── */
+.rc{border:1.5px solid var(--bdr2);border-radius:var(--rads);padding:10px 12px;cursor:pointer;margin-bottom:6px}
+.rc.sel{border-color:var(--g);background:var(--gb)}
+.rct{font-size:13px;font-weight:700;margin-bottom:2px}
+.rcd{font-size:11px;color:var(--muted);line-height:1.4}
+
+/* ── PAR BAR ── */
+.pb-row{margin-bottom:8px}
+.pb-meta{display:flex;justify-content:space-between;margin-bottom:3px}
+.pb-name{font-size:12px;font-weight:500}.pb-val{font-size:12px;font-weight:700}
+.pb-track{background:var(--bg);border-radius:3px;height:6px;overflow:hidden}
+.pb-fill{height:100%;border-radius:3px;transition:width .5s}
+
+/* ── PAYMENT ITEM ── */
+.pi{background:var(--surf);border-radius:var(--rads);padding:11px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:flex-start;box-shadow:var(--sh)}
+
+/* ── ALERT ITEM ── */
+.ai{background:var(--surf);border-radius:var(--rads);padding:11px 12px;margin-bottom:7px;display:flex;gap:10px;border-left:4px solid var(--a);box-shadow:var(--sh)}
+.ai.urg{border-left-color:var(--r)}
+
+/* ── MODAL ── */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;overflow-y:auto}
+.mo.on{display:block}
+.ms{background:var(--surf);border-radius:var(--rad) var(--rad) 0 0;position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;max-height:93vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px)}
+.mhdl{width:32px;height:4px;background:var(--bdr2);border-radius:2px;margin:10px auto 12px}
+.mhdr{padding:0 13px 11px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
+.mbdy{padding:13px}
+.mtitle{font-size:16px;font-weight:700}
+.mclose{background:var(--bg);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center}
+
+/* ── EDITABLE TABLE ── */
+.etbl{width:100%;border-collapse:collapse;font-size:12px;min-width:580px}
+.etbl th{padding:7px 8px;background:var(--surf2);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;text-align:left;border-bottom:1px solid var(--bdr);white-space:nowrap}
+.etbl td{padding:5px 4px;border-bottom:1px solid var(--bdr);vertical-align:middle}
+.etbl input,.etbl select{width:100%;border:1px solid var(--bdr2);border-radius:4px;padding:4px 5px;font-size:11px;font-family:var(--font);background:var(--surf);color:var(--txt);min-width:55px}
+.etbl input:focus,.etbl select:focus{border-color:var(--g);outline:none}
+.tbl-wrap{overflow-x:auto;border-radius:var(--rads);border:1px solid var(--bdr)}
+
+/* ── CASH BOX ── */
+.cash-box{background:linear-gradient(135deg,var(--teal) 0%,#047857 100%);border-radius:var(--rad);padding:18px;margin-bottom:11px;color:#fff}
+.cash-box .cb-label{font-size:12px;font-weight:600;opacity:.8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
+.cash-box .cb-val{font-size:32px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px}
+.cash-box .cb-sub{font-size:12px;opacity:.7}
+.cash-box input{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:var(--rads);padding:8px 12px;font-size:24px;font-weight:700;color:#fff;width:100%;font-family:var(--font);outline:none}
+.cash-box input::placeholder{color:rgba(255,255,255,.5)}
+
+/* ── MONTHLY TABLE ── */
+.mr{display:grid;gap:0;padding:8px 10px;border-bottom:1px solid var(--bdr);font-size:12px;align-items:center}
+.mr.head{background:var(--surf2);font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px;border-radius:var(--rads) var(--rads) 0 0}
+.mr.total{background:var(--surf2);font-weight:700;border-top:2px solid var(--bdr2)}
+.mr.profit{background:var(--gb)}
+
+/* ── REPORT ROW ── */
+.rr{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:13px}
+.rr:last-child{border-bottom:none}
+.rr.total{font-weight:700;font-size:14px;border-top:2px solid var(--bdr2);padding-top:10px;margin-top:4px;border-bottom:none}
+.rr-lbl{color:var(--muted)}.rr-val{font-weight:600}
+
+/* ── SEARCH ── */
+.sb{background:var(--surf);border-radius:var(--rads);padding:10px 12px;display:flex;align-items:center;gap:8px;box-shadow:var(--sh);margin-bottom:10px;border:1px solid var(--bdr)}
+.sb input{border:none;outline:none;font-size:14px;font-family:var(--font);background:none;width:100%;color:var(--txt)}
+
+/* ── SCENARIO TOGGLE ── */
+.stog{display:flex;background:var(--surf2);border-radius:var(--rads);padding:3px;margin-bottom:11px;border:1px solid var(--bdr)}
+.sb2{flex:1;padding:7px;text-align:center;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;border:none;font-family:var(--font);color:var(--muted);background:none}
+.sb2.on{background:var(--surf);color:var(--txt);box-shadow:var(--sh)}
+
+/* ── MISC ── */
+.msg-ok{background:var(--gb);color:var(--gt);border-radius:var(--rads);padding:8px 12px;font-size:12px;font-weight:500;margin-top:8px}
+.msg-err{background:var(--rb);color:var(--rt);border-radius:var(--rads);padding:8px 12px;font-size:12px;font-weight:500;margin-top:8px}
+.prev-box{background:var(--gb);border-radius:var(--rads);padding:12px;margin:8px 0;border:1px solid #6EE7B7}
+.divider{height:1px;background:var(--bdr);margin:10px 0}
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
+.info-box{background:var(--bb);border-radius:var(--rads);padding:10px 12px;font-size:12px;color:var(--bt);line-height:1.5;margin-bottom:11px;border-left:3px solid var(--b)}
+.warn-box{background:var(--ab);border-radius:var(--rads);padding:10px 12px;font-size:12px;color:var(--at);line-height:1.5;margin-bottom:11px;border-left:3px solid var(--a)}
 </style>
 </head>
-
 <body>
 
-<div class="header">
-<h2>LoanTrack</h2>
-<div class="tabs">
-<button onclick="showTab('dash')" class="active">Dashboard</button>
-<button onclick="showTab('reg')">Register</button>
-</div>
-</div>
-
-<div class="container">
-
-<div id="dash">
-<div class="card">
-<div>Total Principal: <span id="principal" class="metric"></span></div>
-<div>Total Collected: <span id="collected" class="metric"></span></div>
-<div>Total Outstanding: <span id="outstanding" class="metric"></span></div>
-<div>Total Arrears: <span id="arrearsVal" class="metric"></span></div>
-</div>
-
-<div class="card">
-<canvas id="chart"></canvas>
-</div>
-</div>
-
-<div id="reg" style="display:none">
-<div class="card">
-<table>
-<thead>
-<tr>
-<th>Client</th>
-<th>Loan</th>
-<th>Collected</th>
-<th>Outstanding</th>
-<th>Arrears</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody id="tbl"></tbody>
-</table>
-</div>
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="logo"><em>Micro</em>Finance BI</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="save-status" style="font-size:10px;color:var(--g);font-weight:600;opacity:0;transition:opacity .4s">✓ Saved</span>
+      <button onclick="syncNow()" style="font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px" title="Force cloud sync">Sync</button>
+      <div style="font-size:11px;color:var(--muted)"><span class="hdot"></span>Live · Apr 2026</div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab on"     data-pg="overview">Overview</button>
+    <button class="tab"        data-pg="monthly">Monthly</button>
+    <button class="tab green"  data-pg="profit">Profit</button>
+    <button class="tab teal"   data-pg="payments">Payments</button>
+    <button class="tab"        data-pg="collections">Collections</button>
+    <button class="tab blue"   data-pg="disbursements">Disbursements</button>
+    <button class="tab"        data-pg="cashhand">Cash</button>
+    <button class="tab red"    data-pg="arrears">Arrears</button>
+    <button class="tab amber"  data-pg="alerts">Alerts</button>
+    <button class="tab blue"   data-pg="growth">Growth</button>
+    <button class="tab"        data-pg="loanbook">Loan Book</button>
+    <button class="tab"        data-pg="analytics">Analytics</button>
+    <button class="tab"        data-pg="schedule">Schedule</button>
+    <button class="tab"        data-pg="today">Today</button>
+    <button class="tab"        data-pg="tools">Tools</button>
+    <button class="tab"        data-pg="export">Export</button>
+    <button class="tab"        data-pg="clients">Clients</button>
+    <button class="tab purple" data-pg="report">Report</button>
+    <button class="tab"        data-pg="addclient">+ Add</button>
+  </div>
 </div>
 
+<div class="content">
+
+<!-- ══ OVERVIEW ══ -->
+<div class="page on" id="pg-overview">
+  <div class="kg">
+    <div class="kc"><div class="kl">Total disbursed</div><div class="kv" id="ov-disb">$0</div><div class="ks" id="ov-ln">0 loans</div></div>
+    <div class="kc"><div class="kl">Loan book value</div><div class="kv" style="color:var(--p)" id="ov-book">$0</div><div class="ks">Principal outstanding</div></div>
+    <div class="kc"><div class="kl">Total interest</div><div class="kv" style="color:var(--g)" id="ov-int">$0</div><div class="ks">Full tenure</div></div>
+    <div class="kc"><div class="kl">Total arrears</div><div class="kv" style="color:var(--r)" id="ov-arr">$0</div><div class="ks" id="ov-arrn">0 loans</div></div>
+  </div>
+  <div class="card">
+    <div class="ct">Portfolio health</div>
+    <div class="pb-row"><div class="pb-meta"><span class="pb-name">PAR 1 (target ≤5%)</span><span class="pb-val" id="par1-v">0%</span></div><div class="pb-track"><div class="pb-fill" id="par1-f"></div></div></div>
+    <div class="pb-row"><div class="pb-meta"><span class="pb-name">PAR 30 (target ≤3%)</span><span class="pb-val" id="par30-v">0%</span></div><div class="pb-track"><div class="pb-fill" id="par30-f"></div></div></div>
+    <div class="pb-row"><div class="pb-meta"><span class="pb-name">Collection efficiency</span><span class="pb-val" id="ce-v">0%</span></div><div class="pb-track"><div class="pb-fill" id="ce-f"></div></div></div>
+  </div>
+  <div class="kg">
+    <div class="kc"><div class="kl">Net profit YTD</div><div class="kv" id="ov-net">$0</div><div class="ks" id="ov-mgn">0% margin</div></div>
+    <div class="kc"><div class="kl">Available to lend</div><div class="kv" style="color:var(--b)" id="ov-avail">$0</div><div class="ks">Cash + collections</div></div>
+  </div>
+  <div class="kg">
+    <div class="kc"><div class="kl">Monthly yield</div><div class="kv" id="ov-yield">0%</div><div class="ks">Interest ÷ book</div></div>
+    <div class="kc"><div class="kl">Due next 7 days</div><div class="kv" style="color:var(--a)" id="ov-up7">$0</div><div class="ks" id="ov-up7n">0 loans</div></div>
+  </div>
+  <div class="card"><div class="ct">Monthly disbursed vs collected</div><div class="ch" style="height:165px"><canvas id="ch-ov" role="img" aria-label="Monthly overview">Chart.</canvas></div></div>
+  <div class="st">All loans</div>
+  <div id="ov-list"></div>
+</div>
+
+<!-- ══ MONTHLY PERFORMANCE ══ -->
+<div class="page" id="pg-monthly">
+  <div class="kg3">
+    <div class="kc"><div class="kl">Total expected</div><div class="kv" id="mn-exp">$0</div></div>
+    <div class="kc"><div class="kl">Total collected</div><div class="kv" style="color:var(--g)" id="mn-act">$0</div></div>
+    <div class="kc"><div class="kl">Total shortfall</div><div class="kv" style="color:var(--r)" id="mn-sf">$0</div></div>
+  </div>
+  <div class="card"><div class="ct">Expected vs collected vs interest (monthly)</div><div class="ch" style="height:175px"><canvas id="ch-mn" role="img" aria-label="Monthly performance">Chart.</canvas></div></div>
+  <div class="card"><div class="ct">Net profit per month</div><div class="ch" style="height:155px"><canvas id="ch-profit" role="img" aria-label="Monthly profit">Chart.</canvas></div></div>
+  <div class="st">Month-by-month breakdown</div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="mr head" style="grid-template-columns:45px 1fr 1fr 1fr 1fr 1fr">
+      <div>Mo</div><div>Disb.</div><div>Expected</div><div>Collected</div><div>Interest</div><div>Net P/L</div>
+    </div>
+    <div id="mn-rows"></div>
+    <div class="mr total" id="mn-total" style="grid-template-columns:45px 1fr 1fr 1fr 1fr 1fr"></div>
+  </div>
+  <div class="st">Profitability metrics</div>
+  <div class="kg">
+    <div class="kc"><div class="kl">YTD profit</div><div class="kv" id="mn-ytdp">$0</div></div>
+    <div class="kc"><div class="kl">Annual run-rate</div><div class="kv" style="color:var(--p)" id="mn-annual">$0</div></div>
+    <div class="kc"><div class="kl">Best month</div><div class="kv" style="color:var(--g)" id="mn-best">—</div></div>
+    <div class="kc"><div class="kl">Avg monthly profit</div><div class="kv" id="mn-avg">$0</div></div>
+  </div>
+</div>
+
+<!-- ══ PAYMENTS ══ -->
+<div class="page" id="pg-payments">
+  <div class="kg">
+    <div class="kc"><div class="kl">Payments</div><div class="kv" id="pay-n">0</div></div>
+    <div class="kc"><div class="kl">Total paid</div><div class="kv" style="color:var(--g)" id="pay-tot">$0</div></div>
+  </div>
+  <div class="card">
+    <div class="ct">Record payment</div>
+    <div class="fg"><label class="fl">Loan *</label>
+      <select class="fi" id="pay-lid" onchange="onPaySel()"><option value="">— select loan —</option></select>
+    </div>
+    <div class="fr2" style="margin-bottom:11px">
+      <div class="fg" style="margin:0"><label class="fl">Date *</label><input class="fi" type="date" id="pay-date"/></div>
+      <div class="fg" style="margin:0"><label class="fl">Amount ($) *</label><input class="fi" type="number" step="0.01" id="pay-amt" placeholder="0.00"/></div>
+    </div>
+    <div class="fr2" style="margin-bottom:11px">
+      <div class="fg" style="margin:0"><label class="fl">Expected ($)</label><input class="fi" readonly id="pay-exp" style="background:var(--surf2)"/></div>
+      <div class="fg" style="margin:0"><label class="fl">Type</label>
+        <select class="fi" id="pay-type">
+          <option value="interest">Interest only</option>
+          <option value="principal">Principal only</option>
+          <option value="both" selected>Interest + Principal</option>
+          <option value="partial">Partial</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Notes</label><input class="fi" id="pay-notes" placeholder="Optional"/></div>
+    <button class="btn btn-g btn-full" onclick="addPayment()">Save payment</button>
+    <div id="pay-msg"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div class="st" style="margin:0">Ledger</div>
+    <select style="font-size:11px;padding:5px 8px;border:1px solid var(--bdr2);border-radius:6px;background:var(--surf)" id="pay-filt" onchange="renderPayments()">
+      <option value="">All loans</option>
+    </select>
+  </div>
+  <div id="pay-list"></div>
+</div>
+
+<!-- ══ COLLECTIONS BY MONTH ══ -->
+<div class="page" id="pg-collections">
+  <!-- filter row -->
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:11px;flex-wrap:wrap">
+    <select class="fi" id="col-mo-sel" onchange="renderCollections()" style="flex:1;min-width:140px">
+      <option value="all">All months</option>
+      <option value="0">January 2026</option><option value="1">February 2026</option>
+      <option value="2">March 2026</option><option value="3">April 2026</option>
+      <option value="4">May 2026</option><option value="5">June 2026</option>
+      <option value="6">July 2026</option><option value="7">August 2026</option>
+      <option value="8">September 2026</option><option value="9">October 2026</option>
+      <option value="10">November 2026</option><option value="11">December 2026</option>
+    </select>
+    <select class="fi" id="col-loan-sel" onchange="renderCollections()" style="flex:1;min-width:130px">
+      <option value="all">All clients</option>
+    </select>
+  </div>
+  <!-- summary kpis -->
+  <div class="kg3" id="col-kpis">
+    <div class="kc"><div class="kl">Expected</div><div class="kv" id="col-exp">$0</div></div>
+    <div class="kc"><div class="kl">Collected</div><div class="kv" style="color:var(--g)" id="col-act">$0</div></div>
+    <div class="kc"><div class="kl">Shortfall</div><div class="kv" id="col-sf">$0</div></div>
+  </div>
+  <div class="kg" style="margin-bottom:11px">
+    <div class="kc"><div class="kl">Collection rate</div><div class="kv" id="col-rate">0%</div></div>
+    <div class="kc"><div class="kl">No. of payments</div><div class="kv" id="col-npay">0</div></div>
+  </div>
+  <!-- chart — only when all months shown -->
+  <div class="card" id="col-chart-card"><div class="ct">Expected vs collected by month</div><div class="ch" style="height:170px"><canvas id="ch-col" role="img" aria-label="Collections chart">Collections.</canvas></div></div>
+  <!-- payment rows -->
+  <div class="st" id="col-list-title">Payment entries</div>
+  <div id="col-pay-list"></div>
+  <!-- per-loan summary -->
+  <div class="st" id="col-loan-title">Per-loan summary</div>
+  <div id="col-loan-list"></div>
+</div>
+
+<!-- ══ DISBURSEMENTS BY MONTH ══ -->
+<div class="page" id="pg-disbursements">
+  <!-- filter row -->
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:11px;flex-wrap:wrap">
+    <select class="fi" id="dis-mo-sel" onchange="renderDisbursements()" style="flex:1;min-width:140px">
+      <option value="all">All months</option>
+      <option value="0">January 2026</option><option value="1">February 2026</option>
+      <option value="2">March 2026</option><option value="3">April 2026</option>
+      <option value="4">May 2026</option><option value="5">June 2026</option>
+      <option value="6">July 2026</option><option value="7">August 2026</option>
+      <option value="8">September 2026</option><option value="9">October 2026</option>
+      <option value="10">November 2026</option><option value="11">December 2026</option>
+    </select>
+    <select class="fi" id="dis-type-sel" onchange="renderDisbursements()" style="flex:1;min-width:130px">
+      <option value="all">All loan types</option>
+      <option value="0">Standard flat</option>
+      <option value="1">Interest-only</option>
+      <option value="2">Custom rate</option>
+    </select>
+  </div>
+  <!-- summary kpis -->
+  <div class="kg3">
+    <div class="kc"><div class="kl">Total disbursed</div><div class="kv" style="color:var(--p)" id="dis-tot">$0</div></div>
+    <div class="kc"><div class="kl">No. of loans</div><div class="kv" id="dis-n">0</div></div>
+    <div class="kc"><div class="kl">Average loan</div><div class="kv" id="dis-avg">$0</div></div>
+  </div>
+  <div class="kg">
+    <div class="kc"><div class="kl">Total interest expected</div><div class="kv" style="color:var(--g)" id="dis-int">$0</div></div>
+    <div class="kc"><div class="kl">Total repayable</div><div class="kv" id="dis-rep">$0</div></div>
+  </div>
+  <!-- chart -->
+  <div class="card" id="dis-chart-card"><div class="ct">Disbursements by month</div><div class="ch" style="height:170px"><canvas id="ch-dis" role="img" aria-label="Disbursements chart">Disbursements.</canvas></div></div>
+  <!-- per-month table -->
+  <div class="st">Month-by-month</div>
+  <div class="card" style="padding:0;overflow:hidden" id="dis-month-table">
+    <div class="mr head" style="grid-template-columns:50px 1fr 1fr 1fr 1fr">
+      <div>Month</div><div>Loans</div><div>Disbursed</div><div>Interest</div><div>Total repay.</div>
+    </div>
+    <div id="dis-mo-rows"></div>
+  </div>
+  <!-- individual loans -->
+  <div class="st" id="dis-loans-title">Loans disbursed</div>
+  <div id="dis-loan-list"></div>
+</div>
+
+<!-- ══ CASH AT HAND ══ -->
+<div class="page" id="pg-cashhand">
+  <div class="cash-box">
+    <div class="cb-label">Cash at hand — tap to edit</div>
+    <input type="number" id="cah-input" placeholder="Enter cash balance" oninput="saveCash()"/>
+    <div class="cb-sub" id="cah-sub">Last updated: now</div>
+  </div>
+  <div class="info-box" id="cash-explain">
+    Cash at hand = physical cash you hold + amounts received from collections that haven't been re-lent yet. Enter the actual amount you have available now.
+  </div>
+  <div class="kg">
+    <div class="kc"><div class="kl">Cash at hand</div><div class="kv" style="color:var(--g)" id="cah-v">$0</div></div>
+    <div class="kc"><div class="kl">Loan book</div><div class="kv" style="color:var(--p)" id="cah-book">$0</div></div>
+    <div class="kc"><div class="kl">Total assets</div><div class="kv" id="cah-assets">$0</div></div>
+    <div class="kc"><div class="kl">Available to lend</div><div class="kv" style="color:var(--b)" id="cah-avail">$0</div></div>
+  </div>
+  <div class="warn-box" id="cah-warning" style="display:none">
+    ⚠️ Your cash at hand appears negative or very low. This usually means disbursements exceed collections received. Update your cash balance above to reflect actual cash on hand.
+  </div>
+  <div class="card"><div class="ct">Cash flow: actual received vs expected</div><div class="ch" style="height:170px"><canvas id="ch-cash" role="img" aria-label="Cash flow">Chart.</canvas></div></div>
+  <div class="st">Monthly cash position</div>
+  <div id="cah-list"></div>
+</div>
+
+<!-- ══ ARREARS ══ -->
+<div class="page" id="pg-arrears">
+  <div class="kg">
+    <div class="kc"><div class="kl">Total arrears</div><div class="kv" style="color:var(--r)" id="ar-tot">$0</div></div>
+    <div class="kc"><div class="kl">Worst DPD</div><div class="kv" style="color:var(--r)" id="ar-dpd">0d</div></div>
+  </div>
+  <div class="card" id="par-wrap"><div class="ct">PAR exposure by borrower</div><div class="ch" style="height:170px"><canvas id="ch-par" role="img" aria-label="PAR">PAR.</canvas></div></div>
+  <div class="st">Arrears register</div>
+  <div id="ar-list"></div>
+</div>
+
+<!-- ══ ALERTS ══ -->
+<div class="page" id="pg-alerts">
+  <div class="kg">
+    <div class="kc"><div class="kl">Due 7 days</div><div class="kv" style="color:var(--a)" id="al-7d">$0</div><div class="ks" id="al-7dn">0</div></div>
+    <div class="kc"><div class="kl">Overdue now</div><div class="kv" style="color:var(--r)" id="al-od">$0</div><div class="ks" id="al-odn">0</div></div>
+  </div>
+  <div id="al-list"></div>
+  <div class="st">DPD watch list</div>
+  <div id="al-risk"></div>
+</div>
+
+<!-- ══ GROWTH ══ -->
+<div class="page" id="pg-growth">
+  <div class="stog">
+    <button class="sb2 on" id="s1b" onclick="setSc(1)">Scenario 1 — 5% PAR loss</button>
+    <button class="sb2" id="s2b" onclick="setSc(2)">Scenario 2 — 0% PAR (ideal)</button>
+  </div>
+  <div class="kg">
+    <div class="kc"><div class="kl">Starting capital</div><div class="kv" id="gr-s">$0</div></div>
+    <div class="kc"><div class="kl">Year 1 end</div><div class="kv" style="color:var(--g)" id="gr-y1">$0</div></div>
+    <div class="kc"><div class="kl">Year 2 end</div><div class="kv" style="color:var(--g)" id="gr-y2">$0</div></div>
+    <div class="kc"><div class="kl">Year 3 end</div><div class="kv" style="color:var(--p)" id="gr-y3">$0</div></div>
+  </div>
+  <div class="card"><div class="ct">36-month portfolio growth (reinvestment model)</div><div class="ch" style="height:190px"><canvas id="ch-gr" role="img" aria-label="Growth">Growth.</canvas></div></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="mr head" style="grid-template-columns:40px 1fr 1fr 1fr 1fr">
+      <div>Mo</div><div>Capital</div><div>Interest</div><div>PAR loss</div><div>Net</div>
+    </div>
+    <div id="gr-rows"></div>
+  </div>
+</div>
+
+<!-- ══ LOAN BOOK (editable) ══ -->
+<div class="page" id="pg-loanbook">
+  <div class="kg3">
+    <div class="kc"><div class="kl">Total principal</div><div class="kv" style="color:var(--p)" id="lb-p">$0</div></div>
+    <div class="kc"><div class="kl">Total interest</div><div class="kv" style="color:var(--g)" id="lb-i">$0</div></div>
+    <div class="kc"><div class="kl">Total disbursed</div><div class="kv" id="lb-d">$0</div></div>
+  </div>
+  <div style="display:flex;gap:7px;margin-bottom:9px">
+    <button class="btn btn-g btn-sm" onclick="addLbRow()">+ Row</button>
+    <button class="btn btn-b btn-sm" onclick="saveLb()">Save all</button>
+  </div>
+  <div class="tbl-wrap">
+    <table class="etbl"><thead><tr>
+      <th>Client</th><th>Principal</th><th>Interest</th><th>Disbursed</th><th>Term</th><th>Date</th><th>Type</th><th>Status</th><th></th>
+    </tr></thead><tbody id="lb-tbody"></tbody></table>
+  </div>
+  <div id="lb-msg"></div>
+</div>
+
+<!-- ══ CLIENTS ══ -->
+<div class="page" id="pg-clients">
+  <div class="sb"><input type="text" id="cl-q" placeholder="Search name or ID…" oninput="renderClients()"/></div>
+  <div style="display:flex;gap:7px;margin-bottom:10px">
+    <select style="flex:1;padding:8px 10px;border:1.5px solid var(--bdr2);border-radius:var(--rads);font-size:12px;font-family:var(--font);background:var(--surf);-webkit-appearance:none" id="cl-f" onchange="renderClients()">
+      <option value="">All statuses</option><option>Current</option><option>PAR 1</option><option>PAR 30</option>
+    </select>
+  </div>
+  <div id="cl-list"></div>
+</div>
+
+<!-- ══ REPORT ══ -->
+<div class="page" id="pg-report">
+  <div class="fg"><label class="fl">Select month</label>
+    <select class="fi" id="rep-mo" onchange="renderReport()">
+      <option value="0">January 2026</option><option value="1">February 2026</option>
+      <option value="2">March 2026</option><option value="3" selected>April 2026</option>
+      <option value="4">May 2026</option><option value="5">June 2026</option>
+      <option value="6">July 2026</option><option value="7">August 2026</option>
+      <option value="8">September 2026</option><option value="9">October 2026</option>
+      <option value="10">November 2026</option><option value="11">December 2026</option>
+    </select>
+  </div>
+  <div class="card"><div class="ct" id="rep-title">Monthly report</div><div id="rep-port"></div></div>
+  <div class="card"><div class="ct">P&amp;L this month</div><div id="rep-pnl"></div></div>
+  <div class="card"><div class="ct">Collections this month</div><div id="rep-coll"></div></div>
+  <div class="card"><div class="ct">Year-to-date</div><div id="rep-ytd"></div></div>
+</div>
+
+<!-- ══ PROFIT & LOSS ══ -->
+<div class="page" id="pg-profit">
+
+  <!-- Month filter -->
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:11px">
+    <select class="fi" id="pl-mo-sel" onchange="renderProfit()" style="flex:1">
+      <option value="all">Full year view</option>
+      <option value="0">January 2026</option><option value="1">February 2026</option>
+      <option value="2">March 2026</option><option value="3">April 2026</option>
+      <option value="4">May 2026</option><option value="5">June 2026</option>
+      <option value="6">July 2026</option><option value="7">August 2026</option>
+      <option value="8">September 2026</option><option value="9">October 2026</option>
+      <option value="10">November 2026</option><option value="11">December 2026</option>
+    </select>
+  </div>
+
+  <!-- YTD / period KPIs -->
+  <div class="kg">
+    <div class="kc"><div class="kl">Total revenue</div><div class="kv" style="color:var(--g)" id="pl-rev">$0</div><div class="ks">Interest collected</div></div>
+    <div class="kc"><div class="kl">Total expenses</div><div class="kv" style="color:var(--r)" id="pl-exp-tot">$0</div><div class="ks">PAR + manual costs</div></div>
+  </div>
+  <div class="kg">
+    <div class="kc"><div class="kl">PAR expense</div><div class="kv" style="color:var(--a)" id="pl-par-exp">$0</div><div class="ks">Arrears = cost</div></div>
+    <div class="kc"><div class="kl">Other expenses</div><div class="kv" style="color:var(--r)" id="pl-other-exp">$0</div><div class="ks">Manual entries</div></div>
+  </div>
+  <div class="kg">
+    <div class="kc"><div class="kl">Net profit</div><div class="kv" id="pl-net">$0</div><div class="ks" id="pl-margin-sub">0% margin</div></div>
+    <div class="kc"><div class="kl">Annual run-rate</div><div class="kv" style="color:var(--p)" id="pl-runrate">$0</div><div class="ks">Projected</div></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="card"><div class="ct">Revenue vs expenses vs net profit (monthly)</div><div class="ch" style="height:185px"><canvas id="ch-pl-bar" role="img" aria-label="P&L bar chart">P&L.</canvas></div></div>
+  <div class="card"><div class="ct">Cumulative profit</div><div class="ch" style="height:140px"><canvas id="ch-pl-line" role="img" aria-label="Cumulative profit">Profit trend.</canvas></div></div>
+
+  <!-- P&L statement -->
+  <div class="st">P&amp;L statement</div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="mr head" style="grid-template-columns:44px 1fr 1fr 1fr 1fr 1fr">
+      <div>Mo</div><div>Revenue</div><div>PAR cost</div><div>Other exp.</div><div>Total costs</div><div>Net profit</div>
+    </div>
+    <div id="pl-rows"></div>
+    <div class="mr total" id="pl-total-row" style="grid-template-columns:44px 1fr 1fr 1fr 1fr 1fr"></div>
+  </div>
+
+  <!-- Add expense -->
+  <div class="st">Add expense</div>
+  <div class="card">
+    <div class="fr2" style="margin-bottom:10px">
+      <div class="fg" style="margin:0"><label class="fl">Date *</label><input class="fi" type="date" id="exp-date"/></div>
+      <div class="fg" style="margin:0"><label class="fl">Amount ($) *</label><input class="fi" type="number" id="exp-amt" step="0.01" placeholder="0.00"/></div>
+    </div>
+    <div class="fr2" style="margin-bottom:10px">
+      <div class="fg" style="margin:0"><label class="fl">Category</label>
+        <select class="fi" id="exp-cat">
+          <option value="Operations">Operations</option>
+          <option value="Transport">Transport</option>
+          <option value="Salary">Salary</option>
+          <option value="Office">Office</option>
+          <option value="Marketing">Marketing</option>
+          <option value="Loan loss">Loan loss provision</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="fg" style="margin:0"><label class="fl">Description</label><input class="fi" id="exp-desc" placeholder="e.g. fuel for visits"/></div>
+    </div>
+    <button class="btn btn-r btn-full" onclick="addExpense()">Add expense</button>
+    <div id="exp-msg"></div>
+  </div>
+
+  <!-- Expense ledger -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px">
+    <div class="st" style="margin:0">Expense ledger</div>
+    <select style="font-size:11px;padding:5px 8px;border:1px solid var(--bdr2);border-radius:6px;background:var(--surf)" id="exp-filt" onchange="renderExpenseLedger()">
+      <option value="all">All categories</option>
+      <option>Operations</option><option>Transport</option><option>Salary</option>
+      <option>Office</option><option>Marketing</option><option>Loan loss</option><option>Other</option>
+    </select>
+  </div>
+  <div id="exp-list"></div>
+
+</div>
+
+<!-- ══ ANALYTICS (Tier 1, 2, 3) ══ -->
+<div class="page" id="pg-analytics">
+
+  <div class="st" style="margin-top:0">Tier 1 — Operational metrics</div>
+
+  <div class="kg">
+    <div class="kc"><div class="kl">Yield on portfolio</div><div class="kv" id="an-yop">0%</div><div class="ks">Interest collected ÷ avg book</div></div>
+    <div class="kc"><div class="kl">Return on assets</div><div class="kv" id="an-roa">0%</div><div class="ks">Target &gt; 3% (MFI standard)</div></div>
+    <div class="kc"><div class="kl">Cost per loan</div><div class="kv" id="an-cpl">$0</div><div class="ks">Total expenses ÷ active loans</div></div>
+    <div class="kc"><div class="kl">Days sales outstanding</div><div class="kv" id="an-dso">0d</div><div class="ks">Avg days to collect</div></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">DPD bucket breakdown</div>
+    <div id="an-dpd-bars"></div>
+    <div style="margin-top:10px"><div class="ch" style="height:150px"><canvas id="ch-dpd" role="img" aria-label="DPD aging buckets">DPD.</canvas></div></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Loan aging schedule (all loans)</div>
+    <div id="an-aging"></div>
+  </div>
+
+  <div class="st">Tier 2 — Strategic metrics</div>
+
+  <div class="kg">
+    <div class="kc"><div class="kl">Loan utilisation</div><div class="kv" id="an-util">0%</div><div class="ks">Deployed ÷ total capital</div></div>
+    <div class="kc"><div class="kl">Client retention</div><div class="kv" id="an-ret">0%</div><div class="ks">Repeat borrowers</div></div>
+    <div class="kc"><div class="kl">Avg loan size trend</div><div class="kv" id="an-avgsize">$0</div><div class="ks">Current average</div></div>
+    <div class="kc"><div class="kl">Concentration risk</div><div class="kv" id="an-conc">0%</div><div class="ks">Largest loan ÷ book</div></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">PAR rate trend (monthly)</div>
+    <div class="ch" style="height:160px"><canvas id="ch-par-trend" role="img" aria-label="PAR trend">PAR trend.</canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Concentration risk — loan book by borrower</div>
+    <div id="an-conc-list"></div>
+  </div>
+
+  <div class="st">Tier 3 — Scaling metrics</div>
+
+  <div class="kg">
+    <div class="kc"><div class="kl">Break-even book size</div><div class="kv" id="an-bep">$0</div><div class="ks">Min portfolio to cover costs</div></div>
+    <div class="kc"><div class="kl">Rate adequacy</div><div class="kv" id="an-rate-adeq">—</div><div class="ks">Rate vs costs benchmark</div></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">3-month cash flow forecast</div>
+    <div id="an-forecast"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Client credit tiers (repayment history)</div>
+    <div id="an-credit-tiers"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Seasonal collection forecast</div>
+    <div class="ch" style="height:160px"><canvas id="ch-forecast" role="img" aria-label="3 month forecast">Forecast.</canvas></div>
+  </div>
+
+</div>
+
+<!-- ══ REPAYMENT SCHEDULE ══ -->
+<div class="page" id="pg-schedule">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:11px">
+    <select class="fi" id="sch-loan-sel" onchange="renderSchedule()" style="flex:1">
+      <option value="">— select a loan —</option>
+    </select>
+  </div>
+  <div class="kg3" id="sch-kpis" style="display:none">
+    <div class="kc"><div class="kl">Total repayable</div><div class="kv" id="sch-total">$0</div></div>
+    <div class="kc"><div class="kl">Paid to date</div><div class="kv" style="color:var(--g)" id="sch-paid">$0</div></div>
+    <div class="kc"><div class="kl">Remaining</div><div class="kv" style="color:var(--p)" id="sch-rem">$0</div></div>
+  </div>
+  <div id="sch-info" style="margin-bottom:11px"></div>
+  <div class="card" style="padding:0;overflow:hidden" id="sch-table-wrap" style="display:none">
+    <div class="mr head" style="grid-template-columns:30px 1fr 1fr 1fr 1fr 1fr">
+      <div>#</div><div>Due date</div><div>Principal</div><div>Interest</div><div>Total due</div><div>Status</div>
+    </div>
+    <div id="sch-rows"></div>
+  </div>
+  <div id="sch-empty" class="empty">Select a loan above to view its full repayment schedule.</div>
+</div>
+
+<!-- ══ TODAY ══ -->
+<div class="page" id="pg-today">
+  <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-align:center" id="today-date-banner"></div>
+
+  <div class="kg">
+    <div class="kc"><div class="kl">Due today / overdue</div><div class="kv" id="td-due" style="color:var(--r)">$0</div><div class="ks" id="td-duen">0 loans</div></div>
+    <div class="kc"><div class="kl">Expected this week</div><div class="kv" id="td-week" style="color:var(--a)">$0</div><div class="ks" id="td-weekn">0 loans</div></div>
+    <div class="kc"><div class="kl">Collected today</div><div class="kv" id="td-coll" style="color:var(--g)">$0</div><div class="ks">From today's payments</div></div>
+    <div class="kc"><div class="kl">Available to lend</div><div class="kv" id="td-avail" style="color:var(--b)">$0</div><div class="ks">Cash on hand</div></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Overdue collection tracker</div>
+    <div id="td-overdue-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Upcoming this week</div>
+    <div id="td-upcoming-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Follow-up actions today</div>
+    <div id="td-actions-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Today's snapshot</div>
+    <div id="td-snapshot"></div>
+  </div>
+</div>
+
+<!-- ══ TOOLS (Loan Calculator) ══ -->
+<div class="page" id="pg-tools">
+
+  <div class="card">
+    <div class="ct">Loan calculator</div>
+    <div class="fg"><label class="fl">Principal amount ($)</label><input class="fi" type="number" id="calc-amt" oninput="calcTool()" placeholder="1000"/></div>
+    <div class="fr2" style="margin-bottom:11px">
+      <div class="fg" style="margin:0"><label class="fl">Term (months)</label><input class="fi" type="number" id="calc-term" oninput="calcTool()" placeholder="6"/></div>
+      <div class="fg" style="margin:0"><label class="fl">Monthly rate (%)</label><input class="fi" type="number" id="calc-rate" oninput="calcTool()" placeholder="10" step="0.1"/></div>
+    </div>
+    <div class="fg"><label class="fl">Loan type</label>
+      <select class="fi" id="calc-type" onchange="calcTool()">
+        <option value="0">Standard flat (equal instalments)</option>
+        <option value="1">Interest-only (balloon at end)</option>
+      </select>
+    </div>
+    <div id="calc-result" style="display:none">
+      <div class="kg3" style="margin-top:4px">
+        <div class="kc"><div class="kl">Monthly payment</div><div class="kv" style="color:var(--p)" id="calc-monthly">$0</div></div>
+        <div class="kc"><div class="kl">Total interest</div><div class="kv" style="color:var(--g)" id="calc-int">$0</div></div>
+        <div class="kc"><div class="kl">Total repayable</div><div class="kv" id="calc-total">$0</div></div>
+      </div>
+      <div class="kg" style="margin-bottom:10px">
+        <div class="kc"><div class="kl">Effective monthly yield</div><div class="kv" id="calc-yield">0%</div></div>
+        <div class="kc"><div class="kl">Annualised yield</div><div class="kv" id="calc-ayield">0%</div></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px" id="calc-note"></div>
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:0">
+        <div class="mr head" style="grid-template-columns:30px 1fr 1fr 1fr 1fr"><div>#</div><div>Principal</div><div>Interest</div><div>Payment</div><div>Balance</div></div>
+        <div id="calc-rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Compare loan scenarios</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">See how different rates or terms change the total cost for a fixed principal.</div>
+    <div class="fr2" style="margin-bottom:11px">
+      <div class="fg" style="margin:0"><label class="fl">Principal ($)</label><input class="fi" type="number" id="cmp-amt" oninput="calcCompare()" placeholder="1000"/></div>
+      <div class="fg" style="margin:0"><label class="fl">Term (months)</label><input class="fi" type="number" id="cmp-term" oninput="calcCompare()" placeholder="6"/></div>
+    </div>
+    <div id="cmp-result"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Break-even calculator</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">What loan book size do you need to cover your monthly expenses?</div>
+    <div class="fr2" style="margin-bottom:11px">
+      <div class="fg" style="margin:0"><label class="fl">Monthly expenses ($)</label><input class="fi" type="number" id="bep-exp" oninput="calcBEP()" placeholder="200"/></div>
+      <div class="fg" style="margin:0"><label class="fl">Avg monthly rate (%)</label><input class="fi" type="number" id="bep-rate" oninput="calcBEP()" placeholder="10" step="0.1"/></div>
+    </div>
+    <div id="bep-result"></div>
+  </div>
+</div>
+
+<!-- ══ EXPORT / SHARE ══ -->
+<div class="page" id="pg-export">
+
+  <div class="card">
+    <div class="ct">Monthly statement</div>
+    <div class="fg"><label class="fl">Select month</label>
+      <select class="fi" id="exp-mo-sel" onchange="buildStatement()">
+        <option value="0">January 2026</option><option value="1">February 2026</option>
+        <option value="2">March 2026</option><option value="3" selected>April 2026</option>
+        <option value="4">May 2026</option><option value="5">June 2026</option>
+        <option value="6">July 2026</option><option value="7">August 2026</option>
+        <option value="8">September 2026</option><option value="9">October 2026</option>
+        <option value="10">November 2026</option><option value="11">December 2026</option>
+      </select>
+    </div>
+    <div id="exp-statement" style="background:var(--surf2);border-radius:var(--rads);padding:14px;font-size:13px;line-height:1.7;white-space:pre-wrap;font-family:monospace;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-g btn-sm" style="flex:1" onclick="copyStatement()">Copy statement</button>
+      <button class="btn btn-b btn-sm" style="flex:1" onclick="shareWhatsApp()">Share via WhatsApp</button>
+    </div>
+    <div id="exp-copy-msg" style="font-size:11px;color:var(--g);margin-top:6px;min-height:14px"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Client reminder message</div>
+    <div class="fg"><label class="fl">Select client</label>
+      <select class="fi" id="exp-client-sel" onchange="buildReminder()">
+        <option value="">— select client —</option>
+      </select>
+    </div>
+    <div id="exp-reminder" style="background:var(--surf2);border-radius:var(--rads);padding:14px;font-size:13px;line-height:1.7;white-space:pre-wrap;font-family:monospace;margin-bottom:10px;display:none"></div>
+    <div style="display:flex;gap:8px" id="exp-reminder-btns" style="display:none">
+      <button class="btn btn-g btn-sm" style="flex:1" onclick="copyReminder()">Copy message</button>
+      <button class="btn btn-b btn-sm" style="flex:1" onclick="shareReminderWA()">WhatsApp</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Portfolio summary (copy/share)</div>
+    <div id="exp-portfolio" style="background:var(--surf2);border-radius:var(--rads);padding:14px;font-size:12px;line-height:1.7;white-space:pre-wrap;font-family:monospace;margin-bottom:10px"></div>
+    <button class="btn btn-g btn-sm btn-full" onclick="copyPortfolio()">Copy portfolio summary</button>
+  </div>
+
+</div>
+
+<!-- ══ ADD CLIENT ══ -->
+<div class="page" id="pg-addclient">
+  <div class="card">
+    <div class="ct">Borrower details</div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Loan ID *</label><input class="fi" id="ac-lid" placeholder="LN-012"/></div>
+      <div class="fg"><label class="fl">Phone</label><input class="fi" id="ac-phone" placeholder="07xx"/></div>
+    </div>
+    <div class="fg"><label class="fl">Full name *</label><input class="fi" id="ac-name" placeholder="Borrower name"/></div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Disb. date *</label><input class="fi" type="date" id="ac-date"/></div>
+      <div class="fg"><label class="fl">Principal ($) *</label><input class="fi" type="number" id="ac-amt" oninput="calcPrev()" placeholder="1000"/></div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Term (months) *</label><input class="fi" type="number" id="ac-term" oninput="calcPrev()" placeholder="6"/></div>
+      <div class="fg"><label class="fl">Notes</label><input class="fi" id="ac-notes" placeholder="Optional"/></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct">Rate type *</div>
+    <div class="rc sel" id="rc0" onclick="selRT(0)"><div class="rct">Standard flat — 10% / month</div><div class="rcd">Equal monthly instalments (principal + interest).</div></div>
+    <div class="rc" id="rc1" onclick="selRT(1)"><div class="rct">Interest-only — 10% / month</div><div class="rcd">Interest monthly. Full principal balloon payment at end.</div></div>
+    <div class="rc" id="rc2" onclick="selRT(2)">
+      <div class="rct">Custom monthly rate</div><div class="rcd">Set your own flat rate per month.</div>
+      <div style="margin-top:7px;display:flex;align-items:center;gap:8px">
+        <input class="fi" type="number" id="ac-cr" value="20" style="width:68px" oninput="calcPrev()" onclick="selRT(2);event.stopPropagation()"/>
+        <span style="font-size:12px;color:var(--muted)">% / month</span>
+      </div>
+    </div>
+  </div>
+  <div class="card prev-box" id="prev-c" style="display:none">
+    <div class="ct">Loan preview</div>
+    <div class="kg3">
+      <div class="kc"><div class="kl">Total interest</div><div class="kv" style="color:var(--g)" id="pr-i">$0</div></div>
+      <div class="kc"><div class="kl">Total repayable</div><div class="kv" id="pr-t">$0</div></div>
+      <div class="kc"><div class="kl">Monthly payment</div><div class="kv" style="color:var(--p)" id="pr-m">$0</div></div>
+    </div>
+    <div id="pr-note" style="font-size:12px;color:var(--muted);line-height:1.5;margin-top:5px"></div>
+  </div>
+  <button class="btn btn-g btn-full" onclick="addClient()" style="margin-bottom:8px">Save &amp; disburse loan</button>
+  <div id="ac-msg"></div><div style="height:20px"></div>
+</div>
+
+</div><!-- /content -->
+
+<!-- BOTTOM NAV -->
+<div class="bnav">
+  <button class="nb on" data-pg="overview" onclick="navBtm(this)"><span class="nb-ic">📊</span><span class="nb-lb">Overview</span></button>
+  <button class="nb" data-pg="monthly" onclick="navBtm(this)"><span class="nb-ic">📅</span><span class="nb-lb">Monthly</span></button>
+  <button class="nb" data-pg="payments" onclick="navBtm(this)"><span class="nb-ic">💰</span><span class="nb-lb">Payments</span></button>
+  <button class="nb" data-pg="cashhand" onclick="navBtm(this)"><span class="nb-ic">🏦</span><span class="nb-lb">Cash</span></button>
+  <button class="nb" data-pg="report" onclick="navBtm(this)"><span class="nb-ic">📋</span><span class="nb-lb">Report</span></button>
+</div>
+
+<!-- EDIT CLIENT MODAL -->
+<div class="mo" id="edit-mo">
+  <div class="ms">
+    <div class="mhdl"></div>
+    <div class="mhdr"><div class="mtitle" id="edit-title">Edit client</div><button class="mclose" onclick="closeMo('edit-mo')">✕</button></div>
+    <div class="mbdy" id="edit-body"></div>
+  </div>
+</div>
+
+<!-- CLIENT DETAIL MODAL -->
+<div class="mo" id="det-mo">
+  <div class="ms">
+    <div class="mhdl"></div>
+    <div class="mhdr"><div class="mtitle" id="det-title">Client</div><button class="mclose" onclick="closeMo('det-mo')">✕</button></div>
+    <div class="mbdy" id="det-body"></div>
+  </div>
 </div>
 
 <script>
+/* ══════════════════════════════════════
+   CORE UTILITIES
+══════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+const fmt=v=>'$'+(+(v||0)).toLocaleString('en',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtd=v=>'$'+(+(v||0)).toFixed(2);
+const fmtp=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
+const r2=v=>Math.round((+(v||0))*100)/100;
+const TC='#98A2B3',GC='rgba(0,0,0,0.04)';
+let charts={},acRT=0,scen=1;
 
-// ===== DATA LOADED =====
-let loans = [
-
-{c:"gororo irvine",p:1500,r:10,t:12,d:"2026-01-15",type:"interest"},
-{c:"gift manyengavana",p:2500,r:10,t:6,d:"2025-12-01"},
-{c:"tagaza puru",p:1000,r:10,t:2,d:"2026-03-04"},
-{c:"ziwani mukoma",p:1000,r:10,t:6,d:"2025-11-05"},
-{c:"harare brian",p:2600,r:10,t:3,d:"2026-02-21"},
-{c:"fosirai gadhi",p:500,r:10,t:5,d:"2026-03-31"},
-{c:"barber adolf",p:1000,r:10,t:3,d:"2026-03-30"},
-{c:"ororo chamhanya",p:300,r:30,t:2,d:"2026-03-11",type:"interest"},
-{c:"java mamhanya",p:1000,r:10,t:12,d:"2025-04-01"},
-{c:"pukuta nhoiki",p:350,r:20,t:3,d:"2026-03-11"}
-
-];
-
-let payments = [
-{c:"harare brian",a:1126},
-{c:"ziwani mukoma",a:100},
-{c:"pukuta nhoiki",a:187}
-];
-
-// ===== ENGINE =====
-function calc(l){
-
-let interest = l.p*(l.r/100);
-let total = l.p + interest;
-
-let paid = payments.filter(x=>x.c==l.c).reduce((s,x)=>s+x.a,0);
-
-// monthly installment
-let installment = total / l.t;
-
-// expected payments to date
-let start = new Date(l.d);
-let today = new Date();
-let monthsDue = 0;
-
-for(let i=1;i<=l.t;i++){
-let due = new Date(start);
-due.setMonth(start.getMonth()+i);
-if(today >= due) monthsDue++;
-}
-
-let expected = installment * monthsDue;
-
-// interest only
-if(l.type==="interest"){
-let interestMonthly = interest / l.t;
-expected = interestMonthly * monthsDue;
-}
-
-// arrears
-let arrears = Math.max(0, expected - paid);
-
-// ===== BUSINESS CORRECTIONS =====
-if(l.c==="tagaza puru") arrears = installment;
-if(l.c==="ziwani mukoma") arrears = 83;
-if(l.c==="java mamhanya") arrears = 331;
-if(l.c==="harare brian") arrears = 0;
-
-// outstanding
-let outstanding = total - paid;
-
-// status
-let status = arrears>0 ? "ARREARS" : "OK";
-
-return {paid,arrears,outstanding,status};
-}
-
-// ===== RENDER =====
-function render(){
-
-let principal=0,collected=0,outstanding=0,arrears=0;
-let html="";
-
-loans.forEach(l=>{
-
-let r = calc(l);
-
-principal += l.p;
-collected += r.paid;
-outstanding += r.outstanding;
-arrears += r.arrears;
-
-html += `<tr>
-<td>${l.c}</td>
-<td>${l.p}</td>
-<td>${r.paid}</td>
-<td>${r.outstanding.toFixed(0)}</td>
-<td>${r.arrears.toFixed(0)}</td>
-<td class="${r.status==='ARREARS'?'red':'green'}">${r.status}</td>
-</tr>`;
-
+const bo=(ex={})=>({
+  responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{display:false,...(ex.leg||{})}},
+  scales:{
+    x:{ticks:{color:TC,font:{size:10},autoSkip:false,maxRotation:0},grid:{color:GC}},
+    y:{ticks:{color:TC,font:{size:10}},grid:{color:GC}},
+    ...(ex.scales||{})
+  }
 });
-
-document.getElementById("tbl").innerHTML = html;
-
-document.getElementById("principal").innerText = principal.toFixed(0);
-document.getElementById("collected").innerText = collected.toFixed(0);
-document.getElementById("outstanding").innerText = outstanding.toFixed(0);
-document.getElementById("arrearsVal").innerText = arrears.toFixed(0);
-
-// chart
-new Chart(document.getElementById("chart"),{
-type:"bar",
-data:{
-labels:["Principal","Collected","Outstanding"],
-datasets:[{data:[principal,collected,outstanding]}]
-}
-});
-
+function mkChart(id,cfg){
+  if(charts[id]){charts[id].destroy();}
+  const el=$(id);if(!el)return;
+  charts[id]=new Chart(el,cfg);
 }
 
-// ===== TABS =====
-function showTab(id){
-document.getElementById("dash").style.display="none";
-document.getElementById("reg").style.display="none";
-document.getElementById(id).style.display="block";
+/* ══════════════════════════════════════
+   DATA — 11 LOANS FROM TABLE
+══════════════════════════════════════ */
+const D={
+  cashAtHand: 0,
+  loans:[
+    {lid:'LN-001',name:'Fosirai Gadhi',   phone:'',date:'2026-03-31',term:5, rate:0.10,rt:0,principal:500, interest:250, disbursed:500, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:500, cumDue:100, cumColl:100, intExp:50,  rank:1, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-002',name:'Gift Manyengavana',phone:'',date:'2025-11-01',term:6, rate:0.10,rt:0,principal:416, interest:260, disbursed:2500,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:416, cumDue:2500,cumColl:2500,intExp:43,  rank:2, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-003',name:'Gororo',           phone:'',date:'2026-01-01',term:12,rate:0.10,rt:1,principal:1500,interest:300, disbursed:1500,notes:'Int-only',arrears:0,  dpd:0,par1:0,  par30:0,book:1500,cumDue:300, cumColl:300, intExp:150, rank:3, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-004',name:'Barber Adolf',     phone:'',date:'2026-03-30',term:3, rate:0.10,rt:0,principal:1000,interest:300, disbursed:1000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:1000,cumDue:0,   cumColl:0,   intExp:100, rank:4, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-005',name:'Hare TVS',         phone:'',date:'2026-04-10',term:2, rate:0.10,rt:1,principal:400, interest:80,  disbursed:400, notes:'Int then balloon',arrears:0,dpd:0,par1:0,par30:0,book:400,cumDue:0,cumColl:0,intExp:40,rank:5,up7:false,upAmt:0,status:'Current'},
+    {lid:'LN-006',name:'Ziwani Mukoma',    phone:'',date:'2026-11-16',term:6, rate:0.10,rt:0,principal:333, interest:100, disbursed:1000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:1000,cumDue:0,   cumColl:0,   intExp:33,  rank:6, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-007',name:'Pukuta Mhoiki',    phone:'',date:'2026-03-01',term:3, rate:0.10,rt:0,principal:233, interest:140, disbursed:350, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:350, cumDue:233, cumColl:233, intExp:78,  rank:7, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-008',name:'Ororo Chamhanya',  phone:'',date:'2026-03-11',term:2, rate:0.30,rt:1,principal:300, interest:180, disbursed:300, notes:'Int then balloon',arrears:0,dpd:0,par1:0,par30:0,book:300,cumDue:0,cumColl:0,intExp:90,rank:8,up7:true,upAmt:390,status:'Current'},
+    {lid:'LN-009',name:'Mamhanya',         phone:'',date:'2026-02-01',term:2, rate:0.10,rt:0,principal:231, interest:100, disbursed:390, notes:'',arrears:231,dpd:3,par1:231,par30:0,book:231, cumDue:390, cumColl:159, intExp:39,  rank:9, up7:false,upAmt:0,  status:'PAR 1'},
+    {lid:'LN-010',name:'Harare Brian',     phone:'',date:'2026-02-21',term:3, rate:0.10,rt:0,principal:1733,interest:520, disbursed:2600,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:1733,cumDue:1733,cumColl:1733,intExp:173, rank:10,up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-011',name:'Tagaza Puru',      phone:'',date:'2026-03-04',term:2, rate:0.10,rt:0,principal:1000,interest:200, disbursed:1000,notes:'',arrears:1000,dpd:5,par1:1000,par30:0,book:1000,cumDue:1000,cumColl:0,   intExp:100, rank:11,up7:false,upAmt:0,  status:'PAR 1'}
+  ],
+  payments:[
+    {id:'p1',date:'2026-02-28',lid:'LN-010',amt:866,   expected:866,   type:'both',    notes:'Month 1'},
+    {id:'p2',date:'2026-03-21',lid:'LN-010',amt:867,   expected:867,   type:'both',    notes:'Month 2'},
+    {id:'p3',date:'2026-04-01',lid:'LN-002',amt:2500,  expected:2500,  type:'both',    notes:'Full repayment'},
+    {id:'p4',date:'2026-04-05',lid:'LN-009',amt:159,   expected:195,   type:'partial', notes:'Partial'},
+    {id:'p5',date:'2026-04-01',lid:'LN-007',amt:233,   expected:233,   type:'both',    notes:'Month 1'},
+    {id:'p6',date:'2026-03-31',lid:'LN-003',amt:150,   expected:150,   type:'interest',notes:'Mar interest'},
+    {id:'p7',date:'2026-04-30',lid:'LN-003',amt:150,   expected:150,   type:'interest',notes:'Apr interest'}
+  ],
+  // monthly: disb=disbursed, expColl=expected total collection, actColl=actual received,
+  // expInt=expected interest, actInt=actual interest received, parCost=PAR loss cost
+  monthly:[
+    {m:'January',disb:1500, expColl:150,  actColl:150,  expInt:150, actInt:150, parCost:0},
+    {m:'February',disb:2990, expColl:390,  actColl:159,  expInt:213, actInt:150, parCost:0},
+    {m:'March',disb:2350, expColl:2100, actColl:2166, expInt:561, actInt:450, parCost:231},
+    {m:'April',disb:400,  expColl:2800, actColl:3042, expInt:800, actInt:600, parCost:1231},
+    {m:'May',disb:1000, expColl:1200, actColl:0,    expInt:400, actInt:0,   parCost:0},
+    {m:'June',disb:0,    expColl:900,  actColl:0,    expInt:350, actInt:0,   parCost:0},
+    {m:'July',disb:0,    expColl:700,  actColl:0,    expInt:280, actInt:0,   parCost:0},
+    {m:'August',disb:0,    expColl:500,  actColl:0,    expInt:200, actInt:0,   parCost:0},
+    {m:'September',disb:0,    expColl:400,  actColl:0,    expInt:160, actInt:0,   parCost:0},
+    {m:'October',disb:0,    expColl:300,  actColl:0,    expInt:120, actInt:0,   parCost:0},
+    {m:'November',disb:1000, expColl:200,  actColl:0,    expInt:80,  actInt:0,   parCost:0},
+    {m:'December',disb:0,    expColl:100,  actColl:0,    expInt:40,  actInt:0,   parCost:0}
+  ],
+  // Manual expenses — PAR is computed separately from loans data
+  expenses:[
+    {id:'e1',date:'2026-01-31',amt:50,  cat:'Transport',desc:'Fuel for client visits — January'},
+    {id:'e2',date:'2026-02-28',amt:80,  cat:'Transport',desc:'Fuel for client visits — February'},
+    {id:'e3',date:'2026-03-31',amt:120, cat:'Operations',desc:'Airtime & communications'},
+    {id:'e4',date:'2026-04-05',amt:200, cat:'Salary',    desc:'Loan officer allowance'}
+  ]
+};
+
+/* ══════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════ */
+function navTo(pg){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('[data-pg]').forEach(t=>t.classList.remove('on'));
+  $('pg-'+pg).classList.add('on');
+  document.querySelectorAll(`[data-pg="${pg}"]`).forEach(el=>el.classList.add('on'));
+  const tab=document.querySelector(`.tab[data-pg="${pg}"]`);
+  if(tab)tab.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+  renderPage(pg);
+}
+function navBtm(el){
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');navTo(el.dataset.pg);
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function(){
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  navTo(this.dataset.pg);
+}));
+function renderPage(pg){
+  ({overview:renderOverview,monthly:renderMonthly,profit:renderProfit,
+    payments:renderPayments,cashhand:renderCash,
+    collections:renderCollections,disbursements:renderDisbursements,
+    analytics:renderAnalytics,schedule:renderSchedule,
+    today:renderToday,tools:renderTools,export:renderExport,
+    arrears:renderArrears,alerts:renderAlerts,growth:renderGrowth,loanbook:renderLb,
+    clients:renderClients,report:renderReport}[pg]||function(){})();
 }
 
-// ===== START =====
-render();
+/* ══════════════════════════════════════
+   HELPERS
+══════════════════════════════════════ */
+function sbadge(s){
+  if(s==='Current')return`<span class="bdg b-g">Current</span>`;
+  if(s==='PAR 1')return`<span class="bdg b-a">PAR 1</span>`;
+  return`<span class="bdg b-r">PAR 30</span>`;
+}
+function scls(s){return s==='Current'?'cur':s==='PAR 1'?'p1':'p30';}
+function rtl(l){if(l.rt===1)return'Int-only';if(l.rt===2)return Math.round(l.rate*100)+'% custom';return'10% flat';}
+function setBar(valId,fillId,val,isGoodHigh){
+  const bad=isGoodHigh?(val<80):(val>5);
+  $(valId).textContent=fmtp(val);
+  $(valId).style.color=bad?'var(--r)':'var(--g)';
+  $(fillId).style.width=Math.min(Math.abs(val),100)+'%';
+  $(fillId).style.background=bad?'var(--r)':'var(--g)';
+}
 
+/* ══════════════════════════════════════
+   OVERVIEW
+══════════════════════════════════════ */
+function renderOverview(){
+  const L=D.loans;
+  const totDisb=L.reduce((s,l)=>s+l.disbursed,0);
+  const book=L.reduce((s,l)=>s+l.book,0);
+  const totInt=L.reduce((s,l)=>s+l.interest,0);
+  const arr=L.reduce((s,l)=>s+l.arrears,0);
+  const par1E=L.reduce((s,l)=>s+l.par1,0);
+  const par30E=L.reduce((s,l)=>s+l.par30,0);
+  const par1R=book>0?(par1E/book)*100:0;
+  const par30R=book>0?(par30E/book)*100:0;
+  const cumDue=L.reduce((s,l)=>s+l.cumDue,0);
+  const cumColl=L.reduce((s,l)=>s+l.cumColl,0);
+  const ce=cumDue>0?(cumColl/cumDue)*100:0;
+  const upA=L.reduce((s,l)=>s+(l.upAmt||0),0);
+  const ytdInt=D.monthly.reduce((s,m)=>s+m.actInt,0);
+  const ytdPAR=D.monthly.reduce((s,m)=>s+m.parCost,0);
+  const ytdNet=r2(ytdInt-ytdPAR);
+  const margin=ytdInt>0?(ytdNet/ytdInt)*100:0;
+  const avail=r2(D.cashAtHand+cumColl);
+  const yield_=book>0?(totInt/book/12)*100:0;
+
+  $('ov-disb').textContent=fmt(totDisb);$('ov-ln').textContent=L.length+' active loans';
+  $('ov-book').textContent=fmt(book);
+  $('ov-int').textContent=fmt(totInt);
+  $('ov-arr').textContent=fmt(arr);$('ov-arrn').textContent=L.filter(l=>l.arrears>0).length+' in arrears';
+  setBar('par1-v','par1-f',par1R,false);
+  setBar('par30-v','par30-f',par30R,false);
+  setBar('ce-v','ce-f',ce,true);
+  $('ov-net').textContent=(ytdNet>=0?'+':'')+fmt(ytdNet);$('ov-net').style.color=ytdNet>=0?'var(--g)':'var(--r)';
+  $('ov-mgn').textContent=fmtp(margin)+' margin';
+  $('ov-avail').textContent=fmt(Math.max(0,avail));
+  $('ov-yield').textContent=fmtp(yield_);$('ov-yield').style.color=yield_>8?'var(--g)':'var(--a)';
+  $('ov-up7').textContent=fmt(upA);$('ov-up7n').textContent=L.filter(l=>l.up7).length+' loans';
+
+  mkChart('ch-ov',{type:'bar',data:{labels:D.monthly.map(m=>m.m),datasets:[
+    {label:'Disbursed',data:D.monthly.map(m=>m.disb),backgroundColor:'rgba(105,65,198,.4)',borderWidth:0,borderRadius:3},
+    {label:'Collected',data:D.monthly.map(m=>m.actColl),backgroundColor:'rgba(3,152,85,.5)',borderWidth:0,borderRadius:3}
+  ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
+
+  $('ov-list').innerHTML=L.map(l=>`
+    <div class="lc ${scls(l.status)}">
+      <div class="lh"><div><div class="ln">${l.name}</div><div class="li">${l.lid} · ${rtl(l)} · ${l.term}mo</div></div>${sbadge(l.status)}</div>
+      <div class="lg">
+        <div class="ls"><div class="lsl">Principal</div><div class="lsv">${fmt(l.principal)}</div></div>
+        <div class="ls"><div class="lsl">Interest</div><div class="lsv" style="color:var(--g)">${fmt(l.interest)}</div></div>
+        <div class="ls"><div class="lsl">Arrears</div><div class="lsv" style="color:${l.arrears>0?'var(--r)':'var(--muted)'}">${l.arrears>0?fmt(l.arrears):'—'}</div></div>
+      </div>
+      <div class="la">
+        <button class="btn btn-g btn-sm" onclick="quickPay('${l.lid}')">Pay</button>
+        <button class="btn btn-o btn-sm" onclick="showDet('${l.lid}')">Details</button>
+        <button class="btn btn-b btn-sm" onclick="showEdit('${l.lid}')">Edit</button>
+      </div>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════
+   MONTHLY PERFORMANCE
+══════════════════════════════════════ */
+function renderMonthly(){
+  const M=D.monthly;
+  const totExp=M.reduce((s,m)=>s+m.expColl,0);
+  const totAct=M.reduce((s,m)=>s+m.actColl,0);
+  const totSf=r2(totExp-totAct);
+  $('mn-exp').textContent=fmt(totExp);$('mn-act').textContent=fmt(totAct);
+  $('mn-sf').textContent=fmt(totSf);$('mn-sf').style.color=totSf>0?'var(--r)':'var(--g)';
+
+  mkChart('ch-mn',{type:'bar',data:{labels:M.map(m=>m.m),datasets:[
+    {label:'Expected',data:M.map(m=>m.expColl),backgroundColor:'rgba(29,78,216,.3)',borderWidth:0,borderRadius:2},
+    {label:'Collected',data:M.map(m=>m.actColl),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2},
+    {label:'Interest',data:M.map(m=>m.actInt),backgroundColor:'rgba(220,104,3,.5)',borderWidth:0,borderRadius:2}
+  ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
+
+  const netArr=D.monthly.map(m=>{
+    const manualExp=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m).reduce((s,e)=>s+e.amt,0);
+    return r2(m.actInt-m.parCost-manualExp);
+  });
+  mkChart('ch-profit',{type:'bar',data:{labels:M.map(m=>m.m),datasets:[
+    {data:netArr,backgroundColor:netArr.map(v=>v>=0?'rgba(3,152,85,.55)':'rgba(217,45,32,.5)'),borderWidth:0,borderRadius:2}
+  ]},options:{...bo()}});
+
+  let tDisb=0,tExp=0,tAct=0,tInt=0,tNet=0;
+  $('mn-rows').innerHTML=M.map(m=>{
+    const manualExp=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m).reduce((s,e)=>s+e.amt,0);
+    const net=r2(m.actInt-m.parCost-manualExp),has=m.expColl>0||m.actColl>0;
+    tDisb+=m.disb;tExp+=m.expColl;tAct+=m.actColl;tInt+=m.actInt;tNet=r2(tNet+net);
+    return`<div class="mr ${has&&net>0?'profit':''}" style="grid-template-columns:45px 1fr 1fr 1fr 1fr 1fr;opacity:${has?1:.3}">
+      <div style="color:var(--muted);font-weight:500">${m.m}</div>
+      <div>${m.disb>0?fmt(m.disb):'—'}</div>
+      <div style="color:var(--b)">${fmt(m.expColl)}</div>
+      <div style="color:var(--g)">${m.actColl>0?fmt(m.actColl):'—'}</div>
+      <div style="color:var(--a)">${m.actInt>0?fmt(m.actInt):'—'}</div>
+      <div style="font-weight:600;color:${!has?'inherit':net>=0?'var(--g)':'var(--r)'}">${has?(net>=0?'+':'')+fmt(net):'—'}</div>
+    </div>`;
+  }).join('');
+  $('mn-total').innerHTML=`<div style="color:var(--muted)">Total</div><div>${fmt(tDisb)}</div><div style="color:var(--b)">${fmt(tExp)}</div><div style="color:var(--g)">${fmt(tAct)}</div><div style="color:var(--a)">${fmt(tInt)}</div><div style="font-weight:700;color:${tNet>=0?'var(--g)':'var(--r)'}">${tNet>=0?'+':''}${fmt(tNet)}</div>`;
+
+  const actMonths=M.filter(m=>m.actInt>0);
+  const ytdP=M.reduce((s,m)=>{
+    const me=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m).reduce((x,e)=>x+e.amt,0);
+    return s+r2(m.actInt-m.parCost-me);
+  },0);
+  const annualRun=actMonths.length>0?r2((ytdP/actMonths.length)*12):0;
+  const bestMo=M.reduce((best,m)=>{const n=r2(m.actInt-m.parCost);return n>best.n?{m:m.m,n}:best;},{m:'—',n:-Infinity});
+  const avgMo=actMonths.length>0?r2(ytdP/actMonths.length):0;
+  $('mn-ytdp').textContent=fmt(ytdP);$('mn-ytdp').style.color=ytdP>=0?'var(--g)':'var(--r)';
+  $('mn-annual').textContent=fmt(annualRun);
+  $('mn-best').textContent=bestMo.m+(bestMo.n>-Infinity?' +'+fmt(bestMo.n):'');
+  $('mn-avg').textContent=fmt(avgMo);$('mn-avg').style.color=avgMo>=0?'var(--g)':'var(--r)';
+}
+
+/* ══════════════════════════════════════
+   PAYMENTS
+══════════════════════════════════════ */
+function popPaySelects(){
+  const opts=D.loans.map(l=>`<option value="${l.lid}">${l.lid} — ${l.name}</option>`).join('');
+  ['pay-lid','pay-filt'].forEach(id=>{const el=$(id);if(!el)return;const v=el.value;el.innerHTML=(id==='pay-filt'?'<option value="">All loans</option>':'<option value="">— select loan —</option>')+opts;el.value=v;});
+  // also refresh collections loan selector
+  popColLoanSelect();
+}
+function onPaySel(){const l=D.loans.find(x=>x.lid===$('pay-lid').value);$('pay-exp').value=l?l.intExp.toFixed(2):'';}
+function renderPayments(){
+  popPaySelects();
+  const all=D.payments;
+  $('pay-n').textContent=all.filter(p=>p.amt>0).length;
+  $('pay-tot').textContent=fmt(all.reduce((s,p)=>s+p.amt,0));
+  const filt=$('pay-filt')?.value||'';
+  const vis=all.filter(p=>!filt||p.lid===filt);
+  $('pay-list').innerHTML=vis.length?vis.map(p=>{
+    const l=D.loans.find(x=>x.lid===p.lid)||{};
+    const v=r2(p.amt-(p.expected||0));
+    return`<div class="pi">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${l.name||p.lid}</div>
+        <div style="font-size:11px;color:var(--muted)">${p.date} · ${p.lid} · ${p.type||''}${p.notes?' · '+p.notes:''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:8px">
+        <div style="font-size:15px;font-weight:700;color:var(--g)">${fmtd(p.amt)}</div>
+        <div style="font-size:11px;color:${v>=0?'var(--g)':'var(--r)'}">${v>=0?'+':''}${fmtd(v)}</div>
+        <div style="display:flex;gap:5px;margin-top:5px;justify-content:flex-end">
+          <button class="btn btn-b btn-sm" onclick="editPay('${p.id}')">Edit</button>
+          <button class="btn btn-r btn-sm" onclick="delPay('${p.id}')">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join(''):`<div class="empty">No payments yet.</div>`;
+}
+function addPayment(){
+  const lid=$('pay-lid').value,amt=parseFloat($('pay-amt').value),date=$('pay-date').value;
+  const notes=$('pay-notes').value,type=$('pay-type').value,msg=$('pay-msg');
+  if(!lid){msg.innerHTML='<div class="msg-err">Select a loan.</div>';return;}
+  if(!date){msg.innerHTML='<div class="msg-err">Enter a payment date.</div>';return;}
+  if(isNaN(amt)||amt<0){msg.innerHTML='<div class="msg-err">Enter a valid amount.</div>';return;}
+  const loan=D.loans.find(l=>l.lid===lid);
+  if(!loan){msg.innerHTML='<div class="msg-err">Loan not found.</div>';return;}
+  D.payments.push({id:'p'+Date.now(),date,lid,amt,expected:loan.intExp||0,type,notes});
+  loan.cumColl=r2(loan.cumColl+amt);
+  if(type==='principal'||type==='both'){loan.book=Math.max(0,r2(loan.book-amt*(type==='both'?0.7:1)));}
+  loan.arrears=Math.max(0,r2(loan.arrears-amt));
+  if(loan.arrears===0){loan.par1=0;loan.par30=0;loan.dpd=0;loan.status='Current';}
+  const moName=new Date(date).toLocaleString('default',{month:'long'});
+  const mo=D.monthly.find(m=>m.m===moName);
+  if(mo){mo.actColl=r2(mo.actColl+amt);if(type!=='principal')mo.actInt=r2(mo.actInt+(loan.intExp||0));}
+  D.cashAtHand=r2(D.cashAtHand+amt);
+  if($('cah-input'))$('cah-input').value=D.cashAtHand>0?D.cashAtHand:'';
+  save();
+  msg.innerHTML=`<div class="msg-ok">✓ ${fmtd(amt)} saved for ${loan.name}.</div>`;
+  $('pay-lid').value='';$('pay-amt').value='';$('pay-notes').value='';$('pay-exp').value='';
+  setTimeout(()=>msg.innerHTML='',3000);
+  renderPayments();
+}
+function delPay(id){
+  const p=D.payments.find(x=>x.id===id);if(!p)return;
+  const l=D.loans.find(x=>x.lid===p.lid);
+  if(l){l.cumColl=Math.max(0,r2(l.cumColl-p.amt));l.arrears=r2(l.arrears+p.amt);if(l.arrears>0)l.status='PAR 1';}
+  D.cashAtHand=Math.max(0,r2(D.cashAtHand-p.amt));
+  if($('cah-input'))$('cah-input').value=D.cashAtHand||'';
+  const mo=D.monthly.find(m=>m.m===new Date(p.date).toLocaleString('default',{month:'long'}));
+  if(mo)mo.actColl=Math.max(0,r2(mo.actColl-p.amt));
+  D.payments.splice(D.payments.indexOf(p),1);
+  save();
+  renderPayments();
+}
+function editPay(id){
+  const p=D.payments.find(x=>x.id===id);if(!p)return;
+  const l=D.loans.find(x=>x.lid===p.lid)||{};
+  // Pre-fill the form and mark as editing
+  $('pay-lid').value=p.lid;onPaySel();
+  $('pay-date').value=p.date;
+  $('pay-amt').value=p.amt;
+  $('pay-type').value=p.type||'both';
+  $('pay-notes').value=p.notes||'';
+  // Remove the old entry first so saving re-adds it cleanly
+  const moName=new Date(p.date).toLocaleString('default',{month:'long'});
+  const mo=D.monthly.find(m=>m.m===moName);
+  if(mo)mo.actColl=Math.max(0,r2(mo.actColl-p.amt));
+  if(l.name)l.cumColl=Math.max(0,r2(l.cumColl-p.amt));
+  D.cashAtHand=Math.max(0,r2(D.cashAtHand-p.amt));
+  D.payments.splice(D.payments.indexOf(p),1);
+  $('pay-msg').innerHTML='<div class="msg-ok" style="background:var(--bb);color:var(--bt)">Editing — update values and tap Save.</div>';
+  window.scrollTo(0,0);
+  renderPayments();
+}
+
+/* ══════════════════════════════════════
+   PROFIT & LOSS — PAR as expense + manual expenses
+══════════════════════════════════════ */
+function getMonthExpenses(moName){
+  // Manual expenses for a given month name (e.g. 'Jan')
+  return D.expenses.filter(e=>{
+    const eMo=new Date(e.date).toLocaleString('default',{month:'long'});
+    return eMo===moName;
+  });
+}
+function renderProfit(){
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const moSel=$('pl-mo-sel')?.value||'all';
+  const showAll=moSel==='all';
+  const selMoIdx=showAll?-1:parseInt(moSel);
+
+  // Build rows: for each month compute revenue, PAR cost, manual expenses, net
+  const rows=D.monthly.map((m,i)=>{
+    const manualExps=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m);
+    const manualTotal=r2(manualExps.reduce((s,e)=>s+e.amt,0));
+    const totalCost=r2(m.parCost+manualTotal);
+    const net=r2(m.actInt-totalCost);
+    return{...m,manualTotal,totalCost,net,idx:i};
+  });
+
+  // Filter to selected month if needed
+  const viewRows=showAll?rows:rows.filter(r=>r.idx===selMoIdx);
+
+  // Aggregates for the view
+  const totRev=r2(viewRows.reduce((s,r)=>s+r.actInt,0));
+  const totPAR=r2(viewRows.reduce((s,r)=>s+r.parCost,0));
+  const totOther=r2(viewRows.reduce((s,r)=>s+r.manualTotal,0));
+  const totCost=r2(totPAR+totOther);
+  const totNet=r2(totRev-totCost);
+  const margin=totRev>0?(totNet/totRev)*100:0;
+  const activeMonths=viewRows.filter(r=>r.actInt>0).length;
+  const runRate=activeMonths>0?r2((totNet/activeMonths)*12):0;
+
+  $('pl-rev').textContent=fmt(totRev);
+  $('pl-exp-tot').textContent=fmt(totCost);
+  $('pl-par-exp').textContent=fmt(totPAR);
+  $('pl-other-exp').textContent=fmt(totOther);
+  $('pl-net').textContent=(totNet>=0?'+':'')+fmt(totNet);
+  $('pl-net').style.color=totNet>=0?'var(--g)':'var(--r)';
+  $('pl-margin-sub').textContent=fmtp(margin)+' margin';
+  $('pl-runrate').textContent=fmt(runRate);
+
+  // Bar chart — only for all-months view
+  const netArr=rows.map(r=>r.net);
+  mkChart('ch-pl-bar',{type:'bar',data:{labels:rows.map(r=>r.m),datasets:[
+    {label:'Revenue',    data:rows.map(r=>r.actInt),      backgroundColor:'rgba(3,152,85,.5)',  borderWidth:0,borderRadius:2},
+    {label:'PAR cost',   data:rows.map(r=>r.parCost),     backgroundColor:'rgba(220,104,3,.55)',borderWidth:0,borderRadius:2},
+    {label:'Other costs',data:rows.map(r=>r.manualTotal), backgroundColor:'rgba(217,45,32,.4)', borderWidth:0,borderRadius:2},
+    {label:'Net profit', data:netArr,type:'line',borderColor:'#6941C6',borderWidth:2,pointRadius:3,tension:.3,fill:false}
+  ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
+
+  // Cumulative line
+  let cum=0;
+  const cumArr=rows.map(r=>{cum=r2(cum+r.net);return cum;});
+  mkChart('ch-pl-line',{type:'line',data:{labels:rows.map(r=>r.m),datasets:[{
+    data:cumArr,borderColor:'#039855',backgroundColor:'rgba(3,152,85,.07)',
+    fill:true,borderWidth:2,tension:.4,pointRadius:3,
+    pointBackgroundColor:cumArr.map(v=>v>=0?'#039855':'#D92D20')
+  }]},options:{...bo()}});
+
+  // P&L statement rows
+  let tRev=0,tPAR=0,tOth=0,tCst=0,tNet=0;
+  $('pl-rows').innerHTML=viewRows.map(r=>{
+    const has=r.actInt>0||r.totalCost>0;
+    tRev=r2(tRev+r.actInt);tPAR=r2(tPAR+r.parCost);tOth=r2(tOth+r.manualTotal);tCst=r2(tCst+r.totalCost);tNet=r2(tNet+r.net);
+    return`<div class="mr ${has&&r.net>0?'profit':''}" style="grid-template-columns:44px 1fr 1fr 1fr 1fr 1fr;opacity:${has?1:.32}">
+      <div style="color:var(--muted);font-weight:500">${r.m}</div>
+      <div style="color:var(--g)">${r.actInt>0?fmt(r.actInt):'—'}</div>
+      <div style="color:${r.parCost>0?'var(--a)':'var(--muted)'}">${r.parCost>0?fmt(r.parCost):'—'}</div>
+      <div style="color:${r.manualTotal>0?'var(--r)':'var(--muted)'}">${r.manualTotal>0?fmt(r.manualTotal):'—'}</div>
+      <div style="color:${r.totalCost>0?'var(--r)':'var(--muted)'}">${r.totalCost>0?fmt(r.totalCost):'—'}</div>
+      <div style="font-weight:600;color:${!has?'var(--muted)':r.net>=0?'var(--g)':'var(--r)'}">${has?(r.net>=0?'+':'')+fmt(r.net):'—'}</div>
+    </div>`;
+  }).join('');
+
+  const tn=r2(tRev-tCst);
+  $('pl-total-row').innerHTML=`
+    <div style="font-weight:700">Total</div>
+    <div style="color:var(--g);font-weight:700">${fmt(tRev)}</div>
+    <div style="color:var(--a);font-weight:700">${fmt(tPAR)}</div>
+    <div style="color:var(--r);font-weight:700">${fmt(tOth)}</div>
+    <div style="color:var(--r);font-weight:700">${fmt(tCst)}</div>
+    <div style="font-weight:700;color:${tn>=0?'var(--g)':'var(--r)'}">${tn>=0?'+':''}${fmt(tn)}</div>`;
+
+  renderExpenseLedger();
+}
+
+function addExpense(){
+  const date=$('exp-date').value,amt=parseFloat($('exp-amt').value);
+  const cat=$('exp-cat').value,desc=$('exp-desc').value.trim();
+  const msg=$('exp-msg');
+  if(!date||isNaN(amt)||amt<=0){msg.innerHTML='<div class="msg-err">Enter a valid date and amount.</div>';return;}
+  D.expenses.push({id:'e'+Date.now(),date,amt,cat,desc:desc||cat});
+  save();
+  msg.innerHTML=`<div class="msg-ok">✓ ${fmt(amt)} ${cat} expense added for ${date}.</div>`;
+  $('exp-date').value='';$('exp-amt').value='';$('exp-desc').value='';
+  setTimeout(()=>msg.innerHTML='',3000);
+  renderProfit();
+}
+
+function renderExpenseLedger(){
+  const filt=$('exp-filt')?.value||'all';
+  const vis=filt==='all'?D.expenses:D.expenses.filter(e=>e.cat===filt);
+  // Sort newest first
+  const sorted=[...vis].sort((a,b)=>b.date.localeCompare(a.date));
+  $('exp-list').innerHTML=sorted.length?sorted.map(e=>`
+    <div class="pi">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${e.desc||e.cat}</div>
+        <div style="font-size:11px;color:var(--muted)">${e.date} · <span class="bdg b-r" style="font-size:10px">${e.cat}</span></div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:8px">
+        <div style="font-size:15px;font-weight:700;color:var(--r)">-${fmtd(e.amt)}</div>
+        <button class="btn btn-r btn-sm" style="margin-top:4px" onclick="delExpense('${e.id}')">Delete</button>
+      </div>
+    </div>`).join(''):`<div class="empty">No expenses recorded${filt!=='all'?' for '+filt:''}.</div>`;
+}
+
+function delExpense(id){
+  const idx=D.expenses.findIndex(e=>e.id===id);
+  if(idx>=0)D.expenses.splice(idx,1);
+  save();
+  renderProfit();
+}
+
+/* ══════════════════════════════════════
+   COLLECTIONS BY MONTH
+══════════════════════════════════════ */
+function popColLoanSelect(){
+  const el=$('col-loan-sel');if(!el)return;
+  const v=el.value;
+  el.innerHTML='<option value="all">All clients</option>'+D.loans.map(l=>`<option value="${l.lid}">${l.lid} — ${l.name}</option>`).join('');
+  el.value=v;
+}
+function renderCollections(){
+  popColLoanSelect();
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const moSel=$('col-mo-sel')?.value||'all';
+  const loanSel=$('col-loan-sel')?.value||'all';
+  const showAll=moSel==='all';
+  const selMoIdx=showAll?-1:parseInt(moSel);
+  const selMoName=selMoIdx>=0?MONTHS[selMoIdx]:'';
+
+  // Filter payments
+  const pays=D.payments.filter(p=>{
+    const moMatch=showAll||new Date(p.date).toLocaleString('default',{month:'long'})===selMoName;
+    const loanMatch=loanSel==='all'||p.lid===loanSel;
+    return moMatch&&loanMatch;
+  });
+
+  // KPIs
+  const totAct=r2(pays.reduce((s,p)=>s+p.amt,0));
+  // Expected: sum relevant monthly expColl or per-loan intExp
+  let totExp=0;
+  if(showAll){totExp=D.monthly.reduce((s,m)=>s+m.expColl,0);}
+  else{
+    const mo=D.monthly.find(m=>m.m===selMoName);
+    totExp=mo?mo.expColl:0;
+    if(loanSel!=='all'){const l=D.loans.find(x=>x.lid===loanSel);totExp=l?l.intExp:0;}
+  }
+  const sf=r2(totExp-totAct);
+  const rate=totExp>0?(totAct/totExp)*100:0;
+
+  $('col-exp').textContent=fmt(totExp);
+  $('col-act').textContent=fmt(totAct);
+  $('col-sf').textContent=fmt(Math.abs(sf));
+  $('col-sf').style.color=sf>0?'var(--r)':'var(--g)';
+  $('col-rate').textContent=fmtp(rate);$('col-rate').style.color=rate>=95?'var(--g)':rate>=80?'var(--a)':'var(--r)';
+  $('col-npay').textContent=pays.filter(p=>p.amt>0).length;
+  $('col-list-title').textContent=showAll?'All payment entries':(MNAMES[selMoIdx]||'')+' payment entries';
+  $('col-loan-title').textContent=loanSel==='all'?'Per-loan collection summary':'Loan detail';
+
+  // Chart (all months)
+  const cc=$('col-chart-card');
+  if(showAll&&loanSel==='all'){
+    cc.style.display='block';
+    mkChart('ch-col',{type:'bar',data:{labels:D.monthly.map(m=>m.m),datasets:[
+      {label:'Expected',data:D.monthly.map(m=>m.expColl),backgroundColor:'rgba(29,78,216,.3)',borderWidth:0,borderRadius:2},
+      {label:'Actual collected',data:D.monthly.map(m=>m.actColl),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2}
+    ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
+  } else { cc.style.display='none'; }
+
+  // Payment list
+  $('col-pay-list').innerHTML=pays.length?pays.map(p=>{
+    const l=D.loans.find(x=>x.lid===p.lid)||{};
+    const v=r2(p.amt-(p.expected||0));
+    return`<div class="pi">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${l.name||p.lid}</div>
+        <div style="font-size:11px;color:var(--muted)">${p.date} · ${p.lid} · ${p.type}${p.notes?' · '+p.notes:''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:8px">
+        <div style="font-size:15px;font-weight:700;color:var(--g)">${fmtd(p.amt)}</div>
+        <div style="font-size:11px;color:${v>=0?'var(--g)':'var(--r)'}">${v>=0?'+':''}${fmtd(v)} vs exp</div>
+      </div>
+    </div>`;
+  }).join(''):`<div class="empty">No payments for selected filter.</div>`;
+
+  // Per-loan summary
+  const loansToShow=loanSel==='all'?D.loans:D.loans.filter(l=>l.lid===loanSel);
+  $('col-loan-list').innerHTML=loansToShow.map(l=>{
+    const lPays=pays.filter(p=>p.lid===l.lid);
+    const lAct=r2(lPays.reduce((s,p)=>s+p.amt,0));
+    const lExp=showAll?l.cumDue:l.intExp;
+    const lEff=lExp>0?(lAct/lExp)*100:null;
+    const lSf=r2(lExp-lAct);
+    return`<div class="lc ${scls(l.status)}">
+      <div class="lh"><div><div class="ln">${l.name}</div><div class="li">${l.lid} · ${rtl(l)}</div></div>${sbadge(l.status)}</div>
+      <div class="lg">
+        <div class="ls"><div class="lsl">Expected</div><div class="lsv">${fmt(lExp)}</div></div>
+        <div class="ls"><div class="lsl">Collected</div><div class="lsv" style="color:var(--g)">${fmt(lAct)}</div></div>
+        <div class="ls"><div class="lsl">${lSf>0?'Shortfall':'Surplus'}</div><div class="lsv" style="color:${lSf>0?'var(--r)':'var(--g)'}">${fmt(Math.abs(lSf))}</div></div>
+      </div>
+      <div style="font-size:12px;color:${lEff===null?'var(--muted)':lEff>=95?'var(--g)':lEff>=80?'var(--a)':'var(--r)'}">
+        Efficiency: <strong>${lEff!==null?fmtp(lEff):'—'}</strong> · ${lPays.length} payment(s)
+      </div>
+    </div>`;
+  }).join('')||`<div class="empty">No data.</div>`;
+}
+
+/* ══════════════════════════════════════
+   DISBURSEMENTS BY MONTH
+══════════════════════════════════════ */
+function renderDisbursements(){
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const moSel=$('dis-mo-sel')?.value||'all';
+  const typeSel=$('dis-type-sel')?.value||'all';
+  const showAll=moSel==='all';
+  const selMoIdx=showAll?-1:parseInt(moSel);
+  const selMoName=selMoIdx>=0?MONTHS[selMoIdx]:'';
+
+  // Filter loans
+  const loans=D.loans.filter(l=>{
+    const lMo=new Date(l.date).toLocaleString('default',{month:'long'});
+    const moMatch=showAll||lMo===selMoName;
+    const typeMatch=typeSel==='all'||String(l.rt)===typeSel;
+    return moMatch&&typeMatch;
+  });
+
+  const totDisb=r2(loans.reduce((s,l)=>s+l.disbursed,0));
+  const totInt=r2(loans.reduce((s,l)=>s+l.interest,0));
+  const totRep=r2(totDisb+totInt);
+  const avg=loans.length?r2(totDisb/loans.length):0;
+
+  $('dis-tot').textContent=fmt(totDisb);
+  $('dis-n').textContent=loans.length;
+  $('dis-avg').textContent=fmt(avg);
+  $('dis-int').textContent=fmt(totInt);
+  $('dis-rep').textContent=fmt(totRep);
+  $('dis-loans-title').textContent=showAll?'All disbursed loans':(MNAMES[selMoIdx]||'')+' disbursements';
+
+  // Chart (all months view only)
+  const dc=$('dis-chart-card');
+  if(showAll){
+    dc.style.display='block';
+    mkChart('ch-dis',{type:'bar',data:{labels:D.monthly.map(m=>m.m),datasets:[
+      {label:'Disbursed',data:D.monthly.map(m=>m.disb),backgroundColor:'rgba(105,65,198,.5)',borderWidth:0,borderRadius:3}
+    ]},options:{...bo()}});
+  } else { dc.style.display='none'; }
+
+  // Month-by-month summary table (all view)
+  const mt=$('dis-month-table');
+  if(showAll){
+    mt.style.display='block';
+    $('dis-mo-rows').innerHTML=D.monthly.map((m,idx)=>{
+      const mLoans=D.loans.filter(l=>new Date(l.date).toLocaleString('default',{month:'long'})===m.m&&(typeSel==='all'||String(l.rt)===typeSel));
+      const mDisb=r2(mLoans.reduce((s,l)=>s+l.disbursed,0));
+      const mInt=r2(mLoans.reduce((s,l)=>s+l.interest,0));
+      const has=mDisb>0;
+      return`<div class="mr" style="grid-template-columns:50px 1fr 1fr 1fr 1fr;opacity:${has?1:.35}">
+        <div style="color:var(--muted);font-weight:500">${m.m}</div>
+        <div>${mLoans.length||'—'}</div>
+        <div style="color:var(--p)">${has?fmt(mDisb):'—'}</div>
+        <div style="color:var(--g)">${has?fmt(mInt):'—'}</div>
+        <div style="font-weight:500">${has?fmt(r2(mDisb+mInt)):'—'}</div>
+      </div>`;
+    }).join('');
+    // totals
+    const allLoans=D.loans.filter(l=>typeSel==='all'||String(l.rt)===typeSel);
+    const aDisb=r2(allLoans.reduce((s,l)=>s+l.disbursed,0));
+    const aInt=r2(allLoans.reduce((s,l)=>s+l.interest,0));
+    $('dis-mo-rows').innerHTML+=`<div class="mr total" style="grid-template-columns:50px 1fr 1fr 1fr 1fr">
+      <div>Total</div><div>${allLoans.length}</div>
+      <div style="color:var(--p);font-weight:700">${fmt(aDisb)}</div>
+      <div style="color:var(--g);font-weight:700">${fmt(aInt)}</div>
+      <div style="font-weight:700">${fmt(r2(aDisb+aInt))}</div>
+    </div>`;
+  } else { mt.style.display='none'; }
+
+  // Individual loan cards
+  $('dis-loan-list').innerHTML=loans.length?loans.map(l=>`
+    <div class="lc ${scls(l.status)}">
+      <div class="lh">
+        <div><div class="ln">${l.name}</div><div class="li">${l.lid} · ${l.date} · ${l.term}mo</div></div>
+        ${sbadge(l.status)}
+      </div>
+      <div class="lg">
+        <div class="ls"><div class="lsl">Disbursed</div><div class="lsv" style="color:var(--p)">${fmt(l.disbursed)}</div></div>
+        <div class="ls"><div class="lsl">Interest</div><div class="lsv" style="color:var(--g)">${fmt(l.interest)}</div></div>
+        <div class="ls"><div class="lsl">Total repay.</div><div class="lsv">${fmt(r2(l.disbursed+l.interest))}</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)">
+        <span>${rtl(l)} · ${Math.round(l.rate*100)}%/mo</span>
+        <span>Monthly: ${fmt(l.intExp)}/mo</span>
+      </div>
+    </div>`).join(''):`<div class="empty">No disbursements for selected filter.</div>`;
+}
+
+/* ══════════════════════════════════════
+   CASH AT HAND — FIXED LOGIC
+══════════════════════════════════════ */
+function saveCash(){
+  const val=parseFloat($('cah-input').value)||0;
+  D.cashAtHand=val;
+  save();
+  renderCash();
+}
+function renderCash(){
+  const hand=parseFloat($('cah-input')?.value)||D.cashAtHand||0;
+  D.cashAtHand=hand;
+  const book=D.loans.reduce((s,l)=>s+l.book,0);
+  const totColl=D.loans.reduce((s,l)=>s+l.cumColl,0);
+  const assets=r2(hand+book);
+  // Available to lend = cash at hand (can't lend what's already lent as principal)
+  const avail=Math.max(0,hand);
+
+  $('cah-v').textContent=fmt(hand);
+  $('cah-v').style.color=hand>0?'var(--g)':hand<0?'var(--r)':'var(--muted)';
+  $('cah-book').textContent=fmt(book);
+  $('cah-assets').textContent=fmt(assets);
+  $('cah-avail').textContent=fmt(avail);
+
+  // Show warning only if actually negative
+  const warn=$('cah-warning');
+  if(hand<0){warn.style.display='block';}else{warn.style.display='none';}
+
+  // Fix the explanation about why cash could be negative
+  const explain=$('cash-explain');
+  if(explain){
+    explain.innerHTML=`<strong>How cash at hand works:</strong> Enter the actual cash you physically hold or have in your account right now. This is separate from your loan book. Cash at hand goes up when clients repay, and goes down when you disburse new loans. If it shows negative, it means you've recorded more disbursements than cash received — update this field with your real balance.`;
+  }
+
+  mkChart('ch-cash',{type:'bar',data:{labels:D.monthly.map(m=>m.m),datasets:[
+    {label:'Expected',data:D.monthly.map(m=>m.expColl),backgroundColor:'rgba(29,78,216,.3)',borderWidth:0,borderRadius:2},
+    {label:'Received',data:D.monthly.map(m=>m.actColl),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2}
+  ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
+
+  // Running cash position
+  let runCash=hand;
+  $('cah-list').innerHTML=D.monthly.map(m=>{
+    const net=r2(m.actColl-m.disb);
+    const has=m.expColl>0||m.actColl>0||m.disb>0;
+    const sf=r2(m.actColl-m.expColl);
+    return`<div class="pi" style="${!has?'opacity:.3':''}">
+      <div>
+        <div style="font-size:13px;font-weight:600">${m.m} 2026</div>
+        <div style="font-size:11px;color:var(--muted)">Disbursed: ${fmt(m.disb)} · Expected: ${fmt(m.expColl)}</div>
+        <div style="font-size:11px;margin-top:2px;color:${sf>=0?'var(--g)':'var(--r)'}">${sf>=0?'Surplus':'Shortfall'}: ${sf>=0?'+':''}${fmt(sf)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:15px;font-weight:700;color:var(--g)">${fmt(m.actColl)}</div>
+        <div style="font-size:11px;color:var(--muted)">received</div>
+        <div style="font-size:11px;margin-top:2px;color:${net>=0?'var(--g)':'var(--r)'}">Net: ${net>=0?'+':''}${fmt(net)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════
+   ARREARS
+══════════════════════════════════════ */
+function renderArrears(){
+  const L=D.loans.filter(l=>l.arrears>0||l.dpd>0);
+  $('ar-tot').textContent=fmt(L.reduce((s,l)=>s+l.arrears,0));
+  $('ar-dpd').textContent=L.reduce((m,l)=>Math.max(m,l.dpd),0)+'d';
+  if(L.length){
+    $('par-wrap').querySelector('.ch').style.height=Math.max(150,L.length*50+50)+'px';
+    mkChart('ch-par',{type:'bar',data:{labels:L.map(l=>l.name),datasets:[{label:'PAR 1',data:L.map(l=>l.par1),backgroundColor:'rgba(220,104,3,.6)',borderWidth:0,borderRadius:2},{label:'PAR 30',data:L.map(l=>l.par30),backgroundColor:'rgba(217,45,32,.6)',borderWidth:0,borderRadius:2}]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}}),indexAxis:'y'}});
+  }
+  $('ar-list').innerHTML=L.length?L.map(l=>`
+    <div class="lc p1">
+      <div class="lh"><div><div class="ln">${l.name}</div><div class="li">${l.lid} · ${l.dpd>0?l.dpd+'d DPD':'Due today'}</div></div>${sbadge(l.status)}</div>
+      <div class="lg">
+        <div class="ls"><div class="lsl">Arrears</div><div class="lsv" style="color:var(--r)">${fmt(l.arrears)}</div></div>
+        <div class="ls"><div class="lsl">DPD bucket</div><div class="lsv" style="font-size:11px">${dpdBadge(l.dpd)}</div></div>
+        <div class="ls"><div class="lsl">Book value</div><div class="lsv">${fmt(l.book)}</div></div>
+      </div>
+      <div class="la">
+        <button class="btn btn-g btn-sm" onclick="quickPay('${l.lid}')">Pay</button>
+        <button class="btn btn-b btn-sm" onclick="showEdit('${l.lid}')">Edit</button>
+      </div>
+    </div>`).join(''):`<div class="empty">No arrears — all loans current. ✓</div>`;
+}
+
+/* ══════════════════════════════════════
+   ALERTS
+══════════════════════════════════════ */
+function renderAlerts(){
+  const up=D.loans.filter(l=>l.up7),od=D.loans.filter(l=>l.arrears>0);
+  $('al-7d').textContent=fmt(up.reduce((s,l)=>s+(l.upAmt||0),0));$('al-7dn').textContent=up.length+' loans';
+  $('al-od').textContent=fmt(od.reduce((s,l)=>s+l.arrears,0));$('al-odn').textContent=od.length+' loans';
+  const alerts=[...od,...up.filter(l=>!od.includes(l))];
+  $('al-list').innerHTML=alerts.length?alerts.map(l=>{
+    const isOd=l.arrears>0;
+    return`<div class="ai ${isOd?'urg':''}">
+      <div style="width:7px;height:7px;border-radius:50%;background:${isOd?'var(--r)':'var(--a)'};margin-top:4px;flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700">${l.name} <span style="color:var(--hint);font-weight:400;font-size:11px">${l.lid}</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${isOd?fmt(l.arrears)+' overdue · '+l.dpd+'d DPD':fmt(l.upAmt)+' due within 7 days'}</div>
+      </div>
+      <button class="btn btn-g btn-sm" onclick="quickPay('${l.lid}')">Pay</button>
+    </div>`;
+  }).join(''):`<div class="empty">No alerts — all clear. ✓</div>`;
+  const hp=D.loans.filter(l=>l.dpd>0||l.arrears>0);
+  $('al-risk').innerHTML=hp.sort((a,b)=>b.dpd-a.dpd).map(l=>`
+    <div class="pi">
+      <div><div style="font-size:13px;font-weight:700">${l.name}</div><div style="font-size:11px;color:var(--muted)">${l.lid} · ${dpdBucket(l.dpd).label}</div></div>
+      <div style="text-align:right">
+        <div style="font-size:14px;font-weight:700;color:var(--r)">${fmt(l.arrears)}</div>
+        <div style="margin-top:3px">${dpdBadge(l.dpd)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${l.dpd>30?'🚨 Urgent visit':l.dpd>7?'📱 Send SMS':'👁 Monitor'}</div>
+      </div>
+    </div>`).join('')||`<div class="empty">No loans in arrears or DPD.</div>`;
+}
+
+/* ══════════════════════════════════════
+   GROWTH PROJECTIONS
+══════════════════════════════════════ */
+function setSc(n){scen=n;$('s1b').classList.toggle('on',n===1);$('s2b').classList.toggle('on',n===2);renderGrowth();}
+function renderGrowth(){
+  const parRate=scen===1?0.05:0;
+  const book=D.loans.reduce((s,l)=>s+l.principal,0);
+  let cap=r2(book+(D.cashAtHand||0));
+  const start=cap;
+  const rows=[];
+  for(let mo=1;mo<=36;mo++){
+    const intE=r2(cap*0.10);
+    const parL=r2(cap*parRate*(1/12));
+    const net=r2(intE-parL);
+    cap=r2(cap+net);
+    rows.push({mo,cap,intE,parL,net});
+  }
+  $('gr-s').textContent=fmt(start);
+  $('gr-y1').textContent=fmt(rows[11].cap);
+  $('gr-y2').textContent=fmt(rows[23].cap);
+  $('gr-y3').textContent=fmt(rows[35].cap);
+  const col=scen===1?'rgba(220,104,3,.7)':'rgba(3,152,85,.7)';
+  mkChart('ch-gr',{type:'line',data:{labels:rows.map(r=>r.mo),datasets:[{data:rows.map(r=>r.cap),borderColor:scen===1?'#DC6803':'#039855',backgroundColor:scen===1?'rgba(220,104,3,.07)':'rgba(3,152,85,.07)',fill:true,borderWidth:2,tension:.3,pointRadius:0}]},options:{...bo(),scales:{x:{ticks:{color:TC,font:{size:10},callback:(v,i)=>i%6===0?'M'+(i+1):''},grid:{color:GC}},y:{ticks:{color:TC,font:{size:10},callback:v=>fmt(v)},grid:{color:GC}}}}});
+  $('gr-rows').innerHTML=rows.slice(0,12).map(r=>`
+    <div class="mr" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;${r.mo%3===0?'background:var(--surf2)':''}">
+      <div style="color:var(--muted);font-weight:500">M${r.mo}</div>
+      <div style="font-weight:500">${fmt(r.cap)}</div>
+      <div style="color:var(--g)">+${fmt(r.intE)}</div>
+      <div style="color:var(--r)">${r.parL>0?'-'+fmt(r.parL):'—'}</div>
+      <div style="font-weight:600;color:${r.net>=0?'var(--g)':'var(--r)'}">${r.net>=0?'+':''}${fmt(r.net)}</div>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════
+   LOAN BOOK (editable)
+══════════════════════════════════════ */
+function renderLb(){
+  $('lb-p').textContent=fmt(D.loans.reduce((s,l)=>s+l.principal,0));
+  $('lb-i').textContent=fmt(D.loans.reduce((s,l)=>s+l.interest,0));
+  $('lb-d').textContent=fmt(D.loans.reduce((s,l)=>s+l.disbursed,0));
+  $('lb-tbody').innerHTML=D.loans.map((l,i)=>`
+    <tr>
+      <td><input value="${l.name}" onchange="lbc(${i},'name',this.value)" style="min-width:85px"/></td>
+      <td><input type="number" value="${l.principal}" onchange="lbc(${i},'principal',+this.value)" style="width:60px"/></td>
+      <td><input type="number" value="${l.interest}" onchange="lbc(${i},'interest',+this.value)" style="width:55px"/></td>
+      <td><input type="number" value="${l.disbursed}" onchange="lbc(${i},'disbursed',+this.value)" style="width:65px"/></td>
+      <td><input type="number" value="${l.term}" onchange="lbc(${i},'term',+this.value)" style="width:42px"/></td>
+      <td><input type="date" value="${l.date}" onchange="lbc(${i},'date',this.value)" style="width:115px"/></td>
+      <td><select onchange="lbc(${i},'rt',+this.value)" style="min-width:90px">
+        <option value="0" ${l.rt===0?'selected':''}>Standard</option>
+        <option value="1" ${l.rt===1?'selected':''}>Int-only</option>
+        <option value="2" ${l.rt===2?'selected':''}>Custom</option>
+      </select></td>
+      <td>${sbadge(l.status)}</td>
+      <td><button class="btn btn-r btn-sm" onclick="delLoan(${i})">✕</button></td>
+    </tr>`).join('');
+}
+function lbc(i,f,v){D.loans[i][f]=v;}
+function delLoan(i){if(confirm('Delete '+D.loans[i].name+'?')){D.loans.splice(i,1);save();renderLb();}}
+function addLbRow(){
+  D.loans.push({lid:'LN-'+(D.loans.length+1).toString().padStart(3,'0'),name:'New client',phone:'',date:new Date().toISOString().slice(0,10),term:6,rate:0.10,rt:0,principal:0,interest:0,disbursed:0,notes:'',arrears:0,dpd:0,par1:0,par30:0,book:0,cumDue:0,cumColl:0,intExp:0,rank:D.loans.length+1,up7:false,upAmt:0,status:'Current'});
+  renderLb();
+}
+function saveLb(){D.loans.forEach(l=>{l.book=l.principal;l.intExp=r2(l.principal*l.rate);});save();$('lb-msg').innerHTML='<div class="msg-ok">Saved.</div>';setTimeout(()=>$('lb-msg').innerHTML='',2000);}
+
+/* ══════════════════════════════════════
+   CLIENTS
+══════════════════════════════════════ */
+function renderClients(){
+  const q=$('cl-q')?.value?.toLowerCase()||'';
+  const f=$('cl-f')?.value||'';
+  const L=D.loans.filter(l=>(!f||l.status===f)&&(!q||l.name.toLowerCase().includes(q)||l.lid.toLowerCase().includes(q)));
+  $('cl-list').innerHTML=L.length?L.map(l=>`
+    <div class="lc ${scls(l.status)}">
+      <div class="lh"><div><div class="ln">${l.name}</div><div class="li">${l.lid} · #${l.rank} · ${rtl(l)}</div></div>${sbadge(l.status)}</div>
+      <div class="lg">
+        <div class="ls"><div class="lsl">Principal</div><div class="lsv">${fmt(l.principal)}</div></div>
+        <div class="ls"><div class="lsl">Interest</div><div class="lsv" style="color:var(--g)">${fmt(l.interest)}</div></div>
+        <div class="ls"><div class="lsl">Collected</div><div class="lsv" style="color:var(--teal)">${fmt(l.cumColl)}</div></div>
+      </div>
+      <div class="la">
+        <button class="btn btn-g btn-sm" onclick="quickPay('${l.lid}')">Pay</button>
+        <button class="btn btn-o btn-sm" onclick="showDet('${l.lid}')">View</button>
+        <button class="btn btn-b btn-sm" onclick="showEdit('${l.lid}')">Edit</button>
+      </div>
+    </div>`).join(''):`<div class="empty">No clients found.</div>`;
+}
+
+/* ══════════════════════════════════════
+   CLIENT DETAIL MODAL
+══════════════════════════════════════ */
+function showDet(lid){
+  const l=D.loans.find(x=>x.lid===lid);if(!l)return;
+  const pays=D.payments.filter(p=>p.lid===lid);
+  const eff=l.cumDue>0?((l.cumColl/l.cumDue)*100).toFixed(1)+'%':'—';
+  $('det-title').textContent=l.name;
+  $('det-body').innerHTML=`
+    <div class="kg">
+      <div class="kc"><div class="kl">Principal</div><div class="kv">${fmt(l.principal)}</div></div>
+      <div class="kc"><div class="kl">Interest</div><div class="kv" style="color:var(--g)">${fmt(l.interest)}</div></div>
+      <div class="kc"><div class="kl">Disbursed</div><div class="kv">${fmt(l.disbursed)}</div></div>
+      <div class="kc"><div class="kl">Arrears</div><div class="kv" style="color:${l.arrears>0?'var(--r)':'var(--g)'}">${l.arrears>0?fmt(l.arrears):'None'}</div></div>
+    </div>
+    <div class="card">
+      ${[['Loan ID',l.lid],['Date',l.date],['Term',l.term+'mo'],['Rate type',rtl(l)],['Monthly int.',fmt(l.intExp)],['Cum. due',fmt(l.cumDue)],['Collected',fmt(l.cumColl)],['Efficiency',eff],['Status',l.status],['DPD',l.dpd+'d'],['DPD bucket',dpdBucket(l.dpd).label],['Notes',l.notes||'—']].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bdr);font-size:13px"><span style="color:var(--muted)">${k}</span><span style="font-weight:500">${v}</span></div>`).join('')}
+    </div>
+    <div class="st" style="margin-top:4px">Payments (${pays.length})</div>
+    ${pays.length?pays.map(p=>{const v=r2(p.amt-p.expected);return`<div class="pi"><div><div style="font-size:13px;font-weight:600">${p.date} · ${p.type}</div><div style="font-size:11px;color:var(--muted)">${p.notes||'—'}</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--g)">${fmtd(p.amt)}</div><div style="font-size:11px;color:${v>=0?'var(--g)':'var(--r)'}">${v>=0?'+':''}${fmtd(v)}</div></div></div>`;}).join(''):`<div class="empty" style="padding:12px 0">No payments.</div>`}
+    <div style="display:flex;gap:7px;margin-top:10px">
+      <button class="btn btn-g btn-sm" style="flex:1" onclick="closeMo('det-mo');quickPay('${l.lid}')">+ Add payment</button>
+      <button class="btn btn-b btn-sm" style="flex:1" onclick="closeMo('det-mo');showEdit('${l.lid}')">Edit client</button>
+    </div>
+    <div style="height:16px"></div>`;
+  openMo('det-mo');
+}
+
+/* ══════════════════════════════════════
+   EDIT CLIENT MODAL — any time editing
+══════════════════════════════════════ */
+function showEdit(lid){
+  const idx=D.loans.findIndex(x=>x.lid===lid);if(idx<0)return;
+  const l=D.loans[idx];
+  $('edit-title').textContent='Edit: '+l.name;
+  $('edit-body').innerHTML=`
+    <div class="fr2">
+      <div class="fg"><label class="fl">Loan ID</label><input class="fi" id="ed-lid" value="${l.lid}"/></div>
+      <div class="fg"><label class="fl">Phone</label><input class="fi" id="ed-phone" value="${l.phone||''}"/></div>
+    </div>
+    <div class="fg"><label class="fl">Full name</label><input class="fi" id="ed-name" value="${l.name}"/></div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Disb. date</label><input class="fi" type="date" id="ed-date" value="${l.date}"/></div>
+      <div class="fg"><label class="fl">Principal ($)</label><input class="fi" type="number" id="ed-principal" value="${l.principal}"/></div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Interest ($)</label><input class="fi" type="number" id="ed-interest" value="${l.interest}"/></div>
+      <div class="fg"><label class="fl">Disbursed ($)</label><input class="fi" type="number" id="ed-disbursed" value="${l.disbursed}"/></div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Term (months)</label><input class="fi" type="number" id="ed-term" value="${l.term}"/></div>
+      <div class="fg"><label class="fl">Monthly rate (%)</label><input class="fi" type="number" id="ed-rate" value="${Math.round(l.rate*100)}" step="1"/></div>
+    </div>
+    <div class="fg"><label class="fl">Loan type</label>
+      <select class="fi" id="ed-rt">
+        <option value="0" ${l.rt===0?'selected':''}>Standard flat (equal instalments)</option>
+        <option value="1" ${l.rt===1?'selected':''}>Interest-only (balloon at end)</option>
+        <option value="2" ${l.rt===2?'selected':''}>Custom rate</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Status</label>
+      <select class="fi" id="ed-status">
+        <option ${l.status==='Current'?'selected':''}>Current</option>
+        <option ${l.status==='PAR 1'?'selected':''}>PAR 1</option>
+        <option ${l.status==='PAR 30'?'selected':''}>PAR 30</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Arrears ($)</label><input class="fi" type="number" id="ed-arrears" value="${l.arrears}"/></div>
+    <div class="fg"><label class="fl">DPD (days past due)</label><input class="fi" type="number" id="ed-dpd" value="${l.dpd}"/></div>
+    <div class="fg"><label class="fl">Notes</label><input class="fi" id="ed-notes" value="${l.notes||''}"/></div>
+    <div style="display:flex;gap:7px;margin-top:4px">
+      <button class="btn btn-g btn-sm" style="flex:1" onclick="saveEdit(${idx})">Save changes</button>
+      <button class="btn btn-r btn-sm" onclick="if(confirm('Delete this client?')){D.loans.splice(${idx},1);closeMo('edit-mo');renderClients();}">Delete</button>
+    </div>
+    <div id="ed-msg"></div><div style="height:16px"></div>`;
+  openMo('edit-mo');
+}
+function saveEdit(idx){
+  const l=D.loans[idx];
+  l.name=$('ed-name').value.trim()||l.name;
+  l.lid=$('ed-lid').value.trim()||l.lid;
+  l.phone=$('ed-phone').value;
+  l.date=$('ed-date').value||l.date;
+  l.principal=parseFloat($('ed-principal').value)||l.principal;
+  l.interest=parseFloat($('ed-interest').value)||l.interest;
+  l.disbursed=parseFloat($('ed-disbursed').value)||l.disbursed;
+  l.term=parseInt($('ed-term').value)||l.term;
+  l.rate=(parseFloat($('ed-rate').value)||Math.round(l.rate*100))/100;
+  l.rt=parseInt($('ed-rt').value);
+  l.status=$('ed-status').value;
+  l.arrears=parseFloat($('ed-arrears').value)||0;
+  l.dpd=parseInt($('ed-dpd').value)||0;
+  l.notes=$('ed-notes').value;
+  l.par1=l.arrears;l.par30=l.dpd>=30?l.arrears:0;l.status=l.dpd===0?'Current':l.dpd<=30?'PAR 1':'PAR 30';
+  l.book=l.principal;l.intExp=r2(l.principal*l.rate);
+  $('ed-msg').innerHTML='<div class="msg-ok">Saved.</div>';
+  save();
+  setTimeout(()=>{closeMo('edit-mo');renderClients();},1000);
+}
+
+/* ══════════════════════════════════════
+   MONTHLY REPORT
+══════════════════════════════════════ */
+function renderReport(){
+  const moIdx=parseInt($('rep-mo')?.value)||3;
+  const m=D.monthly[moIdx];
+  const moNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  $('rep-title').textContent=moNames[moIdx]+' 2026 — summary';
+  const L=D.loans;
+  const book=L.reduce((s,l)=>s+l.book,0),arr=L.reduce((s,l)=>s+l.arrears,0);
+  const cumDue=L.reduce((s,l)=>s+l.cumDue,0),cumColl=L.reduce((s,l)=>s+l.cumColl,0);
+  const ce=cumDue>0?(cumColl/cumDue)*100:0;
+  $('rep-port').innerHTML=[
+    ['Active loans',L.length+''],
+    ['Loan book',fmt(book)],
+    ['Total disbursed',fmt(L.reduce((s,l)=>s+l.disbursed,0))],
+    ['Total arrears',fmt(arr)],
+    ['Collection efficiency',fmtp(ce)],
+    ['Current',L.filter(l=>l.status==='Current').length+''],
+    ['PAR 1',L.filter(l=>l.status==='PAR 1').length+''],
+  ].map(([k,v])=>`<div class="rr"><span class="rr-lbl">${k}</span><span class="rr-val">${v}</span></div>`).join('');
+
+  const moManualExp=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m);
+  const moManualTotal=r2(moManualExp.reduce((s,e)=>s+e.amt,0));
+  const net=r2(m.actInt-m.parCost-moManualTotal);
+  const totalCost=r2(m.parCost+moManualTotal);
+  const margin=m.actInt>0?(net/m.actInt)*100:0;
+  $('rep-pnl').innerHTML=[
+    ['Interest revenue',fmt(m.actInt),'g'],
+    ['PAR cost (arrears)',fmt(m.parCost),'a'],
+    ['Other expenses',fmt(moManualTotal),'r'],
+    ['Total costs',fmt(totalCost),'r'],
+    ['Net profit',`${net>=0?'+':''}${fmt(net)}`,net>=0?'g':'r'],
+    ['Profit margin',fmtp(margin),net>=0?'g':'r'],
+    ['Disbursements this month',fmt(m.disb),''],
+  ].map(([k,v,c])=>`<div class="rr"><span class="rr-lbl">${k}</span><span class="rr-val" style="${c?'color:var(--'+c+')':''}">${v}</span></div>`).join('');
+
+  const sf=r2(m.expColl-m.actColl);
+  const cr=m.expColl>0?(m.actColl/m.expColl)*100:0;
+  $('rep-coll').innerHTML=[
+    ['Expected collections',fmt(m.expColl),''],
+    ['Actual collected',fmt(m.actColl),'g'],
+    ['Shortfall',fmt(sf),sf>0?'r':'g'],
+    ['Collection rate',fmtp(cr),cr>=95?'g':cr>=80?'a':'r'],
+    ['Expected interest',fmt(m.expInt),''],
+    ['Actual interest',fmt(m.actInt),'g'],
+    ['Available to lend',fmt(Math.max(0,D.cashAtHand)),'b'],
+  ].map(([k,v,c])=>`<div class="rr"><span class="rr-lbl">${k}</span><span class="rr-val" style="${c?'color:var(--'+c+')':''}">${v}</span></div>`).join('');
+
+  const ytdAct=D.monthly.reduce((s,x)=>s+x.actColl,0);
+  const ytdInt=D.monthly.reduce((s,x)=>s+x.actInt,0);
+  const ytdPAR=D.monthly.reduce((s,x)=>s+x.parCost,0);
+  const ytdOtherExp=D.expenses.reduce((s,e)=>s+e.amt,0);
+  const ytdTotalCost=r2(ytdPAR+ytdOtherExp);
+  const ytdNet=r2(ytdInt-ytdTotalCost);
+  const ytdDisb=D.monthly.reduce((s,x)=>s+x.disb,0);
+  const activeMonths=D.monthly.filter(x=>x.actInt>0).length;
+  const annualRR=activeMonths>0?r2((ytdNet/activeMonths)*12):0;
+  $('rep-ytd').innerHTML=[
+    ['YTD disbursed',fmt(ytdDisb),''],
+    ['YTD collected',fmt(ytdAct),'g'],
+    ['YTD interest earned',fmt(ytdInt),'g'],
+    ['YTD PAR cost',fmt(ytdPAR),'a'],
+    ['YTD other expenses',fmt(ytdOtherExp),'r'],
+    ['YTD total costs',fmt(ytdTotalCost),'r'],
+    ['YTD net profit',`${ytdNet>=0?'+':''}${fmt(ytdNet)}`,ytdNet>=0?'g':'r'],
+    ['Annualised profit (run-rate)',fmt(annualRR),'p'],
+  ].map(([k,v,c],i)=>`<div class="rr ${i===7?'total':''}"><span class="rr-lbl">${k}</span><span class="rr-val" style="${c?'color:var(--'+c+')':''}">${v}</span></div>`).join('');
+}
+
+/* ══════════════════════════════════════
+   ADD CLIENT
+══════════════════════════════════════ */
+function selRT(i){acRT=i;[0,1,2].forEach(j=>$('rc'+j).classList.toggle('sel',j===i));calcPrev();}
+function calcPrev(){
+  const amt=parseFloat($('ac-amt').value)||0,term=parseInt($('ac-term').value)||0;
+  const rate=acRT===2?(parseFloat($('ac-cr').value)||20)/100:0.10;
+  const pc=$('prev-c');if(!amt||!term){pc.style.display='none';return;}
+  pc.style.display='block';
+  const ti=r2(amt*rate*term),tr=r2(amt+ti),inst=acRT===1?r2(amt*rate):r2(tr/term);
+  $('pr-i').textContent=fmt(ti);$('pr-t').textContent=fmt(tr);$('pr-m').textContent=fmt(inst);
+  $('pr-note').textContent=acRT===1?`Monthly: ${fmt(inst)} interest. Final month: ${fmt(r2(inst+amt))} (interest + full principal).`:`${term} equal payments of ${fmt(inst)} @ ${Math.round(rate*100)}% flat/mo.`;
+}
+function addClient(){
+  const lid=$('ac-lid').value.trim(),name=$('ac-name').value.trim(),phone=$('ac-phone').value.trim();
+  const amt=parseFloat($('ac-amt').value),term=parseInt($('ac-term').value),date=$('ac-date').value,notes=$('ac-notes').value;
+  const msg=$('ac-msg');
+  if(!lid){msg.innerHTML='<div class="msg-err">Loan ID is required.</div>';return;}
+  if(!name){msg.innerHTML='<div class="msg-err">Borrower name is required.</div>';return;}
+  if(!date){msg.innerHTML='<div class="msg-err">Disbursement date is required.</div>';return;}
+  if(!amt||isNaN(amt)||amt<=0){msg.innerHTML='<div class="msg-err">Principal amount is required and must be greater than 0.</div>';return;}
+  if(!term||isNaN(term)||term<=0){msg.innerHTML='<div class="msg-err">Term (months) is required and must be greater than 0.</div>';return;}
+  if(D.loans.find(l=>l.lid===lid)){msg.innerHTML='<div class="msg-err">Loan ID already exists. Use a different ID.</div>';return;}
+  const rate=acRT===2?(parseFloat($('ac-cr').value)||20)/100:0.10;
+  const ti=r2(amt*rate*term);
+  const newLoan={lid,name,phone,date,term,rate,rt:acRT,principal:amt,interest:ti,disbursed:amt,notes,arrears:0,dpd:0,par1:0,par30:0,book:amt,cumDue:0,cumColl:0,intExp:r2(amt*rate),rank:D.loans.length+1,up7:false,upAmt:0,status:'Current'};
+  D.loans.push(newLoan);
+  D.cashAtHand=Math.max(0,r2(D.cashAtHand-amt));
+  if($('cah-input'))$('cah-input').value=D.cashAtHand||'';
+  const mo=D.monthly.find(m=>m.m===new Date(date).toLocaleString('default',{month:'long'}));
+  if(mo)mo.disb=r2(mo.disb+amt);
+  save();
+  msg.innerHTML=`<div class="msg-ok">✓ ${lid} (${name}) added — ${fmt(amt)} disbursed.</div>`;
+  ['ac-lid','ac-name','ac-phone','ac-amt','ac-term','ac-notes'].forEach(id=>$(id).value='');
+  selRT(0);$('prev-c').style.display='none';
+  setTimeout(()=>{navTo('clients');document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));},1500);
+}
+
+/* ══════════════════════════════════════
+   MODAL HELPERS
+══════════════════════════════════════ */
+function openMo(id){$(id).classList.add('on');document.body.style.overflow='hidden';}
+function closeMo(id){$(id).classList.remove('on');document.body.style.overflow='';}
+document.querySelectorAll('.mo').forEach(mo=>mo.addEventListener('click',function(e){if(e.target===this)closeMo(this.id);}));
+
+/* ══════════════════════════════════════
+   QUICK PAY — jump to payments with loan preselected
+══════════════════════════════════════ */
+function quickPay(lid){
+  navTo('payments');
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  document.querySelector('.nb[data-pg="payments"]')?.classList.add('on');
+  setTimeout(()=>{
+    const s=$('pay-lid');if(s){s.value=lid;onPaySel();}
+    $('pay-date').value=new Date().toISOString().slice(0,10);
+    $('pay-amt').focus();
+  },80);
+}
+
+/* ══════════════════════════════════════
+   DPD BUCKET HELPER
+══════════════════════════════════════ */
+function dpdBucket(dpd){
+  if(dpd===0)return{label:'Current',color:'var(--g)',bg:'var(--gb)',cls:'b-g'};
+  if(dpd<=7) return{label:'1–7 DPD',color:'var(--a)',bg:'var(--ab)',cls:'b-a'};
+  if(dpd<=30)return{label:'8–30 DPD',color:'#B45309',bg:'#FEF3C7',cls:'b-a'};
+  if(dpd<=60)return{label:'31–60 DPD',color:'var(--r)',bg:'var(--rb)',cls:'b-r'};
+  return{label:'60+ DPD',color:'#7F1D1D',bg:'#FEE2E2',cls:'b-r'};
+}
+function dpdBadge(dpd){
+  const b=dpdBucket(dpd);
+  return`<span class="bdg" style="background:${b.bg};color:${b.color}">${b.label}</span>`;
+}
+
+/* ══════════════════════════════════════
+   ANALYTICS — ALL THREE TIERS
+══════════════════════════════════════ */
+function renderAnalytics(){
+  const L=D.loans;
+  const book=L.reduce((s,l)=>s+l.book,0);
+  const totDisb=L.reduce((s,l)=>s+l.disbursed,0);
+  const cumColl=L.reduce((s,l)=>s+l.cumColl,0);
+  const ytdInt=D.monthly.reduce((s,m)=>s+m.actInt,0);
+  const totExp=D.expenses.reduce((s,e)=>s+e.amt,0)+D.monthly.reduce((s,m)=>s+m.parCost,0);
+  const ytdNet=r2(ytdInt-totExp);
+  const assets=r2(book+(D.cashAtHand||0));
+
+  /* ── TIER 1 ── */
+  // Yield on Portfolio
+  const yop=book>0?(ytdInt/book)*100:0;
+  $('an-yop').textContent=fmtp(yop);
+  $('an-yop').style.color=yop>=8?'var(--g)':yop>=4?'var(--a)':'var(--r)';
+
+  // Return on Assets
+  const roa=assets>0?(ytdNet/assets)*100:0;
+  $('an-roa').textContent=fmtp(roa);
+  $('an-roa').style.color=roa>=3?'var(--g)':roa>=0?'var(--a)':'var(--r)';
+
+  // Cost per loan
+  const manualExp=D.expenses.reduce((s,e)=>s+e.amt,0);
+  const cpl=L.length>0?r2(manualExp/L.length):0;
+  $('an-cpl').textContent=fmt(cpl);
+  $('an-cpl').style.color=cpl<50?'var(--g)':cpl<150?'var(--a)':'var(--r)';
+
+  // DSO — avg days between due date and payment date (simplified: use DPD avg)
+  const loansWithDpd=L.filter(l=>l.dpd>0);
+  const dso=loansWithDpd.length>0?r2(loansWithDpd.reduce((s,l)=>s+l.dpd,0)/loansWithDpd.length):0;
+  $('an-dso').textContent=dso+'d';
+  $('an-dso').style.color=dso===0?'var(--g)':dso<7?'var(--a)':'var(--r)';
+
+  // DPD bucket breakdown
+  const buckets=[
+    {label:'Current (0 DPD)',  count:L.filter(l=>l.dpd===0).length,  color:'var(--g)', amt:L.filter(l=>l.dpd===0).reduce((s,l)=>s+l.book,0)},
+    {label:'1–7 DPD',          count:L.filter(l=>l.dpd>=1&&l.dpd<=7).length,  color:'var(--a)', amt:L.filter(l=>l.dpd>=1&&l.dpd<=7).reduce((s,l)=>s+l.arrears,0)},
+    {label:'8–30 DPD',         count:L.filter(l=>l.dpd>=8&&l.dpd<=30).length, color:'#B45309',  amt:L.filter(l=>l.dpd>=8&&l.dpd<=30).reduce((s,l)=>s+l.arrears,0)},
+    {label:'31–60 DPD',        count:L.filter(l=>l.dpd>=31&&l.dpd<=60).length,color:'var(--r)', amt:L.filter(l=>l.dpd>=31&&l.dpd<=60).reduce((s,l)=>s+l.arrears,0)},
+    {label:'60+ DPD',          count:L.filter(l=>l.dpd>60).length,             color:'#7F1D1D',  amt:L.filter(l=>l.dpd>60).reduce((s,l)=>s+l.arrears,0)},
+  ];
+  $('an-dpd-bars').innerHTML=buckets.map(b=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:12px">
+      <span style="font-weight:500;color:${b.color}">${b.label}</span>
+      <span style="display:flex;gap:12px;align-items:center">
+        <span style="color:var(--muted)">${b.count} loan${b.count!==1?'s':''}</span>
+        <span style="font-weight:600;color:${b.amt>0?b.color:'var(--muted)'}">${b.amt>0?fmt(b.amt):'—'}</span>
+      </span>
+    </div>`).join('');
+  mkChart('ch-dpd',{type:'bar',data:{labels:buckets.map(b=>b.label),datasets:[{label:'Loans',data:buckets.map(b=>b.count),backgroundColor:buckets.map(b=>b.color+'88'),borderWidth:0,borderRadius:4}]},options:{...bo(),scales:{x:{ticks:{color:TC,font:{size:9},autoSkip:false,maxRotation:30}},y:{ticks:{color:TC,font:{size:10},stepSize:1},grid:{color:GC}}}}});
+
+  // Loan aging schedule
+  $('an-aging').innerHTML=L.map(l=>{
+    const b=dpdBucket(l.dpd);
+    const eff=l.cumDue>0?Math.round((l.cumColl/l.cumDue)*100):null;
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:12px">
+      <div>
+        <div style="font-weight:600">${l.name}</div>
+        <div style="color:var(--muted);font-size:11px">${l.lid} · ${l.date} · ${l.term}mo</div>
+      </div>
+      <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        ${dpdBadge(l.dpd)}
+        <span style="font-size:11px;color:${eff!==null?eff>=95?'var(--g)':eff>=80?'var(--a)':'var(--r)':'var(--muted)'}">${eff!==null?eff+'% collected':'not started'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  /* ── TIER 2 ── */
+  // Loan utilisation
+  const util=assets>0?(book/assets)*100:0;
+  $('an-util').textContent=fmtp(util);
+  $('an-util').style.color=util>=80?'var(--g)':util>=60?'var(--a)':'var(--r)';
+
+  // Client retention — loans with same name appearing more than once would indicate repeats
+  // For now: count clients who are 'Current' with cumColl > 0 (have repaid before)
+  const repeatClients=L.filter(l=>l.cumColl>0&&l.status==='Current').length;
+  const retRate=L.length>0?r2((repeatClients/L.length)*100):0;
+  $('an-ret').textContent=fmtp(retRate);
+  $('an-ret').style.color=retRate>=60?'var(--g)':retRate>=40?'var(--a)':'var(--r)';
+
+  // Avg loan size
+  const avgSize=L.length>0?r2(totDisb/L.length):0;
+  $('an-avgsize').textContent=fmt(avgSize);
+
+  // Concentration risk — largest single loan as % of book
+  const maxLoan=Math.max(...L.map(l=>l.book));
+  const conc=book>0?(maxLoan/book)*100:0;
+  $('an-conc').textContent=fmtp(conc);
+  $('an-conc').style.color=conc<20?'var(--g)':conc<30?'var(--a)':'var(--r)';
+
+  // PAR trend chart
+  const parData=D.monthly.map(m=>m.parCost>0?r2((m.parCost/Math.max(book,1))*100):0);
+  mkChart('ch-par-trend',{type:'line',data:{labels:D.monthly.map(m=>m.m),datasets:[
+    {label:'PAR rate %',data:parData,borderColor:'#DC6803',backgroundColor:'rgba(220,104,3,.07)',fill:true,borderWidth:2,tension:.3,pointRadius:3},
+    {label:'5% threshold',data:D.monthly.map(()=>5),borderColor:'rgba(217,45,32,.4)',borderWidth:1,borderDash:[4,4],pointRadius:0,tension:0}
+  ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
+
+  // Concentration list
+  const sorted=[...L].sort((a,b)=>b.book-a.book);
+  $('an-conc-list').innerHTML=sorted.map(l=>{
+    const pct=book>0?r2((l.book/book)*100):0;
+    const barW=Math.min(pct,100);
+    return`<div style="padding:7px 0;border-bottom:1px solid var(--bdr)">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="font-weight:500">${l.name}</span>
+        <span style="color:${pct>25?'var(--r)':pct>15?'var(--a)':'var(--g)'};font-weight:600">${fmtp(pct)} · ${fmt(l.book)}</span>
+      </div>
+      <div style="background:var(--bg);border-radius:3px;height:5px"><div style="width:${barW}%;height:100%;background:${pct>25?'var(--r)':pct>15?'var(--a)':'var(--g)'};border-radius:3px"></div></div>
+    </div>`;
+  }).join('');
+
+  /* ── TIER 3 ── */
+  // Break-even: minimum book to cover monthly expenses
+  const avgMonthlyExp=D.expenses.length>0?r2(manualExp/Math.max(D.monthly.filter(m=>m.actInt>0).length,1)):0;
+  const avgRate=L.length>0?r2(L.reduce((s,l)=>s+l.rate,0)/L.length):0.10;
+  const bep=avgRate>0?r2(avgMonthlyExp/avgRate):0;
+  $('an-bep').textContent=fmt(bep);
+  $('an-bep').style.color=book>=bep?'var(--g)':'var(--r)';
+
+  // Rate adequacy — compare avg rate vs expenses/book ratio
+  const costRatio=book>0?(avgMonthlyExp/book)*100:0;
+  const rateAdq=avgRate*100-costRatio;
+  $('an-rate-adeq').textContent=rateAdq>0?'+'+fmtp(rateAdq)+' surplus':fmtp(rateAdq)+' deficit';
+  $('an-rate-adeq').style.color=rateAdq>5?'var(--g)':rateAdq>0?'var(--a)':'var(--r)';
+
+  // 3-month cash flow forecast
+  const next3=D.monthly.slice(4,7);
+  $('an-forecast').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+      ${next3.map(m=>`
+        <div class="kc"><div class="kl">${m.m.slice(0,3)}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--g)">${fmt(m.expColl)}</div>
+          <div style="font-size:10px;color:var(--muted)">expected in</div>
+          <div style="font-size:13px;font-weight:700;color:var(--r);margin-top:4px">${fmt(m.disb)}</div>
+          <div style="font-size:10px;color:var(--muted)">planned out</div>
+          <div style="font-size:13px;font-weight:700;margin-top:4px;color:${r2(m.expColl-m.disb)>=0?'var(--g)':'var(--r)'}">${r2(m.expColl-m.disb)>=0?'+':''}${fmt(r2(m.expColl-m.disb))}</div>
+          <div style="font-size:10px;color:var(--muted)">net</div>
+        </div>`).join('')}
+    </div>`;
+
+  // Seasonal forecast chart
+  mkChart('ch-forecast',{type:'bar',data:{labels:D.monthly.slice(4,10).map(m=>m.m.slice(0,3)),datasets:[
+    {label:'Expected in',data:D.monthly.slice(4,10).map(m=>m.expColl),backgroundColor:'rgba(3,152,85,.45)',borderWidth:0,borderRadius:3},
+    {label:'Planned out',data:D.monthly.slice(4,10).map(m=>m.disb),backgroundColor:'rgba(217,45,32,.4)',borderWidth:0,borderRadius:3}
+  ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
+
+  // Credit tiers
+  const tiers=L.map(l=>{
+    const eff=l.cumDue>0?(l.cumColl/l.cumDue)*100:null;
+    let tier,col,bg;
+    if(l.dpd===0&&(eff===null||eff>=95)){tier='🟢 Green — Reliable';col='var(--gt)';bg='var(--gb)';}
+    else if(l.dpd<=7&&(eff===null||eff>=80)){tier='🟡 Amber — Watch';col='var(--at)';bg='var(--ab)';}
+    else{tier='🔴 Red — High risk';col='var(--rt)';bg='var(--rb)';}
+    return{l,tier,col,bg,eff};
+  }).sort((a,b)=>a.tier.localeCompare(b.tier));
+  $('an-credit-tiers').innerHTML=tiers.map(({l,tier,col,bg,eff})=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bdr);font-size:12px">
+      <div><div style="font-weight:600">${l.name}</div><div style="font-size:11px;color:var(--muted)">${l.lid} · DPD: ${l.dpd}d</div></div>
+      <div style="text-align:right">
+        <div style="background:${bg};color:${col};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${tier}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${eff!==null?eff.toFixed(0)+'% collected':'—'}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════
+   REPAYMENT SCHEDULE GENERATOR
+══════════════════════════════════════ */
+function popSchSelect(){
+  const el=$('sch-loan-sel');if(!el)return;
+  const v=el.value;
+  el.innerHTML='<option value="">— select a loan —</option>'+D.loans.map(l=>`<option value="${l.lid}">${l.lid} — ${l.name}</option>`).join('');
+  el.value=v;
+}
+function renderSchedule(){
+  const lid=$('sch-loan-sel')?.value;
+  const empty=$('sch-empty');
+  const wrap=$('sch-table-wrap');
+  const kpis=$('sch-kpis');
+  const info=$('sch-info');
+  if(!lid){
+    if(empty)empty.style.display='block';
+    if(wrap)wrap.style.display='none';
+    if(kpis)kpis.style.display='none';
+    return;
+  }
+  const l=D.loans.find(x=>x.lid===lid);
+  if(!l){return;}
+  if(empty)empty.style.display='none';
+  if(wrap)wrap.style.display='block';
+  if(kpis)kpis.style.display='grid';
+
+  // Generate installment schedule
+  const disbDate=new Date(l.date);
+  const rows=[];
+  let runPrincipal=l.principal;
+
+  for(let i=1;i<=l.term;i++){
+    const dueDate=new Date(disbDate);
+    dueDate.setMonth(dueDate.getMonth()+i);
+    const dueDateStr=dueDate.toISOString().slice(0,10);
+
+    let princDue=0,intDue=0,totalDue=0;
+    if(l.rt===1){
+      // Interest-only: interest each period, full principal on last
+      intDue=r2(l.principal*l.rate);
+      princDue=i===l.term?l.principal:0;
+      totalDue=r2(intDue+princDue);
+    } else {
+      // Standard flat: equal instalments
+      const totalRepayable=r2(l.principal+l.interest);
+      totalDue=r2(totalRepayable/l.term);
+      intDue=r2(l.principal*l.rate);
+      princDue=r2(totalDue-intDue);
+    }
+    runPrincipal=Math.max(0,r2(runPrincipal-princDue));
+
+    // Determine status
+    const today=new Date('2026-04-13');
+    const due=new Date(dueDateStr);
+    let rowStatus,statusColor;
+    if(due<today){
+      // Past due — check against payments
+      const paid=D.payments.filter(p=>p.lid===lid).reduce((s,p)=>s+p.amt,0);
+      const cumDueToDate=rows.reduce((s,r)=>s+r.totalDue,0)+totalDue;
+      if(l.cumColl>=cumDueToDate){rowStatus='Paid';statusColor='var(--g)';}
+      else if(l.dpd>0){rowStatus='Overdue';statusColor='var(--r)';}
+      else{rowStatus='Paid';statusColor='var(--g)';}
+    } else {
+      rowStatus='Upcoming';statusColor='var(--muted)';
+    }
+    rows.push({i,dueDateStr,princDue,intDue,totalDue,runPrincipal,rowStatus,statusColor});
+  }
+
+  const totalRepayable=rows.reduce((s,r)=>s+r.totalDue,0);
+  const remaining=r2(totalRepayable-l.cumColl);
+  $('sch-total').textContent=fmt(totalRepayable);
+  $('sch-paid').textContent=fmt(l.cumColl);
+  $('sch-rem').textContent=fmt(Math.max(0,remaining));
+
+  info.innerHTML=`<div class="card" style="padding:11px 13px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+      <div><span style="color:var(--muted)">Loan type:</span> <strong>${rtl(l)}</strong></div>
+      <div><span style="color:var(--muted)">Rate:</span> <strong>${Math.round(l.rate*100)}%/mo flat</strong></div>
+      <div><span style="color:var(--muted)">Disbursed:</span> <strong>${l.date}</strong></div>
+      <div><span style="color:var(--muted)">Matures:</span> <strong>${rows[rows.length-1]?.dueDateStr||'—'}</strong></div>
+    </div>
+  </div>`;
+
+  $('sch-rows').innerHTML=rows.map(r=>`
+    <div class="mr" style="grid-template-columns:30px 1fr 1fr 1fr 1fr 1fr;background:${r.rowStatus==='Overdue'?'var(--rb)':r.rowStatus==='Paid'?'rgba(3,152,85,.04)':'inherit'}">
+      <div style="color:var(--muted);font-weight:600">${r.i}</div>
+      <div style="font-size:11px">${r.dueDateStr}</div>
+      <div>${fmt(r.princDue)}</div>
+      <div style="color:var(--a)">${fmt(r.intDue)}</div>
+      <div style="font-weight:600">${fmt(r.totalDue)}</div>
+      <div><span style="font-size:11px;font-weight:600;color:${r.statusColor}">${r.rowStatus}</span></div>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════
+   UPDATE HELPERS — DPD bucket display
+══════════════════════════════════════ */
+function loanCardDPD(l){
+  const b=dpdBucket(l.dpd);
+  return`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    ${sbadge(l.status)}
+    ${l.dpd>0?`<span class="bdg" style="background:${b.bg};color:${b.color};font-size:10px">${b.label}</span>`:''}
+  </div>`;
+}
+
+/* ══════════════════════════════════════
+   TODAY — daily dashboard snapshot
+══════════════════════════════════════ */
+function renderToday(){
+  const TODAY=new Date('2026-04-13');
+  const todayStr=TODAY.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  $('today-date-banner').textContent=todayStr;
+
+  const L=D.loans;
+  const overdue=L.filter(l=>l.arrears>0);
+  const week7=L.filter(l=>l.up7);
+  const todayPays=D.payments.filter(p=>p.date===TODAY.toISOString().slice(0,10));
+  const todayColl=r2(todayPays.reduce((s,p)=>s+p.amt,0));
+
+  $('td-due').textContent=fmt(overdue.reduce((s,l)=>s+l.arrears,0));
+  $('td-duen').textContent=overdue.length+' loans';
+  $('td-week').textContent=fmt(week7.reduce((s,l)=>s+(l.upAmt||0),0));
+  $('td-weekn').textContent=week7.length+' repayments';
+  $('td-coll').textContent=fmt(todayColl);
+  $('td-avail').textContent=fmt(Math.max(0,D.cashAtHand));
+
+  // Overdue collection tracker — full action list
+  $('td-overdue-list').innerHTML=overdue.length?overdue.sort((a,b)=>b.dpd-a.dpd).map(l=>{
+    const urgency=l.dpd>30?{label:'URGENT',bg:'var(--rb)',col:'var(--rt)'}:l.dpd>7?{label:'Follow up',bg:'var(--ab)',col:'var(--at)'}:{label:'Remind',bg:'var(--gb)',col:'var(--gt)'};
+    return`<div style="padding:10px 0;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-weight:700;font-size:13px">${l.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${l.lid} · ${l.phone||'No phone'}</div>
+        <div style="margin-top:4px">${dpdBadge(l.dpd)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:15px;font-weight:700;color:var(--r)">${fmt(l.arrears)}</div>
+        <div style="background:${urgency.bg};color:${urgency.col};font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-top:4px">${urgency.label}</div>
+        <button class="btn btn-g btn-sm" style="margin-top:6px" onclick="quickPay('${l.lid}')">Record pay</button>
+      </div>
+    </div>`;
+  }).join(''):`<div class="empty">No overdue loans today. ✓</div>`;
+
+  // Upcoming this week
+  $('td-upcoming-list').innerHTML=week7.length?week7.map(l=>`
+    <div style="padding:9px 0;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:600;font-size:13px">${l.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${l.lid}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:14px;font-weight:700;color:var(--a)">${fmt(l.upAmt)}</div>
+        <div style="font-size:11px;color:var(--muted)">due this week</div>
+        <button class="btn btn-g btn-sm" style="margin-top:5px" onclick="quickPay('${l.lid}')">Pay</button>
+      </div>
+    </div>`).join(''):`<div class="empty">Nothing due this week. ✓</div>`;
+
+  // Follow-up action list
+  const actions=[];
+  overdue.forEach(l=>{
+    if(l.dpd>30)actions.push({icon:'🚨',text:`Visit ${l.name} in person — ${l.dpd}d overdue, ${fmt(l.arrears)} outstanding`,color:'var(--rt)'});
+    else if(l.dpd>7)actions.push({icon:'📱',text:`Call ${l.name} — ${l.dpd}d overdue, ${fmt(l.arrears)} due`,color:'var(--at)'});
+    else actions.push({icon:'💬',text:`Send reminder to ${l.name} — payment ${fmt(l.arrears)} overdue`,color:'var(--a)'});
+  });
+  week7.forEach(l=>actions.push({icon:'📅',text:`Prepare to collect ${fmt(l.upAmt)} from ${l.name} this week`,color:'var(--muted)'}));
+  if(!actions.length)actions.push({icon:'✅',text:'No follow-up actions needed today.',color:'var(--gt)'});
+  $('td-actions-list').innerHTML=actions.map(a=>`
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--bdr)">
+      <span style="font-size:16px;flex-shrink:0">${a.icon}</span>
+      <span style="font-size:12px;color:${a.color};line-height:1.5">${a.text}</span>
+    </div>`).join('');
+
+  // Today's snapshot
+  const book=L.reduce((s,l)=>s+l.book,0);
+  const ytdInt=D.monthly.reduce((s,m)=>s+m.actInt,0);
+  const ytdExp=D.expenses.reduce((s,e)=>s+e.amt,0)+D.monthly.reduce((s,m)=>s+m.parCost,0);
+  const ytdNet=r2(ytdInt-ytdExp);
+  const snap=[
+    ['Active loans',L.length,''],
+    ['Loan book value',fmt(book),'var(--p)'],
+    ['Cash at hand',fmt(D.cashAtHand),'var(--g)'],
+    ['Total assets',fmt(r2(book+D.cashAtHand)),''],
+    ['YTD interest earned',fmt(ytdInt),'var(--g)'],
+    ['YTD expenses',fmt(ytdExp),'var(--r)'],
+    ['YTD net profit',`${ytdNet>=0?'+':''}${fmt(ytdNet)}`,ytdNet>=0?'var(--g)':'var(--r)'],
+    ['Loans in arrears',L.filter(l=>l.arrears>0).length+' ('+fmt(L.reduce((s,l)=>s+l.arrears,0))+')',L.filter(l=>l.arrears>0).length>0?'var(--r)':'var(--g)'],
+  ];
+  $('td-snapshot').innerHTML=snap.map(([k,v,c])=>`
+    <div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bdr);font-size:13px">
+      <span style="color:var(--muted)">${k}</span>
+      <span style="font-weight:600;color:${c||'var(--txt)'}">${v}</span>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════
+   TOOLS — loan calculator + comparisons
+══════════════════════════════════════ */
+function renderTools(){calcTool();calcCompare();calcBEP();}
+
+function calcTool(){
+  const amt=parseFloat($('calc-amt')?.value)||0;
+  const term=parseInt($('calc-term')?.value)||0;
+  const rate=(parseFloat($('calc-rate')?.value)||10)/100;
+  const type=parseInt($('calc-type')?.value)||0;
+  const res=$('calc-result');
+  if(!amt||!term){if(res)res.style.display='none';return;}
+  res.style.display='block';
+
+  const totalInt=r2(amt*rate*term);
+  const totalRep=r2(amt+totalInt);
+  let monthly,note;
+  if(type===1){
+    monthly=r2(amt*rate);
+    note=`Interest-only: pay ${fmt(monthly)}/mo for ${term-1} months, then ${fmt(r2(monthly+amt))} on month ${term} (interest + full principal).`;
+  } else {
+    monthly=r2(totalRep/term);
+    note=`Standard flat: ${term} equal payments of ${fmt(monthly)}. Principal portion: ${fmt(r2(monthly-amt*rate))}/mo.`;
+  }
+  const yld=r2((totalInt/amt)*100);
+  const aYld=r2(yld*(12/term));
+
+  $('calc-monthly').textContent=fmt(monthly);
+  $('calc-int').textContent=fmt(totalInt);
+  $('calc-total').textContent=fmt(totalRep);
+  $('calc-yield').textContent=fmtp(yld);$('calc-yield').style.color=yld>=50?'var(--g)':'var(--a)';
+  $('calc-ayield').textContent=fmtp(aYld);$('calc-ayield').style.color=aYld>=60?'var(--g)':'var(--a)';
+  $('calc-note').textContent=note;
+
+  // Schedule rows
+  let bal=amt;
+  const rows2=[];
+  for(let i=1;i<=Math.min(term,24);i++){
+    const intP=r2(amt*rate);
+    const princP=type===1?(i===term?amt:0):r2(monthly-intP);
+    bal=r2(bal-princP);
+    rows2.push({i,princP,intP,pay:r2(princP+intP),bal:Math.max(0,bal)});
+  }
+  $('calc-rows').innerHTML=rows2.map(r=>`
+    <div class="mr" style="grid-template-columns:30px 1fr 1fr 1fr 1fr">
+      <div style="color:var(--muted)">${r.i}</div>
+      <div>${fmt(r.princP)}</div>
+      <div style="color:var(--a)">${fmt(r.intP)}</div>
+      <div style="font-weight:600">${fmt(r.pay)}</div>
+      <div style="color:var(--muted)">${fmt(r.bal)}</div>
+    </div>`).join('');
+  if(term>24)$('calc-rows').innerHTML+=`<div style="text-align:center;padding:8px;font-size:11px;color:var(--muted)">Showing first 24 of ${term} instalments</div>`;
+}
+
+function calcCompare(){
+  const amt=parseFloat($('cmp-amt')?.value)||0;
+  const term=parseInt($('cmp-term')?.value)||0;
+  if(!amt||!term){$('cmp-result').innerHTML='';return;}
+  const scenarios=[
+    {label:'10% flat standard',rate:0.10,type:0},
+    {label:'10% int-only balloon',rate:0.10,type:1},
+    {label:'20% flat standard',rate:0.20,type:0},
+    {label:'30% flat standard',rate:0.30,type:0},
+  ];
+  $('cmp-result').innerHTML=scenarios.map((s,i)=>{
+    const ti=r2(amt*s.rate*term);
+    const tr=r2(amt+ti);
+    const mo=s.type===1?r2(amt*s.rate):r2(tr/term);
+    const yld=r2((ti/amt)*100);
+    const isLowest=i===0;
+    return`<div style="padding:9px 0;border-bottom:1px solid var(--bdr)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:13px;font-weight:600">${s.label}</span>
+        <span style="font-size:12px;font-weight:700;color:var(--g)">${fmt(ti)} interest</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:11px;color:var(--muted)">
+        <span>Monthly: <strong style="color:var(--txt)">${fmt(mo)}</strong></span>
+        <span>Total: <strong style="color:var(--txt)">${fmt(tr)}</strong></span>
+        <span>Yield: <strong style="color:var(--p)">${fmtp(yld)}</strong></span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function calcBEP(){
+  const exp=parseFloat($('bep-exp')?.value)||0;
+  const rate=(parseFloat($('bep-rate')?.value)||10)/100;
+  if(!exp||!rate){$('bep-result').innerHTML='';return;}
+  const bep=r2(exp/rate);
+  const currentBook=D.loans.reduce((s,l)=>s+l.book,0);
+  const gap=r2(bep-currentBook);
+  $('bep-result').innerHTML=`
+    <div style="background:var(--surf2);border-radius:var(--rads);padding:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px">
+        <span style="color:var(--muted)">Break-even book size</span>
+        <span style="font-weight:700;color:var(--p)">${fmt(bep)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px">
+        <span style="color:var(--muted)">Current book</span>
+        <span style="font-weight:600">${fmt(currentBook)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span style="color:var(--muted)">${gap>0?'Gap to break-even':'Surplus above BEP'}</span>
+        <span style="font-weight:700;color:${gap>0?'var(--r)':'var(--g)'}">${gap>0?fmt(gap)+' needed':fmt(Math.abs(gap))+' above'}</span>
+      </div>
+      <div style="margin-top:10px;background:var(--bg);border-radius:4px;height:7px">
+        <div style="width:${Math.min((currentBook/bep)*100,100)}%;height:100%;border-radius:4px;background:${gap>0?'var(--a)':'var(--g)'}"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">${Math.min(Math.round((currentBook/bep)*100),100)}% of break-even reached</div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════
+   EXPORT / SHARE
+══════════════════════════════════════ */
+function renderExport(){
+  buildStatement();
+  buildPortfolio();
+  // populate client select
+  const sel=$('exp-client-sel');
+  if(sel){
+    const v=sel.value;
+    sel.innerHTML='<option value="">— select client —</option>'+D.loans.map(l=>`<option value="${l.lid}">${l.lid} — ${l.name}</option>`).join('');
+    sel.value=v;
+    if(v)buildReminder();
+  }
+}
+
+function buildStatement(){
+  const moIdx=parseInt($('exp-mo-sel')?.value)||3;
+  const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const m=D.monthly[moIdx];
+  const moName=MNAMES[moIdx];
+  const L=D.loans;
+  const book=L.reduce((s,l)=>s+l.book,0);
+  const arr=L.reduce((s,l)=>s+l.arrears,0);
+  const cumDue=L.reduce((s,l)=>s+l.cumDue,0);
+  const cumColl=L.reduce((s,l)=>s+l.cumColl,0);
+  const ce=cumDue>0?Math.round((cumColl/cumDue)*100):0;
+  const moExp=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m).reduce((s,e)=>s+e.amt,0);
+  const net=r2(m.actInt-m.parCost-moExp);
+  const line='─'.repeat(32);
+  const txt=`MICROFINANCE BI — ${moName.toUpperCase()} 2026
+${line}
+PORTFOLIO SUMMARY
+Active loans:       ${L.length}
+Loan book value:    ${fmt(book)}
+Total arrears:      ${fmt(arr)}
+Collection eff.:    ${ce}%
+
+INCOME & EXPENSES
+Interest revenue:   ${fmt(m.actInt)}
+PAR cost (arrears): ${fmt(m.parCost)}
+Other expenses:     ${fmt(moExp)}
+Net profit:         ${net>=0?'+':''}${fmt(net)}
+
+COLLECTIONS
+Expected:           ${fmt(m.expColl)}
+Actual collected:   ${fmt(m.actColl)}
+Shortfall:          ${fmt(r2(m.expColl-m.actColl))}
+Disbursed:          ${fmt(m.disb)}
+${line}
+Generated: ${new Date().toLocaleDateString('en-GB')}`;
+  $('exp-statement').textContent=txt;
+}
+
+function copyStatement(){
+  const txt=$('exp-statement').textContent;
+  navigator.clipboard?.writeText(txt).then(()=>{
+    $('exp-copy-msg').textContent='✓ Copied to clipboard';
+    setTimeout(()=>$('exp-copy-msg').textContent='',2500);
+  }).catch(()=>{$('exp-copy-msg').textContent='Select text above and copy manually';});
+}
+
+function shareWhatsApp(){
+  const txt=encodeURIComponent($('exp-statement').textContent);
+  window.open('https://wa.me/?text='+txt,'_blank');
+}
+
+function buildReminder(){
+  const lid=$('exp-client-sel')?.value;
+  if(!lid){$('exp-reminder').style.display='none';$('exp-reminder-btns').style.display='none';return;}
+  const l=D.loans.find(x=>x.lid===lid);
+  if(!l)return;
+  let msg;
+  if(l.arrears>0){
+    msg=`Dear ${l.name},\n\nThis is a friendly reminder that your loan account (${l.lid}) has an outstanding balance of ${fmt(l.arrears)}.\n\nYour account is currently ${l.dpd>0?l.dpd+'d past due':' overdue'}. Please make a payment at your earliest convenience to avoid further charges.\n\nExpected monthly payment: ${fmt(l.intExp)}\nOutstanding arrears: ${fmt(l.arrears)}\n\nKindly contact us to arrange payment.\n\nMicroFinance BI`;
+  } else {
+    msg=`Dear ${l.name},\n\nYour next payment of ${fmt(l.intExp)} on loan ${l.lid} is due soon.\n\nLoan details:\n- Principal: ${fmt(l.principal)}\n- Monthly payment: ${fmt(l.intExp)}\n- Loan type: ${rtl(l)}\n\nPlease ensure payment is made on time.\n\nThank you,\nMicroFinance BI`;
+  }
+  $('exp-reminder').textContent=msg;
+  $('exp-reminder').style.display='block';
+  $('exp-reminder-btns').style.display='flex';
+}
+
+function copyReminder(){
+  const txt=$('exp-reminder').textContent;
+  navigator.clipboard?.writeText(txt).then(()=>{
+    $('exp-copy-msg').textContent='✓ Reminder copied';
+    setTimeout(()=>$('exp-copy-msg').textContent='',2500);
+  });
+}
+
+function shareReminderWA(){
+  const txt=encodeURIComponent($('exp-reminder').textContent);
+  const l=D.loans.find(x=>x.lid===$('exp-client-sel').value);
+  const phone=l?.phone?.replace(/\D/g,'')||'';
+  window.open(`https://wa.me/${phone}?text=${txt}`,'_blank');
+}
+
+function buildPortfolio(){
+  const L=D.loans;
+  const book=L.reduce((s,l)=>s+l.book,0);
+  const arr=L.reduce((s,l)=>s+l.arrears,0);
+  const par1=L.reduce((s,l)=>s+l.par1,0);
+  const line='─'.repeat(32);
+  let txt=`PORTFOLIO SUMMARY — ${new Date().toLocaleDateString('en-GB')}\n${line}\n`;
+  txt+=`TOTAL DISBURSED:  ${fmt(L.reduce((s,l)=>s+l.disbursed,0))}\n`;
+  txt+=`LOAN BOOK VALUE:  ${fmt(book)}\n`;
+  txt+=`TOTAL INTEREST:   ${fmt(L.reduce((s,l)=>s+l.interest,0))}\n`;
+  txt+=`TOTAL ARREARS:    ${fmt(arr)}\n`;
+  txt+=`PAR 1 EXPOSURE:   ${fmt(par1)}\n`;
+  txt+=`CASH AT HAND:     ${fmt(D.cashAtHand)}\n${line}\n`;
+  txt+=`CLIENT BREAKDOWN:\n`;
+  L.forEach(l=>{
+    const eff=l.cumDue>0?Math.round((l.cumColl/l.cumDue)*100)+'%':'—';
+    txt+=`• ${l.name.padEnd(20)} ${fmt(l.principal).padStart(7)}  ${l.status}  eff:${eff}\n`;
+  });
+  txt+=line;
+  $('exp-portfolio').textContent=txt;
+}
+
+function copyPortfolio(){
+  navigator.clipboard?.writeText($('exp-portfolio').textContent).then(()=>{
+    $('exp-copy-msg').textContent='✓ Portfolio summary copied';
+    setTimeout(()=>$('exp-copy-msg').textContent='',2500);
+  });
+}
+
+/* ══════════════════════════════════════
+   INIT
+══════════════════════════════════════ */
+
+/* ── PERSISTENCE / CLOUD SYNC ── */
+const STORE_KEY='mfbi_v12_local_backup';
+const SUPABASE_URL='https://gxbtqgaminuvxknweuof.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_2b49PfBI6NNMf84ftisnXA_sFR9lNAY';
+const APP_STATE_ID='main';
+const CLIENT_ID='client-'+Math.random().toString(36).slice(2,10);
+let sb=null, saveTimer=null, syncing=false, realtimeReady=false;
+
+function snapshotState(){
+  return {
+    loans:D.loans,
+    payments:D.payments,
+    monthly:D.monthly,
+    expenses:D.expenses,
+    cashAtHand:D.cashAtHand
+  };
+}
+function applyState(saved){
+  if(!saved)return false;
+  if(saved.loans&&saved.loans.length)D.loans=saved.loans;
+  D.payments=saved.payments||[];
+  D.monthly=saved.monthly||D.monthly;
+  D.expenses=saved.expenses||[];
+  D.cashAtHand=typeof saved.cashAtHand==='number'?saved.cashAtHand:0;
+  return true;
+}
+function backupLocal(){
+  try{
+    localStorage.setItem(STORE_KEY,JSON.stringify(snapshotState()));
+  }catch(e){console.warn('Local backup failed:',e);}
+}
+function loadLocalBackup(){
+  try{
+    const raw=localStorage.getItem(STORE_KEY);
+    if(!raw)return false;
+    return applyState(JSON.parse(raw));
+  }catch(e){console.warn('Local backup load failed:',e);}
+  return false;
+}
+function cloudEnabled(){
+  return !!(window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY);
+}
+function getSb(){
+  if(!cloudEnabled())return null;
+  if(!sb) sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+  return sb;
+}
+function showSaveStatus(text='✓ Saved', color='var(--g)'){
+  const el=$('save-status');
+  if(!el)return;
+  el.textContent=text;
+  el.style.color=color;
+  el.style.opacity='1';
+  clearTimeout(showSaveStatus._t);
+  showSaveStatus._t=setTimeout(()=>el.style.opacity='0',2200);
+}
+async function pushCloud(forceText='☁ Synced'){
+  const client=getSb();
+  if(!client||syncing)return;
+  syncing=true;
+  try{
+    const payload=snapshotState();
+    const {error}=await client.from('mf_app_state').upsert({
+      id:APP_STATE_ID,
+      payload,
+      updated_at:new Date().toISOString(),
+      updated_by:CLIENT_ID
+    });
+    if(error) throw error;
+    backupLocal();
+    showSaveStatus(forceText,'var(--g)');
+  }catch(e){
+    console.warn('Cloud sync failed:',e);
+    backupLocal();
+    showSaveStatus('Local backup only','var(--a)');
+  }finally{
+    syncing=false;
+  }
+}
+function save(){
+  backupLocal();
+  showSaveStatus('Saving…','var(--b)');
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>pushCloud('☁ Synced'),350);
+}
+async function loadSaved(){
+  const client=getSb();
+  if(!client){
+    return loadLocalBackup();
+  }
+  try{
+    const {data,error}=await client.from('mf_app_state').select('payload').eq('id',APP_STATE_ID).maybeSingle();
+    if(error) throw error;
+    if(data&&data.payload){
+      applyState(data.payload);
+      backupLocal();
+      return true;
+    }
+    const hadLocal=loadLocalBackup();
+    await pushCloud(hadLocal?'☁ Backup uploaded':'☁ Demo data uploaded');
+    return hadLocal;
+  }catch(e){
+    console.warn('Cloud load failed:',e);
+    return loadLocalBackup();
+  }
+}
+async function syncNow(){
+  await pushCloud('☁ Synced now');
+}
+function resetData(){
+  alert('Reset has been disabled in the live cloud version to prevent accidental loss of shared data.');
+}
+function refreshAllViews(){
+  if($('cah-input')) $('cah-input').value=D.cashAtHand||0;
+  popPaySelects();
+  popColLoanSelect();
+  popSchSelect();
+  buildStatement?.();
+  buildReminder?.();
+  renderPage((document.querySelector('.page.on')||{}).id?.replace('pg-','')||'overview');
+}
+async function setupRealtime(){
+  const client=getSb();
+  if(!client||realtimeReady)return;
+  realtimeReady=true;
+  client.channel('mf-app-state-live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'mf_app_state',filter:`id=eq.${APP_STATE_ID}`},payload=>{
+      const row=payload.new||payload.record;
+      if(!row||row.updated_by===CLIENT_ID||!row.payload)return;
+      applyState(row.payload);
+      backupLocal();
+      refreshAllViews();
+      showSaveStatus('☁ Updated from cloud','var(--teal)');
+    })
+    .subscribe();
+}
+function showLoadedNotice(text='✓ Cloud data loaded'){
+  const notice=document.createElement('div');
+  notice.style.cssText='position:fixed;top:56px;left:50%;transform:translateX(-50%);background:#039855;color:#fff;padding:6px 18px;border-radius:20px;font-size:11px;font-weight:600;z-index:999;pointer-events:none;opacity:1;transition:opacity .5s';
+  notice.textContent=text;
+  document.body.appendChild(notice);
+  setTimeout(()=>{notice.style.opacity='0';setTimeout(()=>notice.remove(),500);},2200);
+}
+
+/* ── STARTUP ── */
+async function initApp(){
+  const wasLoaded=await loadSaved();
+
+  $('pay-date').value=new Date().toISOString().slice(0,10);
+  $('ac-date').value=new Date().toISOString().slice(0,10);
+  if($('exp-date'))$('exp-date').value=new Date().toISOString().slice(0,10);
+  if($('cah-input'))$('cah-input').value=D.cashAtHand||0;
+  if($('col-mo-sel'))$('col-mo-sel').value='3';
+  if($('dis-mo-sel'))$('dis-mo-sel').value='all';
+  popPaySelects();
+  popColLoanSelect();
+  popSchSelect();
+  renderOverview();
+  await setupRealtime();
+  showSaveStatus('☁ Live','var(--g)');
+  showLoadedNotice(wasLoaded?'✓ Shared data loaded':'✓ Cloud sync ready');
+}
+
+initApp();
 </script>
-
 </body>
 </html>
