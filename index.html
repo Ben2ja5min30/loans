@@ -2588,7 +2588,6 @@ function copyPortfolio(){
    INIT
 ══════════════════════════════════════ */
 
-<script>
 /* ── PERSISTENCE / CLOUD SYNC ── */
 const STORE_KEY='mfbi_v12_local_backup';
 const SUPABASE_URL='https://gxbtqgaminuvxknweuof.supabase.co';
@@ -2618,18 +2617,14 @@ function applyState(saved){
 function backupLocal(){
   try{
     localStorage.setItem(STORE_KEY,JSON.stringify(snapshotState()));
-  }catch(e){
-    console.warn('Local backup failed:',e);
-  }
+  }catch(e){console.warn('Local backup failed:',e);}
 }
 function loadLocalBackup(){
   try{
     const raw=localStorage.getItem(STORE_KEY);
     if(!raw)return false;
     return applyState(JSON.parse(raw));
-  }catch(e){
-    console.warn('Local backup load failed:',e);
-  }
+  }catch(e){console.warn('Local backup load failed:',e);}
   return false;
 }
 function cloudEnabled(){
@@ -2655,17 +2650,11 @@ async function pushCloud(forceText='☁ Synced'){
   syncing=true;
   try{
     const payload=snapshotState();
-    const { error } = await client
-      .from('mf_state')
-      .upsert(
-        {
-          id: APP_STATE_ID,
-          data: payload,
-          updated_at: new Date().toISOString()
-        },
-        { onConflict: 'id' }
-      );
-
+    const {error}=await client.from('mf_state').upsert({
+      id:APP_STATE_ID,
+      data: payload,
+      updated_at:new Date().toISOString()
+    });
     if(error) throw error;
     backupLocal();
     showSaveStatus(forceText,'var(--g)');
@@ -2689,20 +2678,13 @@ async function loadSaved(){
     return loadLocalBackup();
   }
   try{
-    const { data, error } = await client
-      .from('mf_state')
-      .select('data')
-      .eq('id', APP_STATE_ID)
-      .maybeSingle();
-
+    const {data,error}=await client.from('mf_state').select('data').eq('id',APP_STATE_ID).maybeSingle();
     if(error) throw error;
-
-    if(data && data.data){
+    if(data&&data.data){
       applyState(data.data);
       backupLocal();
       return true;
     }
-
     const hadLocal=loadLocalBackup();
     await pushCloud(hadLocal?'☁ Backup uploaded':'☁ Demo data uploaded');
     return hadLocal;
@@ -2730,41 +2712,45 @@ async function setupRealtime(){
   const client=getSb();
   if(!client||realtimeReady)return;
   realtimeReady=true;
-
-  client.channel('mf-state-live')
-    .on(
-      'postgres_changes',
-      { event:'*', schema:'public', table:'mf_state', filter:`id=eq.${APP_STATE_ID}` },
-      payload => {
-        const row = payload.new || payload.record;
-        if(!row || !row.data) return;
-        applyState(row.data);
-        backupLocal();
-        refreshAllViews();
-        showSaveStatus('☁ Updated from cloud','var(--teal)');
-      }
-    )
+  client.channel('mf-app-state-live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'mf_state',filter:`id=eq.${APP_STATE_ID}`},payload=>{
+      const row=payload.new||payload.record;
+      if(!row||!row.data)return;
+      applyState(row.data);
+      backupLocal();
+      refreshAllViews();
+      showSaveStatus('☁ Updated from cloud','var(--teal)');
+    })
     .subscribe();
 }
-</script>
-<script>
+function showLoadedNotice(text='✓ Cloud data loaded'){
+  const notice=document.createElement('div');
+  notice.style.cssText='position:fixed;top:56px;left:50%;transform:translateX(-50%);background:#039855;color:#fff;padding:6px 18px;border-radius:20px;font-size:11px;font-weight:600;z-index:999;pointer-events:none;opacity:1;transition:opacity .5s';
+  notice.textContent=text;
+  document.body.appendChild(notice);
+  setTimeout(()=>{notice.style.opacity='0';setTimeout(()=>notice.remove(),500);},2200);
+}
 
 /* ── STARTUP ── */
 async function initApp(){
-  const wasLoaded = await loadSaved();
+  const wasLoaded=await loadSaved();
 
-  $('pay-date').value = new Date().toISOString().slice(0,10);
-  $('ac-date').value = new Date().toISOString().slice(0,10);
-
-  if(!wasLoaded){
-    seedDemo();
-    await syncNow();
-  }
-
-  setupRealtime();
-  refreshAllViews();
+  $('pay-date').value=new Date().toISOString().slice(0,10);
+  $('ac-date').value=new Date().toISOString().slice(0,10);
+  if($('exp-date'))$('exp-date').value=new Date().toISOString().slice(0,10);
+  if($('cah-input'))$('cah-input').value=D.cashAtHand||0;
+  if($('col-mo-sel'))$('col-mo-sel').value='3';
+  if($('dis-mo-sel'))$('dis-mo-sel').value='all';
+  popPaySelects();
+  popColLoanSelect();
+  popSchSelect();
+  renderOverview();
+  await setupRealtime();
+  showSaveStatus('☁ Live','var(--g)');
+  showLoadedNotice(wasLoaded?'✓ Shared data loaded':'✓ Cloud sync ready');
 }
 
 initApp();
-
 </script>
+</body>
+</html>
