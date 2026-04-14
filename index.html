@@ -2650,11 +2650,10 @@ async function pushCloud(forceText='☁ Synced'){
   syncing=true;
   try{
     const payload=snapshotState();
-    const {error}=await client.from('mf_app_state').upsert({
+    const {error}=await client.from('mf_state').upsert({
       id:APP_STATE_ID,
-      payload,
-      updated_at:new Date().toISOString(),
-      updated_by:CLIENT_ID
+      data: payload,
+      updated_at:new Date().toISOString()
     });
     if(error) throw error;
     backupLocal();
@@ -2679,10 +2678,10 @@ async function loadSaved(){
     return loadLocalBackup();
   }
   try{
-    const {data,error}=await client.from('mf_app_state').select('payload').eq('id',APP_STATE_ID).maybeSingle();
+    const {data,error}=await client.from('mf_state').select('data').eq('id',APP_STATE_ID).maybeSingle();
     if(error) throw error;
-    if(data&&data.payload){
-      applyState(data.payload);
+    if(data&&data.data){
+      applyState(data.data);
       backupLocal();
       return true;
     }
@@ -2714,7 +2713,7 @@ async function setupRealtime(){
   if(!client||realtimeReady)return;
   realtimeReady=true;
   client.channel('mf-app-state-live')
-    .on('postgres_changes',{event:'*',schema:'public',table:'mf_app_state',filter:`id=eq.${APP_STATE_ID}`},payload=>{
+    .on('postgres_changes',{event:'*',schema:'public',table:'mf_state',filter:`id=eq.${APP_STATE_ID}`},payload=>{
       const row=payload.new||payload.record;
       if(!row||row.updated_by===CLIENT_ID||!row.payload)return;
       applyState(row.payload);
