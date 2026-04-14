@@ -45,7 +45,7 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 /* ── CONTENT ── */
 .content{flex:1;overflow-y:auto;padding:12px 12px 84px;-webkit-overflow-scrolling:touch}
 .page{display:none}.page.on{display:block}
-@media (min-width: 900px){
+@media (min-width:900px){
   .content{padding:18px 18px 96px}
   .kg{grid-template-columns:repeat(4,1fr)}
   .kg3{grid-template-columns:repeat(3,1fr)}
@@ -2605,13 +2605,33 @@ function snapshotState(){
     cashAtHand:D.cashAtHand
   };
 }
+function normalizeMonthly(monthly){
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  if(Array.isArray(monthly)) return monthly;
+  const base = (Array.isArray(D.monthly)?D.monthly:monthNames.map(m=>({m,disb:0,expColl:0,actColl:0,expInt:0,actInt:0,parCost:0})));
+  if(monthly && typeof monthly==='object'){
+    return monthNames.map((m,idx)=>{
+      const src = monthly[idx] || monthly[String(idx)] || {};
+      return {
+        m,
+        disb: +((src.disb ?? src.disbursed ?? base[idx]?.disb ?? 0)) || 0,
+        expColl: +((src.expColl ?? src.exp ?? src.expected ?? base[idx]?.expColl ?? 0)) || 0,
+        actColl: +((src.actColl ?? src.act ?? src.collected ?? base[idx]?.actColl ?? 0)) || 0,
+        expInt: +((src.expInt ?? src.int ?? src.expectedInterest ?? base[idx]?.expInt ?? 0)) || 0,
+        actInt: +((src.actInt ?? src.int ?? src.actualInterest ?? base[idx]?.actInt ?? 0)) || 0,
+        parCost: +((src.parCost ?? src.par ?? 0)) || 0
+      };
+    });
+  }
+  return base;
+}
 function applyState(saved){
   if(!saved)return false;
   if(saved.loans&&saved.loans.length)D.loans=saved.loans;
-  D.payments=saved.payments||[];
-  D.monthly=saved.monthly||D.monthly;
-  D.expenses=saved.expenses||[];
-  D.cashAtHand=typeof saved.cashAtHand==='number'?saved.cashAtHand:0;
+  D.payments=Array.isArray(saved.payments)?saved.payments:[];
+  D.monthly=normalizeMonthly(saved.monthly);
+  D.expenses=Array.isArray(saved.expenses)?saved.expenses:[];
+  D.cashAtHand=typeof saved.cashAtHand==='number'?saved.cashAtHand:(parseFloat(saved.cashAtHand)||0);
   return true;
 }
 function backupLocal(){
@@ -2712,7 +2732,7 @@ async function setupRealtime(){
   const client=getSb();
   if(!client||realtimeReady)return;
   realtimeReady=true;
-  client.channel('mf-app-state-live')
+  client.channel('mf-state-live')
     .on('postgres_changes',{event:'*',schema:'public',table:'mf_state',filter:`id=eq.${APP_STATE_ID}`},payload=>{
       const row=payload.new||payload.record;
       if(!row||!row.data)return;
