@@ -24,7 +24,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--bg);font-family:var(--font);color:var(--txt);overscroll-behavior:none}
-body{display:flex;flex-direction:column;max-width:480px;margin:0 auto}
+body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100%}
 
 /* ── HEADER ── */
 .hdr{background:var(--surf);padding:10px 14px 0;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--bdr)}
@@ -45,9 +45,14 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto}
 /* ── CONTENT ── */
 .content{flex:1;overflow-y:auto;padding:12px 12px 84px;-webkit-overflow-scrolling:touch}
 .page{display:none}.page.on{display:block}
+@media (min-width: 900px){
+  .content{padding:18px 18px 96px}
+  .kg{grid-template-columns:repeat(4,1fr)}
+  .kg3{grid-template-columns:repeat(3,1fr)}
+}
 
 /* ── BOTTOM NAV ── */
-.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surf);border-top:1px solid var(--bdr);display:flex;padding:6px 0 env(safe-area-inset-bottom,6px);z-index:100}
+.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:1200px;background:var(--surf);border-top:1px solid var(--bdr);display:flex;padding:6px 0 env(safe-area-inset-bottom,6px);z-index:100}
 .nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;font-family:var(--font)}
 .nb-ic{font-size:18px;line-height:1.2}
 .nb-lb{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:-.1px}
@@ -125,7 +130,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto}
 /* ── MODAL ── */
 .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;overflow-y:auto}
 .mo.on{display:block}
-.ms{background:var(--surf);border-radius:var(--rad) var(--rad) 0 0;position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;max-height:93vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px)}
+.ms{background:var(--surf);border-radius:var(--rad) var(--rad) 0 0;position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:1200px;max-height:93vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px)}
 .mhdl{width:32px;height:4px;background:var(--bdr2);border-radius:2px;margin:10px auto 12px}
 .mhdr{padding:0 13px 11px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
 .mbdy{padding:13px}
