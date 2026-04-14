@@ -2747,26 +2747,24 @@ async function setupRealtime(){
     .subscribe();
 }
 </script>
+<script>
+
 /* ── STARTUP ── */
 async function initApp(){
-  const wasLoaded=await loadSaved();
+  const wasLoaded = await loadSaved();
 
-  $('pay-date').value=new Date().toISOString().slice(0,10);
-  $('ac-date').value=new Date().toISOString().slice(0,10);
-  if($('exp-date'))$('exp-date').value=new Date().toISOString().slice(0,10);
-  if($('cah-input'))$('cah-input').value=D.cashAtHand||0;
-  if($('col-mo-sel'))$('col-mo-sel').value='3';
-  if($('dis-mo-sel'))$('dis-mo-sel').value='all';
-  popPaySelects();
-  popColLoanSelect();
-  popSchSelect();
-  renderOverview();
-  await setupRealtime();
-  showSaveStatus('☁ Live','var(--g)');
-  showLoadedNotice(wasLoaded?'✓ Shared data loaded':'✓ Cloud sync ready');
+  $('pay-date').value = new Date().toISOString().slice(0,10);
+  $('ac-date').value = new Date().toISOString().slice(0,10);
+
+  if(!wasLoaded){
+    seedDemo();
+    await syncNow();
+  }
+
+  setupRealtime();
+  refreshAllViews();
 }
 
 initApp();
+
 </script>
-</body>
-</html>
