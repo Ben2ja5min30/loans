@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
-<title>MicroFinance BI</title>
+<title>BenJaMin Finance</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -45,6 +45,11 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 /* ── CONTENT ── */
 .content{flex:1;overflow-y:auto;padding:12px 12px 84px;-webkit-overflow-scrolling:touch}
 .page{display:none}.page.on{display:block}
+@media (min-width: 900px){
+  .content{padding:18px 18px 96px}
+  .kg{grid-template-columns:repeat(4,1fr)}
+  .kg3{grid-template-columns:repeat(3,1fr)}
+}
 @media (min-width:900px){
   .content{padding:18px 18px 96px}
   .kg{grid-template-columns:repeat(4,1fr)}
@@ -189,7 +194,7 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 <!-- HEADER -->
 <div class="hdr">
   <div class="hdr-top">
-    <div class="logo"><em>Micro</em>Finance BI</div>
+    <div class="logo"><em>BenJaMin</em> Finance</div>
     <div style="display:flex;align-items:center;gap:8px">
       <span id="save-status" style="font-size:10px;color:var(--g);font-weight:600;opacity:0;transition:opacity .4s">✓ Saved</span>
       <button onclick="syncNow()" style="font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px" title="Force cloud sync">Sync</button>
