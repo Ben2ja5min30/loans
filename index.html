@@ -24,7 +24,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--bg);font-family:var(--font);color:var(--txt);overscroll-behavior:none}
-body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100%}
+body{display:flex;flex-direction:column;max-width:480px;margin:0 auto}
 
 /* ── HEADER ── */
 .hdr{background:var(--surf);padding:10px 14px 0;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--bdr)}
@@ -45,14 +45,9 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 /* ── CONTENT ── */
 .content{flex:1;overflow-y:auto;padding:12px 12px 84px;-webkit-overflow-scrolling:touch}
 .page{display:none}.page.on{display:block}
-@media (min-width:900px){
-  .content{padding:18px 18px 96px}
-  .kg{grid-template-columns:repeat(4,1fr)}
-  .kg3{grid-template-columns:repeat(3,1fr)}
-}
 
 /* ── BOTTOM NAV ── */
-.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:1200px;background:var(--surf);border-top:1px solid var(--bdr);display:flex;padding:6px 0 env(safe-area-inset-bottom,6px);z-index:100}
+.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surf);border-top:1px solid var(--bdr);display:flex;padding:6px 0 env(safe-area-inset-bottom,6px);z-index:100}
 .nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;font-family:var(--font)}
 .nb-ic{font-size:18px;line-height:1.2}
 .nb-lb{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:-.1px}
@@ -130,7 +125,7 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 /* ── MODAL ── */
 .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;overflow-y:auto}
 .mo.on{display:block}
-.ms{background:var(--surf);border-radius:var(--rad) var(--rad) 0 0;position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:1200px;max-height:93vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px)}
+.ms{background:var(--surf);border-radius:var(--rad) var(--rad) 0 0;position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;max-height:93vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,16px)}
 .mhdl{width:32px;height:4px;background:var(--bdr2);border-radius:2px;margin:10px auto 12px}
 .mhdr{padding:0 13px 11px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
 .mbdy{padding:13px}
@@ -1962,7 +1957,7 @@ function quickPay(lid){
   document.querySelector('.nb[data-pg="payments"]')?.classList.add('on');
   setTimeout(()=>{
     const s=$('pay-lid');if(s){s.value=lid;onPaySel();}
-    $('pay-date').value=new Date().toISOString().slice(0,10);
+    const todayISO=toISODateLocal(getHarareNow()); $('pay-date').value=todayISO;
     $('pay-amt').focus();
   },80);
 }
@@ -2259,15 +2254,33 @@ function loanCardDPD(l){
 /* ══════════════════════════════════════
    TODAY — daily dashboard snapshot
 ══════════════════════════════════════ */
+function getHarareNow(){
+  const now = new Date();
+  return new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Harare' }));
+}
+function toISODateLocal(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function formatLongDate(d){
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+}
 function renderToday(){
-  const TODAY=new Date('2026-04-13');
-  const todayStr=TODAY.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  $('today-date-banner').textContent=todayStr;
+  const TODAY=getHarareNow();
+  const todayISO=toISODateLocal(TODAY);
+  $('today-date-banner').textContent=formatLongDate(TODAY);
 
   const L=D.loans;
   const overdue=L.filter(l=>l.arrears>0);
   const week7=L.filter(l=>l.up7);
-  const todayPays=D.payments.filter(p=>p.date===TODAY.toISOString().slice(0,10));
+  const todayPays=D.payments.filter(p=>p.date===todayISO);
   const todayColl=r2(todayPays.reduce((s,p)=>s+p.amt,0));
 
   $('td-due').textContent=fmt(overdue.reduce((s,l)=>s+l.arrears,0));
@@ -2592,7 +2605,7 @@ function copyPortfolio(){
 const STORE_KEY='mfbi_v12_local_backup';
 const SUPABASE_URL='https://gxbtqgaminuvxknweuof.supabase.co';
 const SUPABASE_ANON_KEY='sb_publishable_2b49PfBI6NNMf84ftisnXA_sFR9lNAY';
-const APP_STATE_ID='00000000-0000-0000-0000-000000000001';
+const APP_STATE_ID='main';
 const CLIENT_ID='client-'+Math.random().toString(36).slice(2,10);
 let sb=null, saveTimer=null, syncing=false, realtimeReady=false;
 
@@ -2605,33 +2618,13 @@ function snapshotState(){
     cashAtHand:D.cashAtHand
   };
 }
-function normalizeMonthly(monthly){
-  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  if(Array.isArray(monthly)) return monthly;
-  const base = (Array.isArray(D.monthly)?D.monthly:monthNames.map(m=>({m,disb:0,expColl:0,actColl:0,expInt:0,actInt:0,parCost:0})));
-  if(monthly && typeof monthly==='object'){
-    return monthNames.map((m,idx)=>{
-      const src = monthly[idx] || monthly[String(idx)] || {};
-      return {
-        m,
-        disb: +((src.disb ?? src.disbursed ?? base[idx]?.disb ?? 0)) || 0,
-        expColl: +((src.expColl ?? src.exp ?? src.expected ?? base[idx]?.expColl ?? 0)) || 0,
-        actColl: +((src.actColl ?? src.act ?? src.collected ?? base[idx]?.actColl ?? 0)) || 0,
-        expInt: +((src.expInt ?? src.int ?? src.expectedInterest ?? base[idx]?.expInt ?? 0)) || 0,
-        actInt: +((src.actInt ?? src.int ?? src.actualInterest ?? base[idx]?.actInt ?? 0)) || 0,
-        parCost: +((src.parCost ?? src.par ?? 0)) || 0
-      };
-    });
-  }
-  return base;
-}
 function applyState(saved){
   if(!saved)return false;
   if(saved.loans&&saved.loans.length)D.loans=saved.loans;
-  D.payments=Array.isArray(saved.payments)?saved.payments:[];
-  D.monthly=normalizeMonthly(saved.monthly);
-  D.expenses=Array.isArray(saved.expenses)?saved.expenses:[];
-  D.cashAtHand=typeof saved.cashAtHand==='number'?saved.cashAtHand:(parseFloat(saved.cashAtHand)||0);
+  D.payments=saved.payments||[];
+  D.monthly=saved.monthly||D.monthly;
+  D.expenses=saved.expenses||[];
+  D.cashAtHand=typeof saved.cashAtHand==='number'?saved.cashAtHand:0;
   return true;
 }
 function backupLocal(){
@@ -2670,10 +2663,11 @@ async function pushCloud(forceText='☁ Synced'){
   syncing=true;
   try{
     const payload=snapshotState();
-    const {error}=await client.from('mf_state').upsert({
+    const {error}=await client.from('mf_app_state').upsert({
       id:APP_STATE_ID,
-      data: payload,
-      updated_at:new Date().toISOString()
+      payload,
+      updated_at:new Date().toISOString(),
+      updated_by:CLIENT_ID
     });
     if(error) throw error;
     backupLocal();
@@ -2698,10 +2692,10 @@ async function loadSaved(){
     return loadLocalBackup();
   }
   try{
-    const {data,error}=await client.from('mf_state').select('data').eq('id',APP_STATE_ID).maybeSingle();
+    const {data,error}=await client.from('mf_app_state').select('payload').eq('id',APP_STATE_ID).maybeSingle();
     if(error) throw error;
-    if(data&&data.data){
-      applyState(data.data);
+    if(data&&data.payload){
+      applyState(data.payload);
       backupLocal();
       return true;
     }
@@ -2732,11 +2726,11 @@ async function setupRealtime(){
   const client=getSb();
   if(!client||realtimeReady)return;
   realtimeReady=true;
-  client.channel('mf-state-live')
-    .on('postgres_changes',{event:'*',schema:'public',table:'mf_state',filter:`id=eq.${APP_STATE_ID}`},payload=>{
+  client.channel('mf-app-state-live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'mf_app_state',filter:`id=eq.${APP_STATE_ID}`},payload=>{
       const row=payload.new||payload.record;
-      if(!row||!row.data)return;
-      applyState(row.data);
+      if(!row||row.updated_by===CLIENT_ID||!row.payload)return;
+      applyState(row.payload);
       backupLocal();
       refreshAllViews();
       showSaveStatus('☁ Updated from cloud','var(--teal)');
@@ -2755,9 +2749,9 @@ function showLoadedNotice(text='✓ Cloud data loaded'){
 async function initApp(){
   const wasLoaded=await loadSaved();
 
-  $('pay-date').value=new Date().toISOString().slice(0,10);
-  $('ac-date').value=new Date().toISOString().slice(0,10);
-  if($('exp-date'))$('exp-date').value=new Date().toISOString().slice(0,10);
+  const todayISO=toISODateLocal(getHarareNow()); $('pay-date').value=todayISO;
+  $('ac-date').value=todayISO;
+  if($('exp-date'))$('exp-date').value=todayISO;
   if($('cah-input'))$('cah-input').value=D.cashAtHand||0;
   if($('col-mo-sel'))$('col-mo-sel').value='3';
   if($('dis-mo-sel'))$('dis-mo-sel').value='all';
