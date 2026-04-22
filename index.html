@@ -204,7 +204,7 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
   <div class="tabs">
     <button class="tab on"     data-pg="overview">Overview</button>
     <button class="tab"        data-pg="monthly">Monthly</button>
-    <button class="tab teal"   data-pg="interestonly">Interest Only</button>
+    <button class="tab teal"   data-pg="interestonly">Interest</button>
     <button class="tab green"  data-pg="profit">Profit</button>
     <button class="tab teal"   data-pg="payments">Payments</button>
     <button class="tab"        data-pg="collections">Collections</button>
@@ -314,11 +314,11 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
     <div class="kc"><div class="kl">Annual variance</div><div class="kv" id="io-ann-var">$0</div></div>
   </div>
   <div class="kg">
-    <div class="kc"><div class="kl">Interest-only loans</div><div class="kv" id="io-loan-count">0</div></div>
+    <div class="kc"><div class="kl">Loans in view</div><div class="kv" id="io-loan-count">0</div></div>
     <div class="kc"><div class="kl">Annual achievement</div><div class="kv" id="io-rate">0%</div></div>
   </div>
   <div class="card"><div class="ct">Interest only — target vs actual by month</div><div class="ch" style="height:190px"><canvas id="ch-io" role="img" aria-label="Interest only interest chart">Interest only.</canvas></div></div>
-  <div class="st">Interest-only loan summary</div>
+  <div class="st">Interest collection by loan</div>
   <div class="card" style="padding:0;overflow:hidden">
     <div class="mr head" style="grid-template-columns:1.4fr .8fr .8fr .8fr .8fr .8fr">
       <div>Client</div><div>Monthly interest</div><div>Annual target</div><div>Interest paid</div><div>Remaining interest</div><div>Actual vs target</div>
@@ -1116,44 +1116,41 @@ function getLoanInterestStats(lid){
   });
   let remaining=+loan.interest||0, paid=0;
   pays.forEach(p=>{
-    const intPaid=p.intPaid!=null ? (+p.intPaid||0) : Math.min(+p.amt||0, remaining);
+    const alloc=allocateInterestFirst(loan,p);
+    const intPaid=p.intPaid!=null ? (+p.intPaid||0) : alloc.interestPaid;
     paid=r2(paid+intPaid);
     remaining=Math.max(0,r2(remaining-intPaid));
   });
   return {paid:r2(paid),remaining:r2(remaining),target:r2(+loan.interest||0),monthly:r2((+loan.disbursed||0)*(+loan.rate||0))};
 }
-function getInterestOnlyMonthlySeries(){
+function getTotalInterestMonthlySeries(){
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const target=Object.fromEntries(months.map(m=>[m,0]));
   const actual=Object.fromEntries(months.map(m=>[m,0]));
-  const ioLoans=D.loans.filter(l=>+l.rt===1);
-  ioLoans.forEach(l=>{
-    const start=new Date(l.date);
+  const loans=D.loans||[];
+  loans.forEach(l=>{
+    const start=new Date(l.date+'T00:00:00');
+    const monthlyTarget=r2((+l.disbursed||0)*(+l.rate||0));
     for(let i=0;i<Math.min(+l.term||0,12);i++){
       const d=new Date(start.getFullYear(), start.getMonth()+i, 1);
       const mName=months[d.getMonth()];
-      target[mName]=r2(target[mName]+((+l.disbursed||0)*(+l.rate||0)));
+      target[mName]=r2(target[mName]+monthlyTarget);
     }
   });
-  D.payments.filter(p=>ioLoans.some(l=>l.lid===p.lid)).forEach(p=>{
+  (D.payments||[]).forEach(p=>{
     const mName=monthNameFromDate(p.date);
-    let intPaid=0;
-    if(p.intPaid!=null) intPaid=+p.intPaid||0;
-    else{
-      const loan=ioLoans.find(l=>l.lid===p.lid);
-      if(loan) intPaid=Math.min(+p.amt||0, +loan.interest||0);
-    }
+    const loan=loans.find(l=>l.lid===p.lid);
+    if(!loan) return;
+    const intPaid=p.intPaid!=null ? (+p.intPaid||0) : allocateInterestFirst(loan,p).interestPaid;
     actual[mName]=r2(actual[mName]+intPaid);
   });
   return months.map(m=>({m,target:r2(target[m]),actual:r2(actual[m]),variance:r2((actual[m]||0)-(target[m]||0))}));
 }
 function renderInterestOnly(){
-  const ioLoans=D.loans.filter(l=>+l.rt===1);
-  const series=getInterestOnlyMonthlySeries();
+  const loans=D.loans||[];
+  const series=getTotalInterestMonthlySeries();
   const monthSel=$('io-mo-sel') ? $('io-mo-sel').value : 'all';
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const curMonth=months[getHarareNow().getMonth()];
-  const currentSeries=series.find(x=>x.m===curMonth)||{target:0,actual:0,variance:0};
   const selectedSeries = monthSel==='all'
     ? {target:r2(series.reduce((s,m)=>s+m.target,0)), actual:r2(series.reduce((s,m)=>s+m.actual,0))}
     : (series.find(x=>x.m===monthSel)||{target:0,actual:0});
@@ -1176,7 +1173,7 @@ function renderInterestOnly(){
   $('io-ann-actual').textContent=fmt(annActual);
   $('io-ann-var').textContent=(annVar>=0?'+':'')+fmt(annVar);
   $('io-ann-var').style.color=annVar>=0?'var(--g)':'var(--r)';
-  $('io-loan-count').textContent=String(ioLoans.length);
+  $('io-loan-count').textContent=String(loans.length);
   $('io-rate').textContent=fmtp(achieve);
   $('io-rate').style.color=achieve>=100?'var(--g)':'var(--a)';
 
@@ -1186,16 +1183,19 @@ function renderInterestOnly(){
     {label:'Actual interest',data:chartSeries.map(m=>m.actual),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2}
   ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
 
-  $('io-rows').innerHTML=ioLoans.map(l=>{
+  $('io-rows').innerHTML=loans.map(l=>{
     const s=getLoanInterestStats(l.lid);
     let paidForSelected = s.paid;
     let targetForSelected = s.target;
     if(monthSel!=='all'){
-      const monthlyTarget = r2((+l.principal||0) * (+l.rate||0));
+      const monthlyTarget = r2((+l.disbursed||0) * (+l.rate||0));
       targetForSelected = monthlyTarget;
       paidForSelected = r2((D.payments||[])
         .filter(p=>p.lid===l.lid && new Date(p.date+'T00:00:00').toLocaleDateString('en-GB',{month:'long'})===monthSel)
-        .reduce((sum,p)=>sum + allocateInterestFirst(l,p).interestPaid,0));
+        .reduce((sum,p)=>{
+          const alloc=allocateInterestFirst(l,p);
+          return sum + (p.intPaid!=null ? (+p.intPaid||0) : alloc.interestPaid);
+        },0));
     }
     const variance=r2(paidForSelected-targetForSelected);
     const remaining = r2(Math.max(0,targetForSelected-paidForSelected));
@@ -1207,7 +1207,7 @@ function renderInterestOnly(){
       <div style="color:${remaining>0?'var(--a)':'var(--g)'}">${fmt(remaining)}</div>
       <div style="font-weight:600;color:${variance>=0?'var(--g)':'var(--r)'}">${variance>=0?'+':''}${fmt(variance)}</div>
     </div>`;
-  }).join('') || `<div class="empty">No interest-only loans.</div>`;
+  }).join('') || `<div class="empty">No loans available.</div>`;
 }
 
 
