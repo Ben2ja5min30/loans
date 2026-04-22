@@ -1128,26 +1128,20 @@ function getLoanInterestStats(lid){
 }
 function getTotalInterestMonthlySeries(){
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const target=Object.fromEntries(months.map(m=>[m,0]));
-  const actual=Object.fromEntries(months.map(m=>[m,0]));
-  const loans=D.loans||[];
-  loans.forEach(l=>{
-    const start=new Date(l.date+'T00:00:00');
-    const monthlyTarget=r2((+l.disbursed||0)*(+l.rate||0));
-    for(let i=0;i<Math.min(+l.term||0,12);i++){
-      const d=new Date(start.getFullYear(), start.getMonth()+i, 1);
-      const mName=months[d.getMonth()];
-      target[mName]=r2(target[mName]+monthlyTarget);
-    }
+  const monthlyData = Array.isArray(D.monthly) ? D.monthly : [];
+  const byMonth = Object.fromEntries(months.map(m=>[m,{target:0,actual:0}]));
+  monthlyData.forEach(row=>{
+    const name = row.m || row.month;
+    if(!name || !byMonth[name]) return;
+    byMonth[name].target = r2(+(row.expInt ?? row.targetInterest ?? 0));
+    byMonth[name].actual = r2(+(row.actInt ?? row.actualInterest ?? 0));
   });
-  (D.payments||[]).forEach(p=>{
-    const mName=monthNameFromDate(p.date);
-    const loan=loans.find(l=>l.lid===p.lid);
-    if(!loan) return;
-    const intPaid=p.intPaid!=null ? (+p.intPaid||0) : allocateInterestFirst(loan,p).interestPaid;
-    actual[mName]=r2(actual[mName]+intPaid);
-  });
-  return months.map(m=>({m,target:r2(target[m]),actual:r2(actual[m]),variance:r2((actual[m]||0)-(target[m]||0))}));
+  return months.map(m=>({
+    m,
+    target:r2(byMonth[m].target),
+    actual:r2(byMonth[m].actual),
+    variance:r2(byMonth[m].actual - byMonth[m].target)
+  }));
 }
 function renderInterestOnly(){
   const loans=D.loans||[];
