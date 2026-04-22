@@ -286,6 +286,23 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
   <div class="info-box">
     Assumption: on every collection, interest is allocated first before principal. For partial payments, the system applies the amount to outstanding interest first, then the balance to principal.
   </div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:11px;flex-wrap:wrap">
+    <select class="fi" id="io-mo-sel" onchange="renderInterestOnly()" style="flex:1;min-width:150px">
+      <option value="all">Whole year</option>
+      <option value="January">January</option>
+      <option value="February">February</option>
+      <option value="March">March</option>
+      <option value="April">April</option>
+      <option value="May">May</option>
+      <option value="June">June</option>
+      <option value="July">July</option>
+      <option value="August">August</option>
+      <option value="September">September</option>
+      <option value="October">October</option>
+      <option value="November">November</option>
+      <option value="December">December</option>
+    </select>
+  </div>
   <div class="kg3">
     <div class="kc"><div class="kl">Current month target</div><div class="kv" id="io-cur-target">$0</div></div>
     <div class="kc"><div class="kl">Current month actual</div><div class="kv" style="color:var(--g)" id="io-cur-actual">$0</div></div>
@@ -1133,17 +1150,28 @@ function getInterestOnlyMonthlySeries(){
 function renderInterestOnly(){
   const ioLoans=D.loans.filter(l=>+l.rt===1);
   const series=getInterestOnlyMonthlySeries();
+  const monthSel=$('io-mo-sel') ? $('io-mo-sel').value : 'all';
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const curMonth=months[getHarareNow().getMonth()];
-  const cur=series.find(x=>x.m===curMonth)||{target:0,actual:0,variance:0};
+  const currentSeries=series.find(x=>x.m===curMonth)||{target:0,actual:0,variance:0};
+  const selectedSeries = monthSel==='all'
+    ? {target:r2(series.reduce((s,m)=>s+m.target,0)), actual:r2(series.reduce((s,m)=>s+m.actual,0))}
+    : (series.find(x=>x.m===monthSel)||{target:0,actual:0});
+  selectedSeries.variance = r2(selectedSeries.actual-selectedSeries.target);
+
   const annTarget=r2(series.reduce((s,m)=>s+m.target,0));
   const annActual=r2(series.reduce((s,m)=>s+m.actual,0));
   const annVar=r2(annActual-annTarget);
   const achieve=annTarget>0?(annActual/annTarget)*100:0;
-  $('io-cur-target').textContent=fmt(cur.target);
-  $('io-cur-actual').textContent=fmt(cur.actual);
-  $('io-cur-var').textContent=(cur.variance>=0?'+':'')+fmt(cur.variance);
-  $('io-cur-var').style.color=cur.variance>=0?'var(--g)':'var(--r)';
+
+  $('io-cur-target').previousElementSibling.textContent = monthSel==='all' ? 'Selected target' : `${monthSel} target`;
+  $('io-cur-actual').previousElementSibling.textContent = monthSel==='all' ? 'Selected actual' : `${monthSel} actual`;
+  $('io-cur-var').previousElementSibling.textContent = monthSel==='all' ? 'Selected variance' : `${monthSel} variance`;
+
+  $('io-cur-target').textContent=fmt(selectedSeries.target);
+  $('io-cur-actual').textContent=fmt(selectedSeries.actual);
+  $('io-cur-var').textContent=(selectedSeries.variance>=0?'+':'')+fmt(selectedSeries.variance);
+  $('io-cur-var').style.color=selectedSeries.variance>=0?'var(--g)':'var(--r)';
   $('io-ann-target').textContent=fmt(annTarget);
   $('io-ann-actual').textContent=fmt(annActual);
   $('io-ann-var').textContent=(annVar>=0?'+':'')+fmt(annVar);
@@ -1151,19 +1179,32 @@ function renderInterestOnly(){
   $('io-loan-count').textContent=String(ioLoans.length);
   $('io-rate').textContent=fmtp(achieve);
   $('io-rate').style.color=achieve>=100?'var(--g)':'var(--a)';
-  mkChart('ch-io',{type:'bar',data:{labels:series.map(m=>m.m),datasets:[
-    {label:'Target interest',data:series.map(m=>m.target),backgroundColor:'rgba(29,78,216,.35)',borderWidth:0,borderRadius:2},
-    {label:'Actual interest',data:series.map(m=>m.actual),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2}
+
+  const chartSeries = monthSel==='all' ? series : [series.find(x=>x.m===monthSel)||{m:monthSel,target:0,actual:0}];
+  mkChart('ch-io',{type:'bar',data:{labels:chartSeries.map(m=>m.m),datasets:[
+    {label:'Target interest',data:chartSeries.map(m=>m.target),backgroundColor:'rgba(29,78,216,.35)',borderWidth:0,borderRadius:2},
+    {label:'Actual interest',data:chartSeries.map(m=>m.actual),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2}
   ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
+
   $('io-rows').innerHTML=ioLoans.map(l=>{
     const s=getLoanInterestStats(l.lid);
-    const variance=r2(s.paid-s.target);
+    let paidForSelected = s.paid;
+    let targetForSelected = s.target;
+    if(monthSel!=='all'){
+      const monthlyTarget = r2((+l.principal||0) * (+l.rate||0));
+      targetForSelected = monthlyTarget;
+      paidForSelected = r2((D.payments||[])
+        .filter(p=>p.lid===l.lid && new Date(p.date+'T00:00:00').toLocaleDateString('en-GB',{month:'long'})===monthSel)
+        .reduce((sum,p)=>sum + allocateInterestFirst(l,p).interestPaid,0));
+    }
+    const variance=r2(paidForSelected-targetForSelected);
+    const remaining = r2(Math.max(0,targetForSelected-paidForSelected));
     return `<div class="mr" style="grid-template-columns:1.4fr .8fr .8fr .8fr .8fr .8fr">
       <div><div style="font-weight:600">${l.name}</div><div style="font-size:11px;color:var(--muted)">${l.lid}</div></div>
       <div>${fmt(s.monthly)}</div>
-      <div>${fmt(s.target)}</div>
-      <div style="color:var(--g)">${fmt(s.paid)}</div>
-      <div style="color:${s.remaining>0?'var(--a)':'var(--g)'}">${fmt(s.remaining)}</div>
+      <div>${fmt(targetForSelected)}</div>
+      <div style="color:var(--g)">${fmt(paidForSelected)}</div>
+      <div style="color:${remaining>0?'var(--a)':'var(--g)'}">${fmt(remaining)}</div>
       <div style="font-weight:600;color:${variance>=0?'var(--g)':'var(--r)'}">${variance>=0?'+':''}${fmt(variance)}</div>
     </div>`;
   }).join('') || `<div class="empty">No interest-only loans.</div>`;
