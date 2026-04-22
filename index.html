@@ -972,6 +972,23 @@ function todayISOHarare(){
 function getPaymentAmount(p){
   return +(p?.amt ?? p?.amount ?? 0);
 }
+function allocateInterestFirst(loan,payment){
+  const paymentAmount = getPaymentAmount(payment);
+  const contractualInterest = +loan.interest || 0;
+
+  const previousInterestPaid = (D.payments || [])
+    .filter(x => x.lid === loan.lid && x !== payment)
+    .reduce((sum, x) => sum + (x.intPaid != null ? (+x.intPaid || 0) : 0), 0);
+
+  const remainingInterest = Math.max(0, contractualInterest - previousInterestPaid);
+  const interestPaid = Math.min(paymentAmount, remainingInterest);
+  const principalPaid = Math.max(0, paymentAmount - interestPaid);
+
+  return {
+    interestPaid: r2(interestPaid),
+    principalPaid: r2(principalPaid)
+  };
+}
 
 const bo=(ex={})=>({
   responsive:true,maintainAspectRatio:false,
