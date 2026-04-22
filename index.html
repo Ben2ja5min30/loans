@@ -204,6 +204,7 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
   <div class="tabs">
     <button class="tab on"     data-pg="overview">Overview</button>
     <button class="tab"        data-pg="monthly">Monthly</button>
+    <button class="tab teal"   data-pg="interestonly">Interest Only</button>
     <button class="tab green"  data-pg="profit">Profit</button>
     <button class="tab teal"   data-pg="payments">Payments</button>
     <button class="tab"        data-pg="collections">Collections</button>
@@ -278,6 +279,37 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
     <div class="kc"><div class="kl">Avg monthly profit</div><div class="kv" id="mn-avg">$0</div></div>
   </div>
 </div>
+
+
+<!-- ══ INTEREST ONLY ══ -->
+<div class="page" id="pg-interestonly">
+  <div class="info-box">
+    Assumption: on every collection, interest is allocated first before principal. For partial payments, the system applies the amount to outstanding interest first, then the balance to principal.
+  </div>
+  <div class="kg3">
+    <div class="kc"><div class="kl">Current month target</div><div class="kv" id="io-cur-target">$0</div></div>
+    <div class="kc"><div class="kl">Current month actual</div><div class="kv" style="color:var(--g)" id="io-cur-actual">$0</div></div>
+    <div class="kc"><div class="kl">Current month variance</div><div class="kv" id="io-cur-var">$0</div></div>
+  </div>
+  <div class="kg3">
+    <div class="kc"><div class="kl">Annual interest target</div><div class="kv" id="io-ann-target">$0</div></div>
+    <div class="kc"><div class="kl">Annual interest actual</div><div class="kv" style="color:var(--g)" id="io-ann-actual">$0</div></div>
+    <div class="kc"><div class="kl">Annual variance</div><div class="kv" id="io-ann-var">$0</div></div>
+  </div>
+  <div class="kg">
+    <div class="kc"><div class="kl">Interest-only loans</div><div class="kv" id="io-loan-count">0</div></div>
+    <div class="kc"><div class="kl">Annual achievement</div><div class="kv" id="io-rate">0%</div></div>
+  </div>
+  <div class="card"><div class="ct">Interest only — target vs actual by month</div><div class="ch" style="height:190px"><canvas id="ch-io" role="img" aria-label="Interest only interest chart">Interest only.</canvas></div></div>
+  <div class="st">Interest-only loan summary</div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="mr head" style="grid-template-columns:1.4fr .8fr .8fr .8fr .8fr .8fr">
+      <div>Client</div><div>Monthly interest</div><div>Annual target</div><div>Interest paid</div><div>Remaining interest</div><div>Actual vs target</div>
+    </div>
+    <div id="io-rows"></div>
+  </div>
+</div>
+
 
 <!-- ══ PAYMENTS ══ -->
 <div class="page" id="pg-payments">
@@ -1009,7 +1041,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function
   navTo(this.dataset.pg);
 }));
 function renderPage(pg){
-  ({overview:renderOverview,monthly:renderMonthly,profit:renderProfit,
+  ({overview:renderOverview,monthly:renderMonthly,interestonly:renderInterestOnly,profit:renderProfit,
     payments:renderPayments,cashhand:renderCash,
     collections:renderCollections,disbursements:renderDisbursements,
     analytics:renderAnalytics,schedule:renderSchedule,
@@ -1035,6 +1067,108 @@ function setBar(valId,fillId,val,isGoodHigh){
   $(fillId).style.width=Math.min(Math.abs(val),100)+'%';
   $(fillId).style.background=bad?'var(--r)':'var(--g)';
 }
+
+
+function monthNameFromDate(dateStr){
+  return new Date(dateStr).toLocaleString('default',{month:'long'});
+}
+function calcPaymentBreakdownForLoan(loan, paymentAmt, existingPayments){
+  const ordered=[...(existingPayments||[])].sort((a,b)=>{
+    if(a.date===b.date) return String(a.id).localeCompare(String(b.id));
+    return String(a.date).localeCompare(String(b.date));
+  });
+  let interestPaidSoFar=0;
+  ordered.forEach(p=>{
+    if(p.intPaid!=null){
+      interestPaidSoFar+=+p.intPaid||0;
+    }else{
+      interestPaidSoFar+=Math.min(+p.amt||0, Math.max(0, (+loan.interest||0)-interestPaidSoFar));
+    }
+  });
+  const remainingInterest=Math.max(0, r2((+loan.interest||0)-interestPaidSoFar));
+  const intPaid=r2(Math.min(+paymentAmt||0, remainingInterest));
+  const princPaid=r2((+paymentAmt||0)-intPaid);
+  return {intPaid,princPaid,remainingInterestBefore:remainingInterest};
+}
+function getLoanInterestStats(lid){
+  const loan=D.loans.find(l=>l.lid===lid);
+  if(!loan) return {paid:0,remaining:0,target:+0,monthly:+0};
+  const pays=D.payments.filter(p=>p.lid===lid).sort((a,b)=>{
+    if(a.date===b.date) return String(a.id).localeCompare(String(b.id));
+    return String(a.date).localeCompare(String(b.date));
+  });
+  let remaining=+loan.interest||0, paid=0;
+  pays.forEach(p=>{
+    const intPaid=p.intPaid!=null ? (+p.intPaid||0) : Math.min(+p.amt||0, remaining);
+    paid=r2(paid+intPaid);
+    remaining=Math.max(0,r2(remaining-intPaid));
+  });
+  return {paid:r2(paid),remaining:r2(remaining),target:r2(+loan.interest||0),monthly:r2((+loan.disbursed||0)*(+loan.rate||0))};
+}
+function getInterestOnlyMonthlySeries(){
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const target=Object.fromEntries(months.map(m=>[m,0]));
+  const actual=Object.fromEntries(months.map(m=>[m,0]));
+  const ioLoans=D.loans.filter(l=>+l.rt===1);
+  ioLoans.forEach(l=>{
+    const start=new Date(l.date);
+    for(let i=0;i<Math.min(+l.term||0,12);i++){
+      const d=new Date(start.getFullYear(), start.getMonth()+i, 1);
+      const mName=months[d.getMonth()];
+      target[mName]=r2(target[mName]+((+l.disbursed||0)*(+l.rate||0)));
+    }
+  });
+  D.payments.filter(p=>ioLoans.some(l=>l.lid===p.lid)).forEach(p=>{
+    const mName=monthNameFromDate(p.date);
+    let intPaid=0;
+    if(p.intPaid!=null) intPaid=+p.intPaid||0;
+    else{
+      const loan=ioLoans.find(l=>l.lid===p.lid);
+      if(loan) intPaid=Math.min(+p.amt||0, +loan.interest||0);
+    }
+    actual[mName]=r2(actual[mName]+intPaid);
+  });
+  return months.map(m=>({m,target:r2(target[m]),actual:r2(actual[m]),variance:r2((actual[m]||0)-(target[m]||0))}));
+}
+function renderInterestOnly(){
+  const ioLoans=D.loans.filter(l=>+l.rt===1);
+  const series=getInterestOnlyMonthlySeries();
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const curMonth=months[getHarareNow().getMonth()];
+  const cur=series.find(x=>x.m===curMonth)||{target:0,actual:0,variance:0};
+  const annTarget=r2(series.reduce((s,m)=>s+m.target,0));
+  const annActual=r2(series.reduce((s,m)=>s+m.actual,0));
+  const annVar=r2(annActual-annTarget);
+  const achieve=annTarget>0?(annActual/annTarget)*100:0;
+  $('io-cur-target').textContent=fmt(cur.target);
+  $('io-cur-actual').textContent=fmt(cur.actual);
+  $('io-cur-var').textContent=(cur.variance>=0?'+':'')+fmt(cur.variance);
+  $('io-cur-var').style.color=cur.variance>=0?'var(--g)':'var(--r)';
+  $('io-ann-target').textContent=fmt(annTarget);
+  $('io-ann-actual').textContent=fmt(annActual);
+  $('io-ann-var').textContent=(annVar>=0?'+':'')+fmt(annVar);
+  $('io-ann-var').style.color=annVar>=0?'var(--g)':'var(--r)';
+  $('io-loan-count').textContent=String(ioLoans.length);
+  $('io-rate').textContent=fmtp(achieve);
+  $('io-rate').style.color=achieve>=100?'var(--g)':'var(--a)';
+  mkChart('ch-io',{type:'bar',data:{labels:series.map(m=>m.m),datasets:[
+    {label:'Target interest',data:series.map(m=>m.target),backgroundColor:'rgba(29,78,216,.35)',borderWidth:0,borderRadius:2},
+    {label:'Actual interest',data:series.map(m=>m.actual),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2}
+  ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
+  $('io-rows').innerHTML=ioLoans.map(l=>{
+    const s=getLoanInterestStats(l.lid);
+    const variance=r2(s.paid-s.target);
+    return `<div class="mr" style="grid-template-columns:1.4fr .8fr .8fr .8fr .8fr .8fr">
+      <div><div style="font-weight:600">${l.name}</div><div style="font-size:11px;color:var(--muted)">${l.lid}</div></div>
+      <div>${fmt(s.monthly)}</div>
+      <div>${fmt(s.target)}</div>
+      <div style="color:var(--g)">${fmt(s.paid)}</div>
+      <div style="color:${s.remaining>0?'var(--a)':'var(--g)'}">${fmt(s.remaining)}</div>
+      <div style="font-weight:600;color:${variance>=0?'var(--g)':'var(--r)'}">${variance>=0?'+':''}${fmt(variance)}</div>
+    </div>`;
+  }).join('') || `<div class="empty">No interest-only loans.</div>`;
+}
+
 
 /* ══════════════════════════════════════
    OVERVIEW
@@ -1193,18 +1327,24 @@ function addPayment(){
   if(isNaN(amt)||amt<0){msg.innerHTML='<div class="msg-err">Enter a valid amount.</div>';return;}
   const loan=D.loans.find(l=>l.lid===lid);
   if(!loan){msg.innerHTML='<div class="msg-err">Loan not found.</div>';return;}
-  D.payments.push({id:'p'+Date.now(),date,lid,amt,expected:loan.intExp||0,type,notes});
+  const existing=D.payments.filter(p=>p.lid===lid);
+  const split=(type==='principal')?{intPaid:0,princPaid:r2(amt)}:calcPaymentBreakdownForLoan(loan,amt,existing);
+  const payment={id:'p'+Date.now(),date,lid,amt,expected:loan.intExp||0,type,notes,intPaid:r2(split.intPaid||0),princPaid:r2(split.princPaid||0)};
+  D.payments.push(payment);
   loan.cumColl=r2(loan.cumColl+amt);
-  if(type==='principal'||type==='both'){loan.book=Math.max(0,r2(loan.book-amt*(type==='both'?0.7:1)));}
+  loan.book=Math.max(0,r2(loan.book-(payment.princPaid||0)));
   loan.arrears=Math.max(0,r2(loan.arrears-amt));
   if(loan.arrears===0){loan.par1=0;loan.par30=0;loan.dpd=0;loan.status='Current';}
-  const moName=new Date(date).toLocaleString('default',{month:'long'});
+  const moName=monthNameFromDate(date);
   const mo=D.monthly.find(m=>m.m===moName);
-  if(mo){mo.actColl=r2(mo.actColl+amt);if(type!=='principal')mo.actInt=r2(mo.actInt+(loan.intExp||0));}
+  if(mo){
+    mo.actColl=r2(mo.actColl+amt);
+    mo.actInt=r2(mo.actInt+(payment.intPaid||0));
+  }
   D.cashAtHand=r2(D.cashAtHand+amt);
   if($('cah-input'))$('cah-input').value=D.cashAtHand>0?D.cashAtHand:'';
   save();
-  msg.innerHTML=`<div class="msg-ok">✓ ${fmtd(amt)} saved for ${loan.name}.</div>`;
+  msg.innerHTML=`<div class="msg-ok">✓ ${fmtd(amt)} saved for ${loan.name}. Interest first: ${fmtd(payment.intPaid||0)} interest, ${fmtd(payment.princPaid||0)} principal.</div>`;
   $('pay-lid').value='';$('pay-amt').value='';$('pay-notes').value='';$('pay-exp').value='';
   setTimeout(()=>msg.innerHTML='',3000);
   renderPayments();
@@ -1212,11 +1352,19 @@ function addPayment(){
 function delPay(id){
   const p=D.payments.find(x=>x.id===id);if(!p)return;
   const l=D.loans.find(x=>x.lid===p.lid);
-  if(l){l.cumColl=Math.max(0,r2(l.cumColl-p.amt));l.arrears=r2(l.arrears+p.amt);if(l.arrears>0)l.status='PAR 1';}
+  if(l){
+    l.cumColl=Math.max(0,r2(l.cumColl-p.amt));
+    l.book=r2(l.book+(+p.princPaid||0));
+    l.arrears=r2(l.arrears+p.amt);
+    if(l.arrears>0)l.status='PAR 1';
+  }
   D.cashAtHand=Math.max(0,r2(D.cashAtHand-p.amt));
   if($('cah-input'))$('cah-input').value=D.cashAtHand||'';
-  const mo=D.monthly.find(m=>m.m===new Date(p.date).toLocaleString('default',{month:'long'}));
-  if(mo)mo.actColl=Math.max(0,r2(mo.actColl-p.amt));
+  const mo=D.monthly.find(m=>m.m===monthNameFromDate(p.date));
+  if(mo){
+    mo.actColl=Math.max(0,r2(mo.actColl-p.amt));
+    mo.actInt=Math.max(0,r2(mo.actInt-(+p.intPaid||0)));
+  }
   D.payments.splice(D.payments.indexOf(p),1);
   save();
   renderPayments();
@@ -1231,10 +1379,16 @@ function editPay(id){
   $('pay-type').value=p.type||'both';
   $('pay-notes').value=p.notes||'';
   // Remove the old entry first so saving re-adds it cleanly
-  const moName=new Date(p.date).toLocaleString('default',{month:'long'});
+  const moName=monthNameFromDate(p.date);
   const mo=D.monthly.find(m=>m.m===moName);
-  if(mo)mo.actColl=Math.max(0,r2(mo.actColl-p.amt));
-  if(l.name)l.cumColl=Math.max(0,r2(l.cumColl-p.amt));
+  if(mo){
+    mo.actColl=Math.max(0,r2(mo.actColl-p.amt));
+    mo.actInt=Math.max(0,r2(mo.actInt-(+p.intPaid||0)));
+  }
+  if(l.name){
+    l.cumColl=Math.max(0,r2(l.cumColl-p.amt));
+    l.book=r2(l.book+(+p.princPaid||0));
+  }
   D.cashAtHand=Math.max(0,r2(D.cashAtHand-p.amt));
   D.payments.splice(D.payments.indexOf(p),1);
   $('pay-msg').innerHTML='<div class="msg-ok" style="background:var(--bb);color:var(--bt)">Editing — update values and tap Save.</div>';
