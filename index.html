@@ -317,11 +317,11 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
     <div class="kc"><div class="kl">Loans in view</div><div class="kv" id="io-loan-count">0</div></div>
     <div class="kc"><div class="kl">Annual achievement</div><div class="kv" id="io-rate">0%</div></div>
   </div>
-  <div class="card"><div class="ct">Interest only — target vs actual by month</div><div class="ch" style="height:190px"><canvas id="ch-io" role="img" aria-label="Interest only interest chart">Interest only.</canvas></div></div>
+  <div class="card"><div class="ct">Total interest due vs collected by month</div><div class="ch" style="height:190px"><canvas id="ch-io" role="img" aria-label="Interest chart">Interest.</canvas></div></div>
   <div class="st">Interest collection by loan</div>
   <div class="card" style="padding:0;overflow:hidden">
     <div class="mr head" style="grid-template-columns:1.4fr .8fr .8fr .8fr .8fr .8fr">
-      <div>Client</div><div>Monthly interest</div><div>Annual target</div><div>Interest paid</div><div>Remaining interest</div><div>Actual vs target</div>
+      <div>Client</div><div>Monthly interest</div><div>Interest due</div><div>Collected</div><div>Shortfall</div><div>Variance</div>
     </div>
     <div id="io-rows"></div>
   </div>
@@ -1107,64 +1107,116 @@ function setBar(valId,fillId,val,isGoodHigh){
 
 
 function monthNameFromDate(dateStr){
-  return new Date(dateStr).toLocaleString('default',{month:'long'});
+  return parseISODateLocal(dateStr).toLocaleString('en-GB',{month:'long'});
 }
-function calcPaymentBreakdownForLoan(loan, paymentAmt, existingPayments){
-  const ordered=[...(existingPayments||[])].sort((a,b)=>{
-    if(a.date===b.date) return String(a.id).localeCompare(String(b.id));
-    return String(a.date).localeCompare(String(b.date));
-  });
-  let interestPaidSoFar=0;
-  ordered.forEach(p=>{
-    if(p.intPaid!=null){
-      interestPaidSoFar+=+p.intPaid||0;
-    }else{
-      interestPaidSoFar+=Math.min(getPaymentAmount(p), Math.max(0, (+loan.interest||0)-interestPaidSoFar));
+function loanMonthlyInterest(loan){
+  const base = +(loan.disbursed ?? loan.principal ?? 0);
+  const rate = +(loan.rate ?? 0);
+  const term = +(loan.term ?? 0);
+  const totalInterest = +(loan.interest ?? 0);
+  if(base>0 && rate>0) return r2(base*rate);
+  if(totalInterest>0 && term>0) return r2(totalInterest/term);
+  return 0;
+}
+function addMonthsLocal(date, n){
+  return new Date(date.getFullYear(), date.getMonth()+n, date.getDate());
+}
+function monthStart(d){
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+function getInterestDueSchedule(){
+  const dues=[];
+  (D.loans||[]).forEach(loan=>{
+    const term=+(loan.term||0);
+    const start=parseISODateLocal(loan.date);
+    const monthly=loanMonthlyInterest(loan);
+    if(!term || !monthly) return;
+    for(let i=0;i<term;i++){
+      const dueDate=addMonthsLocal(start,i+1);
+      dues.push({
+        lid:loan.lid,
+        name:loan.name,
+        dueDate,
+        year:dueDate.getFullYear(),
+        month:dueDate.toLocaleDateString('en-GB',{month:'long'}),
+        monthIndex:dueDate.getMonth(),
+        amount:r2(monthly),
+        remaining:r2(monthly)
+      });
     }
   });
-  const remainingInterest=Math.max(0, r2((+loan.interest||0)-interestPaidSoFar));
-  const intPaid=r2(Math.min(+paymentAmt||0, remainingInterest));
-  const princPaid=r2((+paymentAmt||0)-intPaid);
-  return {intPaid,princPaid,remainingInterestBefore:remainingInterest};
+  return dues.sort((a,b)=>a.dueDate-b.dueDate || String(a.lid).localeCompare(String(b.lid)));
+}
+function allocateInterestFirstTimeline(){
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const target=Object.fromEntries(months.map(m=>[m,0]));
+  const actual=Object.fromEntries(months.map(m=>[m,0]));
+  const loanTargets={};
+  const loanActuals={};
+  const dues=getInterestDueSchedule();
+
+  dues.forEach(d=>{
+    if(d.year===2026){
+      target[d.month]=r2(target[d.month]+d.amount);
+      loanTargets[d.lid]=loanTargets[d.lid]||Object.fromEntries(months.map(m=>[m,0]));
+      loanTargets[d.lid][d.month]=r2(loanTargets[d.lid][d.month]+d.amount);
+    }
+  });
+
+  const payments=[...(D.payments||[])].sort((a,b)=>{
+    const da=parseISODateLocal(a.date), db=parseISODateLocal(b.date);
+    if(+da===+db) return String(a.id).localeCompare(String(b.id));
+    return da-db;
+  });
+
+  payments.forEach(p=>{
+    const loan=D.loans.find(l=>l.lid===p.lid);
+    if(!loan) return;
+    const payDate=parseISODateLocal(p.date);
+    const payMonth=payDate.toLocaleDateString('en-GB',{month:'long'});
+    const payYear=payDate.getFullYear();
+    let remainingPayment=getPaymentAmount(p);
+    let interestAllocated=0;
+
+    const loanDues=dues.filter(d=>d.lid===p.lid && d.dueDate<=payDate && d.remaining>0);
+    for(const due of loanDues){
+      if(remainingPayment<=0) break;
+      const take=Math.min(remainingPayment,due.remaining);
+      due.remaining=r2(due.remaining-take);
+      remainingPayment=r2(remainingPayment-take);
+      interestAllocated=r2(interestAllocated+take);
+    }
+
+    if(payYear===2026){
+      actual[payMonth]=r2(actual[payMonth]+interestAllocated);
+      loanActuals[p.lid]=loanActuals[p.lid]||Object.fromEntries(months.map(m=>[m,0]));
+      loanActuals[p.lid][payMonth]=r2(loanActuals[p.lid][payMonth]+interestAllocated);
+    }
+
+    p.intPaid = r2(interestAllocated);
+    p.princPaid = r2(Math.max(0,getPaymentAmount(p)-interestAllocated));
+  });
+
+  const series=months.map(m=>({m,target:r2(target[m]),actual:r2(actual[m]),variance:r2(actual[m]-target[m])}));
+  return {months,series,loanTargets,loanActuals};
 }
 function getLoanInterestStats(lid){
-  const loan=D.loans.find(l=>l.lid===lid);
-  if(!loan) return {paid:0,remaining:0,target:+0,monthly:+0};
-  const pays=D.payments.filter(p=>p.lid===lid).sort((a,b)=>{
-    if(a.date===b.date) return String(a.id).localeCompare(String(b.id));
-    return String(a.date).localeCompare(String(b.date));
-  });
-  let remaining=+loan.interest||0, paid=0;
-  pays.forEach(p=>{
-    const alloc=allocateInterestFirst(loan,p);
-    const intPaid=p.intPaid!=null ? (+p.intPaid||0) : alloc.interestPaid;
-    paid=r2(paid+intPaid);
-    remaining=Math.max(0,r2(remaining-intPaid));
-  });
-  return {paid:r2(paid),remaining:r2(remaining),target:r2(+loan.interest||0),monthly:r2((+loan.disbursed||0)*(+loan.rate||0))};
+  const loan=(D.loans||[]).find(l=>l.lid===lid);
+  if(!loan) return {paid:0,remaining:0,target:0,monthly:0};
+  const calc=allocateInterestFirstTimeline();
+  const target=r2(Object.values(calc.loanTargets[lid]||{}).reduce((s,v)=>s+(+v||0),0));
+  const paid=r2(Object.values(calc.loanActuals[lid]||{}).reduce((s,v)=>s+(+v||0),0));
+  return {paid,remaining:r2(Math.max(0,target-paid)),target,monthly:loanMonthlyInterest(loan)};
 }
 function getTotalInterestMonthlySeries(){
-  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const monthlyData = Array.isArray(D.monthly) ? D.monthly : [];
-  const byMonth = Object.fromEntries(months.map(m=>[m,{target:0,actual:0}]));
-  monthlyData.forEach(row=>{
-    const name = row.m || row.month;
-    if(!name || !byMonth[name]) return;
-    byMonth[name].target = r2(+(row.expInt ?? row.targetInterest ?? 0));
-    byMonth[name].actual = r2(+(row.actInt ?? row.actualInterest ?? 0));
-  });
-  return months.map(m=>({
-    m,
-    target:r2(byMonth[m].target),
-    actual:r2(byMonth[m].actual),
-    variance:r2(byMonth[m].actual - byMonth[m].target)
-  }));
+  return allocateInterestFirstTimeline().series;
 }
 function renderInterestOnly(){
   const loans=D.loans||[];
-  const series=getTotalInterestMonthlySeries();
+  const calc=allocateInterestFirstTimeline();
+  const series=calc.series;
   const monthSel=$('io-mo-sel') ? $('io-mo-sel').value : 'all';
-  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
   const selectedSeries = monthSel==='all'
     ? {target:r2(series.reduce((s,m)=>s+m.target,0)), actual:r2(series.reduce((s,m)=>s+m.actual,0))}
     : (series.find(x=>x.m===monthSel)||{target:0,actual:0});
@@ -1175,8 +1227,8 @@ function renderInterestOnly(){
   const annVar=r2(annActual-annTarget);
   const achieve=annTarget>0?(annActual/annTarget)*100:0;
 
-  $('io-cur-target').previousElementSibling.textContent = monthSel==='all' ? 'Selected target' : `${monthSel} target`;
-  $('io-cur-actual').previousElementSibling.textContent = monthSel==='all' ? 'Selected actual' : `${monthSel} actual`;
+  $('io-cur-target').previousElementSibling.textContent = monthSel==='all' ? 'Selected target' : `${monthSel} interest due`;
+  $('io-cur-actual').previousElementSibling.textContent = monthSel==='all' ? 'Selected actual' : `${monthSel} interest collected`;
   $('io-cur-var').previousElementSibling.textContent = monthSel==='all' ? 'Selected variance' : `${monthSel} variance`;
 
   $('io-cur-target').textContent=fmt(selectedSeries.target);
@@ -1193,29 +1245,25 @@ function renderInterestOnly(){
 
   const chartSeries = monthSel==='all' ? series : [series.find(x=>x.m===monthSel)||{m:monthSel,target:0,actual:0}];
   mkChart('ch-io',{type:'bar',data:{labels:chartSeries.map(m=>m.m),datasets:[
-    {label:'Target interest',data:chartSeries.map(m=>m.target),backgroundColor:'rgba(29,78,216,.35)',borderWidth:0,borderRadius:2},
-    {label:'Actual interest',data:chartSeries.map(m=>m.actual),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2}
+    {label:'Interest due',data:chartSeries.map(m=>m.target),backgroundColor:'rgba(29,78,216,.35)',borderWidth:0,borderRadius:2},
+    {label:'Interest collected',data:chartSeries.map(m=>m.actual),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2}
   ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
 
   $('io-rows').innerHTML=loans.map(l=>{
-    const s=getLoanInterestStats(l.lid);
-    let paidForSelected = s.paid;
-    let targetForSelected = s.target;
-    if(monthSel!=='all'){
-      const monthlyTarget = r2((+l.disbursed||0) * (+l.rate||0));
-      targetForSelected = monthlyTarget;
-      paidForSelected = r2((D.payments||[])
-        .filter(p=>p.lid===l.lid && new Date(p.date+'T00:00:00').toLocaleDateString('en-GB',{month:'long'})===monthSel)
-        .reduce((sum,p)=>{
-          const alloc=allocateInterestFirst(l,p);
-          return sum + (p.intPaid!=null ? (+p.intPaid||0) : alloc.interestPaid);
-        },0));
+    const monthly=loanMonthlyInterest(l);
+    let targetForSelected=0, paidForSelected=0;
+    if(monthSel==='all'){
+      targetForSelected=r2(Object.values(calc.loanTargets[l.lid]||{}).reduce((s,v)=>s+(+v||0),0));
+      paidForSelected=r2(Object.values(calc.loanActuals[l.lid]||{}).reduce((s,v)=>s+(+v||0),0));
+    }else{
+      targetForSelected=r2((calc.loanTargets[l.lid]||{})[monthSel]||0);
+      paidForSelected=r2((calc.loanActuals[l.lid]||{})[monthSel]||0);
     }
     const variance=r2(paidForSelected-targetForSelected);
-    const remaining = r2(Math.max(0,targetForSelected-paidForSelected));
+    const remaining=r2(Math.max(0,targetForSelected-paidForSelected));
     return `<div class="mr" style="grid-template-columns:1.4fr .8fr .8fr .8fr .8fr .8fr">
       <div><div style="font-weight:600">${l.name}</div><div style="font-size:11px;color:var(--muted)">${l.lid}</div></div>
-      <div>${fmt(s.monthly)}</div>
+      <div>${fmt(monthly)}</div>
       <div>${fmt(targetForSelected)}</div>
       <div style="color:var(--g)">${fmt(paidForSelected)}</div>
       <div style="color:${remaining>0?'var(--a)':'var(--g)'}">${fmt(remaining)}</div>
@@ -1224,10 +1272,6 @@ function renderInterestOnly(){
   }).join('') || `<div class="empty">No loans available.</div>`;
 }
 
-
-/* ══════════════════════════════════════
-   OVERVIEW
-══════════════════════════════════════ */
 function renderOverview(){
   const L=D.loans;
   const totDisb=L.reduce((s,l)=>s+l.disbursed,0);
