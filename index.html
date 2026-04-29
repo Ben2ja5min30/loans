@@ -1147,6 +1147,28 @@ function getInterestDueSchedule(){
   });
   return dues.sort((a,b)=>a.dueDate-b.dueDate || String(a.lid).localeCompare(String(b.lid)));
 }
+function calcPaymentBreakdownForLoan(loan, amount, existingPayments){
+  const tempPayments = Array.isArray(existingPayments) ? existingPayments.map(p => ({...p})) : [];
+  const tempPayment = {
+    id: 'temp-' + Date.now(),
+    date: todayISOHarare(),
+    lid: loan.lid,
+    amt: +(amount || 0),
+    amount: +(amount || 0),
+    type: 'both'
+  };
+
+  const monthlyInterest = loanMonthlyInterest(loan);
+  const paidInterestSoFar = tempPayments.reduce((sum,p)=>sum+(+p.intPaid||0),0);
+  const totalInterestCap = +loan.interest || (monthlyInterest * (+loan.term || 0));
+  const remainingContractInterest = Math.max(0, totalInterestCap - paidInterestSoFar);
+
+  const intPaid = Math.min(+(amount||0), remainingContractInterest);
+  const princPaid = Math.max(0, +(amount||0) - intPaid);
+
+  return {intPaid:r2(intPaid), princPaid:r2(princPaid)};
+}
+
 function allocateInterestFirstTimeline(){
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const target=Object.fromEntries(months.map(m=>[m,0]));
@@ -1395,20 +1417,20 @@ function onPaySel(){const l=D.loans.find(x=>x.lid===$('pay-lid').value);$('pay-e
 function renderPayments(){
   popPaySelects();
   const all=D.payments;
-  $('pay-n').textContent=all.filter(p=>p.amt>0).length;
-  $('pay-tot').textContent=fmt(all.reduce((s,p)=>s+p.amt,0));
+  $('pay-n').textContent=all.filter(p=>getPaymentAmount(p)>0).length;
+  $('pay-tot').textContent=fmt(all.reduce((s,p)=>s+getPaymentAmount(p),0));
   const filt=$('pay-filt')?.value||'';
   const vis=all.filter(p=>!filt||p.lid===filt);
   $('pay-list').innerHTML=vis.length?vis.map(p=>{
     const l=D.loans.find(x=>x.lid===p.lid)||{};
-    const v=r2(p.amt-(p.expected||0));
+    const v=r2(getPaymentAmount(p)-(p.expected||0));
     return`<div class="pi">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600">${l.name||p.lid}</div>
         <div style="font-size:11px;color:var(--muted)">${p.date} · ${p.lid} · ${p.type||''}${p.notes?' · '+p.notes:''}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;margin-left:8px">
-        <div style="font-size:15px;font-weight:700;color:var(--g)">${fmtd(p.amt)}</div>
+        <div style="font-size:15px;font-weight:700;color:var(--g)">${fmtd(getPaymentAmount(p))}</div>
         <div style="font-size:11px;color:${v>=0?'var(--g)':'var(--r)'}">${v>=0?'+':''}${fmtd(v)}</div>
         <div style="display:flex;gap:5px;margin-top:5px;justify-content:flex-end">
           <button class="btn btn-b btn-sm" onclick="editPay('${p.id}')">Edit</button>
@@ -1428,7 +1450,7 @@ function addPayment(){
   if(!loan){msg.innerHTML='<div class="msg-err">Loan not found.</div>';return;}
   const existing=D.payments.filter(p=>p.lid===lid);
   const split=(type==='principal')?{intPaid:0,princPaid:r2(amt)}:calcPaymentBreakdownForLoan(loan,amt,existing);
-  const payment={id:'p'+Date.now(),date,lid,amt,expected:loan.intExp||0,type,notes,intPaid:r2(split.intPaid||0),princPaid:r2(split.princPaid||0)};
+  const payment={id:'p'+Date.now(),date,lid,amt,amount:amt,expected:loan.intExp||0,type,notes,intPaid:r2(split.intPaid||0),princPaid:r2(split.princPaid||0)};
   D.payments.push(payment);
   loan.cumColl=r2(loan.cumColl+amt);
   loan.book=Math.max(0,r2(loan.book-(payment.princPaid||0)));
@@ -1452,12 +1474,12 @@ function delPay(id){
   const p=D.payments.find(x=>x.id===id);if(!p)return;
   const l=D.loans.find(x=>x.lid===p.lid);
   if(l){
-    l.cumColl=Math.max(0,r2(l.cumColl-p.amt));
+    l.cumColl=Math.max(0,r2(l.cumColl-getPaymentAmount(p)));
     l.book=r2(l.book+(+p.princPaid||0));
-    l.arrears=r2(l.arrears+p.amt);
+    l.arrears=r2(l.arrears+getPaymentAmount(p));
     if(l.arrears>0)l.status='PAR 1';
   }
-  D.cashAtHand=Math.max(0,r2(D.cashAtHand-p.amt));
+  D.cashAtHand=Math.max(0,r2(D.cashAtHand-getPaymentAmount(p)));
   if($('cah-input'))$('cah-input').value=D.cashAtHand||'';
   const mo=D.monthly.find(m=>m.m===monthNameFromDate(p.date));
   if(mo){
@@ -1474,7 +1496,7 @@ function editPay(id){
   // Pre-fill the form and mark as editing
   $('pay-lid').value=p.lid;onPaySel();
   $('pay-date').value=p.date;
-  $('pay-amt').value=p.amt;
+  $('pay-amt').value=getPaymentAmount(p);
   $('pay-type').value=p.type||'both';
   $('pay-notes').value=p.notes||'';
   // Remove the old entry first so saving re-adds it cleanly
@@ -1485,10 +1507,10 @@ function editPay(id){
     mo.actInt=Math.max(0,r2(mo.actInt-(+p.intPaid||0)));
   }
   if(l.name){
-    l.cumColl=Math.max(0,r2(l.cumColl-p.amt));
+    l.cumColl=Math.max(0,r2(l.cumColl-getPaymentAmount(p)));
     l.book=r2(l.book+(+p.princPaid||0));
   }
-  D.cashAtHand=Math.max(0,r2(D.cashAtHand-p.amt));
+  D.cashAtHand=Math.max(0,r2(D.cashAtHand-getPaymentAmount(p)));
   D.payments.splice(D.payments.indexOf(p),1);
   $('pay-msg').innerHTML='<div class="msg-ok" style="background:var(--bb);color:var(--bt)">Editing — update values and tap Save.</div>';
   window.scrollTo(0,0);
@@ -1687,14 +1709,14 @@ function renderCollections(){
   // Payment list
   $('col-pay-list').innerHTML=pays.length?pays.map(p=>{
     const l=D.loans.find(x=>x.lid===p.lid)||{};
-    const v=r2(p.amt-(p.expected||0));
+    const v=r2(getPaymentAmount(p)-(p.expected||0));
     return`<div class="pi">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600">${l.name||p.lid}</div>
         <div style="font-size:11px;color:var(--muted)">${p.date} · ${p.lid} · ${p.type}${p.notes?' · '+p.notes:''}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;margin-left:8px">
-        <div style="font-size:15px;font-weight:700;color:var(--g)">${fmtd(p.amt)}</div>
+        <div style="font-size:15px;font-weight:700;color:var(--g)">${fmtd(getPaymentAmount(p))}</div>
         <div style="font-size:11px;color:${v>=0?'var(--g)':'var(--r)'}">${v>=0?'+':''}${fmtd(v)} vs exp</div>
       </div>
     </div>`;
@@ -2035,7 +2057,7 @@ function showDet(lid){
       ${[['Loan ID',l.lid],['Date',l.date],['Term',l.term+'mo'],['Rate type',rtl(l)],['Monthly int.',fmt(l.intExp)],['Cum. due',fmt(l.cumDue)],['Collected',fmt(l.cumColl)],['Efficiency',eff],['Status',l.status],['DPD',l.dpd+'d'],['DPD bucket',dpdBucket(l.dpd).label],['Notes',l.notes||'—']].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bdr);font-size:13px"><span style="color:var(--muted)">${k}</span><span style="font-weight:500">${v}</span></div>`).join('')}
     </div>
     <div class="st" style="margin-top:4px">Payments (${pays.length})</div>
-    ${pays.length?pays.map(p=>{const v=r2(p.amt-p.expected);return`<div class="pi"><div><div style="font-size:13px;font-weight:600">${p.date} · ${p.type}</div><div style="font-size:11px;color:var(--muted)">${p.notes||'—'}</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--g)">${fmtd(p.amt)}</div><div style="font-size:11px;color:${v>=0?'var(--g)':'var(--r)'}">${v>=0?'+':''}${fmtd(v)}</div></div></div>`;}).join(''):`<div class="empty" style="padding:12px 0">No payments.</div>`}
+    ${pays.length?pays.map(p=>{const v=r2(p.amt-p.expected);return`<div class="pi"><div><div style="font-size:13px;font-weight:600">${p.date} · ${p.type}</div><div style="font-size:11px;color:var(--muted)">${p.notes||'—'}</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--g)">${fmtd(getPaymentAmount(p))}</div><div style="font-size:11px;color:${v>=0?'var(--g)':'var(--r)'}">${v>=0?'+':''}${fmtd(v)}</div></div></div>`;}).join(''):`<div class="empty" style="padding:12px 0">No payments.</div>`}
     <div style="display:flex;gap:7px;margin-top:10px">
       <button class="btn btn-g btn-sm" style="flex:1" onclick="closeMo('det-mo');quickPay('${l.lid}')">+ Add payment</button>
       <button class="btn btn-b btn-sm" style="flex:1" onclick="closeMo('det-mo');showEdit('${l.lid}')">Edit client</button>
