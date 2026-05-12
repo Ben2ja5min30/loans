@@ -1111,23 +1111,9 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function
 function getLoanPaidTotal(lid){
   return r2((D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+getPaymentAmount(p),0));
 }
-function getLoanDueTotal(l){
-  return r2((+l.disbursed||0)+(+l.interest||0));
-}
-function getLoanPositionStatus(l){
-  const totalDue=getLoanDueTotal(l);
-  const paid=getLoanPaidTotal(l.lid);
-  const remaining=r2(Math.max(0,totalDue-paid));
-  const over=r2(Math.max(0,paid-totalDue));
-  return {totalDue,paid,remaining,over,met:remaining<=0.005};
-}
-function getRemainingInterest(l){
-  const totalInterest=+l.interest||0;
-  const paidInt=(D.payments||[]).filter(p=>p.lid===l.lid).reduce((s,p)=>s+(+p.intPaid||0),0);
-  if(paidInt>0) return r2(Math.max(0,totalInterest-paidInt));
-  const paid=getLoanPaidTotal(l.lid);
-  return r2(Math.max(0,totalInterest-Math.min(paid,totalInterest)));
-}
+function getLoanDueTotal(l){ return calcLiveLoanBalance(l).totalDue; }
+function getLoanPositionStatus(l){ const b=calcLiveLoanBalance(l); return {totalDue:b.totalDue, paid:b.totalPaid, remaining:b.totalRemaining, over:b.overpayment, met:b.obligationsMet}; }
+function getRemainingInterest(l){ return calcLiveLoanBalance(l).remainingInterest; }
 function renderPosition(){
   const loans=D.loans||[];
   const principal=r2(loans.reduce((s,l)=>s+(+l.book||+l.principal||+l.disbursed||0),0));
@@ -1189,6 +1175,7 @@ function renderDueRange(){
 }
 
 function renderPage(pg){
+  recalcAllLiveBalances();
   ({overview:renderOverview,monthly:renderMonthly,interestonly:renderInterestOnly,profit:renderProfit,
     payments:renderPayments,cashhand:renderCash,position:renderPosition,
     collections:renderCollections,disbursements:renderDisbursements,
@@ -1269,6 +1256,152 @@ function calcPaymentBreakdownForLoan(loan, amount, existingPayments){
   const intPaid = Math.min(payAmount, monthlyDue);
   const princPaid = Math.max(0, payAmount - intPaid);
   return {intPaid:r2(intPaid), princPaid:r2(princPaid)};
+}
+
+
+function calcLiveLoanBalance(loan){
+  const originalPrincipal = +(loan._origPrincipal ?? loan.disbursed ?? loan.originalPrincipal ?? loan.principal ?? 0);
+  const contractualInterest = +(loan.interest ?? 0);
+  const monthlyInterest = loanMonthlyInterest(loan);
+  const start = parseISODateLocal(loan.date);
+  const term = +(loan.term || 0);
+  const today = getHarareNow();
+
+  const payments = (D.payments || [])
+    .filter(p => p.lid === loan.lid)
+    .slice()
+    .sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')) || String(a.id||'').localeCompare(String(b.id||'')));
+
+  const totalPaid = r2(payments.reduce((s,p)=>s+getPaymentAmount(p),0));
+
+  // Count instalments actually due up to today.
+  let dueCountToday = 0;
+  let oldestUnpaidDueDate = null;
+  for(let i=1;i<=term;i++){
+    const dueDate = addMonthsLocal(start, i);
+    if(dueDate <= today){
+      dueCountToday++;
+      if(!oldestUnpaidDueDate) oldestUnpaidDueDate = dueDate;
+    }
+  }
+  dueCountToday = Math.max(0, Math.min(term, dueCountToday));
+
+  // What is due up to today?
+  // Standard loans: full instalment due each month.
+  // Interest-only loans: interest due monthly; principal balloon only when term has matured.
+  const monthlyStandardDue = r2((originalPrincipal + contractualInterest) / Math.max(term,1));
+  let dueToDate = 0;
+  if(+loan.rt === 1){
+    dueToDate = r2(dueCountToday * monthlyInterest);
+    if(dueCountToday >= term) dueToDate = r2(dueToDate + originalPrincipal);
+  }else{
+    dueToDate = r2(dueCountToday * monthlyStandardDue);
+  }
+
+  // Correct arrears logic:
+  // Do NOT mark arrears just because due date passed.
+  // Mark arrears only if required due up to today is more than actual paid.
+  const arrears = r2(Math.max(0, dueToDate - totalPaid));
+
+  // Allocate paid amounts: monthly interest first, then principal.
+  // For live principal, only accrued interest up to today is deducted before principal.
+  const interestAccruedToDate = (+loan.rt === 1)
+    ? r2(dueCountToday * monthlyInterest)
+    : r2(Math.min(contractualInterest, dueCountToday * monthlyInterest));
+
+  const interestPaid = r2(Math.min(totalPaid, interestAccruedToDate));
+  const principalPaid = r2(Math.max(0, totalPaid - interestPaid));
+  const outstandingPrincipal = r2(Math.max(0, originalPrincipal - principalPaid));
+
+  // Remaining full contractual interest still expected over life of loan.
+  const remainingInterest = r2(Math.max(0, contractualInterest - interestPaid));
+
+  const totalDue = r2(originalPrincipal + contractualInterest);
+  const totalRemaining = r2(Math.max(0, totalDue - totalPaid));
+  const overpayment = r2(Math.max(0, totalPaid - totalDue));
+  const obligationsMet = totalRemaining <= 0.005;
+
+  // DPD only counts if there is a real shortfall.
+  let dpd = 0;
+  if(arrears > 0){
+    for(let i=1;i<=dueCountToday;i++){
+      const d = addMonthsLocal(start, i);
+      const dueAtThisDate = (+loan.rt === 1)
+        ? r2(i * monthlyInterest + (i>=term ? originalPrincipal : 0))
+        : r2(i * monthlyStandardDue);
+      if(totalPaid < dueAtThisDate){
+        dpd = Math.max(0, Math.floor((today - d) / 86400000));
+        break;
+      }
+    }
+  }
+
+  let nextDueDate = null, nextDueAmount = 0;
+  for(let i=1;i<=term;i++){
+    const dueDate = addMonthsLocal(start, i);
+    if(dueDate > today){
+      nextDueDate = dueDate;
+      nextDueAmount = (+loan.rt===1) ? monthlyInterest : monthlyStandardDue;
+      break;
+    }
+  }
+
+  return {
+    originalPrincipal:r2(originalPrincipal),
+    contractualInterest:r2(contractualInterest),
+    monthlyInterest:r2(monthlyInterest),
+    monthlyStandardDue,
+    dueToDate,
+    totalPaid,
+    interestPaid,
+    principalPaid,
+    outstandingPrincipal,
+    remainingInterest,
+    arrears,
+    dpd,
+    overpayment,
+    totalDue,
+    totalRemaining,
+    obligationsMet,
+    nextDueDate,
+    nextDueAmount:r2(nextDueAmount)
+  };
+}
+
+function recalcAllLiveBalances(){
+  (D.loans || []).forEach(l => {
+    if(l._origPrincipal == null) l._origPrincipal = +(l.disbursed ?? l.principal ?? 0);
+    const b = calcLiveLoanBalance(l);
+    l.book = b.outstandingPrincipal;
+    l.principal = b.outstandingPrincipal;
+    l.arrears = b.arrears;
+    l.par1 = b.arrears > 0 ? b.outstandingPrincipal : 0;
+    l.dpd = b.dpd;
+    l.par30 = b.dpd >= 30 && b.arrears > 0 ? b.outstandingPrincipal : 0;
+    l.cumColl = b.totalPaid;
+    l.intPaid = b.interestPaid;
+    l.princPaid = b.principalPaid;
+    l.remainingInterest = b.remainingInterest;
+    l.overpayment = b.overpayment;
+    l.obligationsMet = b.obligationsMet;
+    l.up7 = false;
+    l.upAmt = 0;
+    if(b.nextDueDate){
+      const diffDays = Math.ceil((b.nextDueDate - getHarareNow()) / 86400000);
+      if(diffDays >= 0 && diffDays <= 7){
+        l.up7 = true;
+        l.upAmt = b.nextDueAmount;
+      }
+    }
+    if(b.obligationsMet){
+      l.status = b.overpayment > 0 ? 'Overpaid' : 'Paid';
+      l.arrears = 0; l.par1 = 0; l.par30 = 0;
+    }else if(l.arrears > 0){
+      l.status = b.dpd >= 30 ? 'PAR 30' : 'PAR 1';
+    }else{
+      l.status = 'Current';
+    }
+  });
 }
 
 function allocateInterestFirstTimeline(){
@@ -1558,10 +1691,8 @@ function addPayment(){
   const split=(type==='principal')?{intPaid:0,princPaid:r2(amt)}:calcPaymentBreakdownForLoan(loan,amt,existing);
   const payment={id:'p'+Date.now(),date,lid,amt,amount:amt,expected:loan.intExp||0,type,notes,intPaid:r2(split.intPaid||0),princPaid:r2(split.princPaid||0)};
   D.payments.push(payment);
-  loan.cumColl=r2(loan.cumColl+amt);
-  loan.book=Math.max(0,r2(loan.book-(payment.princPaid||0)));
-  loan.arrears=Math.max(0,r2(loan.arrears-amt));
-  if(loan.arrears===0){loan.par1=0;loan.par30=0;loan.dpd=0;loan.status='Current';}
+  loan.cumColl=r2((loan.cumColl||0)+amt);
+  recalcAllLiveBalances();
   const moName=monthNameFromDate(date);
   const mo=D.monthly.find(m=>m.m===moName);
   if(mo){
@@ -1580,9 +1711,7 @@ function delPay(id){
   const p=D.payments.find(x=>x.id===id);if(!p)return;
   const l=D.loans.find(x=>x.lid===p.lid);
   if(l){
-    l.cumColl=Math.max(0,r2(l.cumColl-getPaymentAmount(p)));
-    l.book=r2(l.book+(+p.princPaid||0));
-    l.arrears=r2(l.arrears+getPaymentAmount(p));
+    l.cumColl=Math.max(0,r2((l.cumColl||0)-getPaymentAmount(p)));
     if(l.arrears>0)l.status='PAR 1';
   }
   D.cashAtHand=Math.max(0,r2(D.cashAtHand-getPaymentAmount(p)));
@@ -2119,7 +2248,7 @@ function addLbRow(){
   D.loans.push({lid:'LN-'+(D.loans.length+1).toString().padStart(3,'0'),name:'New client',phone:'',date:todayISOHarare(),term:6,rate:0.10,rt:0,principal:0,interest:0,disbursed:0,notes:'',arrears:0,dpd:0,par1:0,par30:0,book:0,cumDue:0,cumColl:0,intExp:0,rank:D.loans.length+1,up7:false,upAmt:0,status:'Current'});
   renderLb();
 }
-function saveLb(){D.loans.forEach(l=>{l.book=l.principal;l.intExp=r2(l.principal*l.rate);});save();$('lb-msg').innerHTML='<div class="msg-ok">Saved.</div>';setTimeout(()=>$('lb-msg').innerHTML='',2000);}
+function saveLb(){D.loans.forEach(l=>{ if(!l.disbursed) l.disbursed=+l.principal||0; l.intExp=r2((+l.disbursed||+l.principal||0)*(+l.rate||0)); }); recalcAllLiveBalances(); save(); $('lb-msg').innerHTML='<div class="msg-ok">Saved and live balances recalculated.</div>'; setTimeout(()=>$('lb-msg').innerHTML='',2000);}
 
 /* ══════════════════════════════════════
    CLIENTS
@@ -2166,7 +2295,8 @@ function showDet(lid){
     ${pays.length?pays.map(p=>{const v=r2(p.amt-p.expected);return`<div class="pi"><div><div style="font-size:13px;font-weight:600">${p.date} · ${p.type}</div><div style="font-size:11px;color:var(--muted)">${p.notes||'—'}</div></div><div style="text-align:right"><div style="font-size:14px;font-weight:700;color:var(--g)">${fmtd(getPaymentAmount(p))}</div><div style="font-size:11px;color:${v>=0?'var(--g)':'var(--r)'}">${v>=0?'+':''}${fmtd(v)}</div></div></div>`;}).join(''):`<div class="empty" style="padding:12px 0">No payments.</div>`}
     <div style="display:flex;gap:7px;margin-top:10px">
       <button class="btn btn-g btn-sm" style="flex:1" onclick="closeMo('det-mo');quickPay('${l.lid}')">+ Add payment</button>
-      <button class="btn btn-b btn-sm" style="flex:1" onclick="closeMo('det-mo');showEdit('${l.lid}')">Edit client</button>
+      <button class="btn btn-b btn-sm" style="flex:1" onclick="addLoanForExistingClient('${l.lid}')">+ New loan</button>
+      <button class="btn btn-o btn-sm" style="flex:1" onclick="closeMo('det-mo');showEdit('${l.lid}')">Edit</button>
     </div>
     <div style="height:16px"></div>`;
   openMo('det-mo');
@@ -2350,6 +2480,29 @@ function addClient(){
   ['ac-lid','ac-name','ac-phone','ac-amt','ac-term','ac-notes'].forEach(id=>$(id).value='');
   selRT(0);$('prev-c').style.display='none';
   setTimeout(()=>{navTo('clients');document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));},1500);
+}
+
+
+function addLoanForExistingClient(lid){
+  const l=D.loans.find(x=>x.lid===lid);
+  if(!l)return;
+  closeMo('det-mo');
+  navTo('addclient');
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+
+  const nextNo = D.loans.length + 1;
+  const nextLid = 'LN-' + String(nextNo).padStart(3,'0');
+
+  if($('ac-lid'))$('ac-lid').value=nextLid;
+  if($('ac-name'))$('ac-name').value=l.name||'';
+  if($('ac-phone'))$('ac-phone').value=l.phone||'';
+  if($('ac-date'))$('ac-date').value=todayISOHarare();
+  if($('ac-amt'))$('ac-amt').value='';
+  if($('ac-term'))$('ac-term').value='';
+  if($('ac-notes'))$('ac-notes').value='Repeat loan / additional loan for existing client';
+  selRT(+l.rt||0);
+  calcPrev();
+  setTimeout(()=>$('ac-amt')?.focus(),200);
 }
 
 /* ══════════════════════════════════════
@@ -2571,84 +2724,114 @@ function renderSchedule(){
   const wrap=$('sch-table-wrap');
   const kpis=$('sch-kpis');
   const info=$('sch-info');
+
   if(!lid){
     if(empty)empty.style.display='block';
     if(wrap)wrap.style.display='none';
     if(kpis)kpis.style.display='none';
+    if(info)info.innerHTML='';
     return;
   }
+
+  recalcAllLiveBalances();
   const l=D.loans.find(x=>x.lid===lid);
-  if(!l){return;}
+  if(!l)return;
+
   if(empty)empty.style.display='none';
   if(wrap)wrap.style.display='block';
   if(kpis)kpis.style.display='grid';
 
-  // Generate installment schedule
+  const originalPrincipal = +(l._origPrincipal ?? l.disbursed ?? l.originalPrincipal ?? l.principal ?? 0);
+  const totalInterest = +(l.interest || 0);
+  const term = +(l.term || 0);
+  const monthlyInterest = loanMonthlyInterest(l);
+  const totalRepayable = r2(originalPrincipal + totalInterest);
+  const paidTotal = r2((D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+getPaymentAmount(p),0));
+  const remainingTotal = r2(Math.max(0,totalRepayable-paidTotal));
   const disbDate=parseISODateLocal(l.date);
-  const rows=[];
-  let runPrincipal=l.principal;
+  const today=getHarareNow();
 
-  for(let i=1;i<=l.term;i++){
-    const dueDate=new Date(disbDate);
-    dueDate.setMonth(dueDate.getMonth()+i);
+  const payments=(D.payments||[])
+    .filter(p=>p.lid===lid)
+    .slice()
+    .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+
+  const rows=[];
+  let cumulativeDue=0;
+  let dueCount=0;
+  let timelyCount=0;
+  let lateCount=0;
+  let overdueCount=0;
+
+  for(let i=1;i<=term;i++){
+    const dueDate=addMonthsLocal(disbDate,i);
     const dueDateStr=toISODateLocal(dueDate);
 
     let princDue=0,intDue=0,totalDue=0;
-    if(l.rt===1){
-      // Interest-only: interest each period, full principal on last
-      intDue=r2(l.principal*l.rate);
-      princDue=i===l.term?l.principal:0;
+    if(+l.rt===1){
+      intDue=r2(monthlyInterest);
+      princDue=i===term?originalPrincipal:0;
       totalDue=r2(intDue+princDue);
-    } else {
-      // Standard flat: equal instalments
-      const totalRepayable=r2(l.principal+l.interest);
-      totalDue=r2(totalRepayable/l.term);
-      intDue=r2(l.principal*l.rate);
-      princDue=r2(totalDue-intDue);
+    }else{
+      totalDue=r2(totalRepayable/Math.max(term,1));
+      intDue=r2(monthlyInterest);
+      princDue=r2(Math.max(0,totalDue-intDue));
     }
-    runPrincipal=Math.max(0,r2(runPrincipal-princDue));
 
-    // Determine status
-    const today=getHarareNow();
-    const due=new Date(dueDateStr);
-    let rowStatus,statusColor;
-    if(due<today){
-      // Past due — check against payments
-      const paid=D.payments.filter(p=>p.lid===lid).reduce((s,p)=>s+p.amt,0);
-      const cumDueToDate=rows.reduce((s,r)=>s+r.totalDue,0)+totalDue;
-      if(l.cumColl>=cumDueToDate){rowStatus='Paid';statusColor='var(--g)';}
-      else if(l.dpd>0){rowStatus='Overdue';statusColor='var(--r)';}
-      else{rowStatus='Paid';statusColor='var(--g)';}
-    } else {
-      rowStatus='Upcoming';statusColor='var(--muted)';
+    cumulativeDue=r2(cumulativeDue+totalDue);
+    const paidByDue=r2(payments.filter(p=>parseISODateLocal(p.date)<=dueDate).reduce((s,p)=>s+getPaymentAmount(p),0));
+    const paidNow=paidTotal;
+
+    let rowStatus='Upcoming',statusColor='var(--muted)';
+    if(dueDate<=today){
+      dueCount++;
+      if(paidByDue+0.005>=cumulativeDue){
+        rowStatus='Paid on time';
+        statusColor='var(--g)';
+        timelyCount++;
+      }else if(paidNow+0.005>=cumulativeDue){
+        rowStatus='Paid late';
+        statusColor='var(--a)';
+        lateCount++;
+      }else{
+        rowStatus='Overdue';
+        statusColor='var(--r)';
+        overdueCount++;
+      }
     }
-    rows.push({i,dueDateStr,princDue,intDue,totalDue,runPrincipal,rowStatus,statusColor});
+
+    rows.push({i,dueDateStr,princDue,intDue,totalDue,cumulativeDue,paidByDue,rowStatus,statusColor});
   }
 
-  const totalRepayable=rows.reduce((s,r)=>s+r.totalDue,0);
-  const remaining=r2(totalRepayable-l.cumColl);
-  $('sch-total').textContent=fmt(totalRepayable);
-  $('sch-paid').textContent=fmt(l.cumColl);
-  $('sch-rem').textContent=fmt(Math.max(0,remaining));
+  const timelyRate = dueCount>0 ? r2((timelyCount/dueCount)*100) : 100;
 
-  info.innerHTML=`<div class="card" style="padding:11px 13px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
-      <div><span style="color:var(--muted)">Loan type:</span> <strong>${rtl(l)}</strong></div>
-      <div><span style="color:var(--muted)">Rate:</span> <strong>${Math.round(l.rate*100)}%/mo flat</strong></div>
-      <div><span style="color:var(--muted)">Disbursed:</span> <strong>${l.date}</strong></div>
-      <div><span style="color:var(--muted)">Matures:</span> <strong>${rows[rows.length-1]?.dueDateStr||'—'}</strong></div>
+  if($('sch-total'))$('sch-total').textContent=fmt(totalRepayable);
+  if($('sch-paid'))$('sch-paid').textContent=fmt(paidTotal);
+  if($('sch-rem'))$('sch-rem').textContent=fmt(remainingTotal);
+
+  if(info)info.innerHTML=`
+    <div class="kg" style="margin-bottom:11px">
+      <div class="kc"><div class="kl">Timely repayment rate</div><div class="kv" style="color:${timelyRate>=90?'var(--g)':timelyRate>=60?'var(--a)':'var(--r)'}">${fmtp(timelyRate)}</div><div class="ks">${timelyCount}/${dueCount} due instalments paid on time</div></div>
+      <div class="kc"><div class="kl">Paid late</div><div class="kv" style="color:var(--a)">${lateCount}</div><div class="ks">Settled after due date</div></div>
+      <div class="kc"><div class="kl">Overdue instalments</div><div class="kv" style="color:var(--r)">${overdueCount}</div><div class="ks">Still not fully covered</div></div>
+      <div class="kc"><div class="kl">Total paid</div><div class="kv" style="color:var(--g)">${fmt(paidTotal)}</div><div class="ks">Against ${fmt(totalRepayable)}</div></div>
     </div>
-  </div>`;
+    <div class="info-box">
+      Timely repayment rate = instalments fully covered on or before due date ÷ instalments due to date.
+      Payments are assessed cumulatively, so early or advance payments correctly cover future instalments.
+    </div>
+  `;
 
-  $('sch-rows').innerHTML=rows.map(r=>`
-    <div class="mr" style="grid-template-columns:30px 1fr 1fr 1fr 1fr 1fr;background:${r.rowStatus==='Overdue'?'var(--rb)':r.rowStatus==='Paid'?'rgba(3,152,85,.04)':'inherit'}">
-      <div style="color:var(--muted);font-weight:600">${r.i}</div>
-      <div style="font-size:11px">${r.dueDateStr}</div>
+  if($('sch-rows'))$('sch-rows').innerHTML=rows.map(r=>`
+    <div class="mr" style="grid-template-columns:30px 1fr 1fr 1fr 1fr 1fr">
+      <div>${r.i}</div>
+      <div>${r.dueDateStr}</div>
       <div>${fmt(r.princDue)}</div>
-      <div style="color:var(--a)">${fmt(r.intDue)}</div>
-      <div style="font-weight:600">${fmt(r.totalDue)}</div>
-      <div><span style="font-size:11px;font-weight:600;color:${r.statusColor}">${r.rowStatus}</span></div>
-    </div>`).join('');
+      <div>${fmt(r.intDue)}</div>
+      <div>${fmt(r.totalDue)}</div>
+      <div style="font-weight:700;color:${r.statusColor}">${r.rowStatus}</div>
+    </div>
+  `).join('');
 }
 
 /* ══════════════════════════════════════
@@ -3039,6 +3222,7 @@ function applyState(saved){
   D.monthly=normalizeMonthly(saved.monthly);
   D.expenses=Array.isArray(saved.expenses)?saved.expenses:[];
   D.cashAtHand=typeof saved.cashAtHand==='number'?saved.cashAtHand:(parseFloat(saved.cashAtHand)||0);
+  recalcAllLiveBalances();
   return true;
 }
 function backupLocal(){
@@ -3127,6 +3311,7 @@ function resetData(){
   alert('Reset has been disabled in the live cloud version to prevent accidental loss of shared data.');
 }
 function refreshAllViews(){
+  recalcAllLiveBalances();
   if($('cah-input')) $('cah-input').value=D.cashAtHand||0;
   popPaySelects();
   popColLoanSelect();
