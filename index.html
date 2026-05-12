@@ -5,16 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <title>BenJaMin Finance</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
-document.addEventListener('click', function(e){
-  const target=e.target.closest('[data-pg="position"]');
-  if(target){
-    setTimeout(forceRenderPosition,120);
-    setTimeout(forceRenderPosition,600);
-  }
-});
-
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -196,25 +187,9 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 .empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
 .info-box{background:var(--bb);border-radius:var(--rads);padding:10px 12px;font-size:12px;color:var(--bt);line-height:1.5;margin-bottom:11px;border-left:3px solid var(--b)}
 .warn-box{background:var(--ab);border-radius:var(--rads);padding:10px 12px;font-size:12px;color:var(--at);line-height:1.5;margin-bottom:11px;border-left:3px solid var(--a)}
-
-/* ── AUTH / ROLE ACCESS ── */
-.auth-screen{position:fixed;inset:0;background:linear-gradient(135deg,#0E9F6E,#064E3B);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px}
-.auth-card{width:100%;max-width:420px;background:#fff;border-radius:18px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-.auth-title{font-size:22px;font-weight:800;margin-bottom:4px;color:#101828}
-.auth-sub{font-size:13px;color:#667085;margin-bottom:16px;line-height:1.5}
-.auth-card input{width:100%;padding:12px;border:1.5px solid #CDD1DA;border-radius:10px;margin-bottom:10px;font-size:14px}
-.auth-card button{width:100%;padding:12px;border:none;border-radius:10px;background:#039855;color:#fff;font-weight:700;cursor:pointer}
-.auth-error{color:#B42318;background:#FEF3F2;border-radius:8px;padding:8px 10px;font-size:12px;margin-top:10px;display:none}
-.role-pill{font-size:10px;color:#027A48;background:#ECFDF3;padding:3px 8px;border-radius:20px;font-weight:700}
-.role-note{font-size:11px;color:#B54708;background:#FFFAEB;border-left:3px solid #DC6803;border-radius:8px;padding:8px 10px;margin-bottom:10px;display:none}
-
 </style>
 </head>
 <body>
-
-
-</div>
-
 
 <!-- HEADER -->
 <div class="hdr">
@@ -252,7 +227,6 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 </div>
 
 <div class="content">
-<div id="role-note" class="role-note"></div>
 
 <!-- ══ OVERVIEW ══ -->
 <div class="page on" id="pg-overview">
@@ -1134,165 +1108,89 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function
   navTo(this.dataset.pg);
 }));
 
-function getLoanTotalDue(l){
-  return r2((+l.disbursed||0)+(+l.interest||0));
-}
-function getLoanTotalPaid(lid){
+function getLoanPaidTotal(lid){
   return r2((D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+getPaymentAmount(p),0));
 }
-function getLoanObligationStatus(l){
-  const totalDue=getLoanTotalDue(l);
-  const paid=getLoanTotalPaid(l.lid);
-  const over=Math.max(0,paid-totalDue);
-  const remaining=Math.max(0,totalDue-paid);
-  const met=remaining<=0.005;
-  return {totalDue:r2(totalDue),paid:r2(paid),remaining:r2(remaining),over:r2(over),met};
+function getLoanDueTotal(l){
+  return r2((+l.disbursed||0)+(+l.interest||0));
 }
-function getFutureInterestReceivable(l){
-  const status=getLoanObligationStatus(l);
-  if(status.met)return 0;
+function getLoanPositionStatus(l){
+  const totalDue=getLoanDueTotal(l);
+  const paid=getLoanPaidTotal(l.lid);
+  const remaining=r2(Math.max(0,totalDue-paid));
+  const over=r2(Math.max(0,paid-totalDue));
+  return {totalDue,paid,remaining,over,met:remaining<=0.005};
+}
+function getRemainingInterest(l){
   const totalInterest=+l.interest||0;
-  const paidInterest=(D.payments||[]).filter(p=>p.lid===l.lid).reduce((s,p)=>s+(+p.intPaid||0),0);
-  if(paidInterest>0)return r2(Math.max(0,totalInterest-paidInterest));
-  const paid=getLoanTotalPaid(l.lid);
+  const paidInt=(D.payments||[]).filter(p=>p.lid===l.lid).reduce((s,p)=>s+(+p.intPaid||0),0);
+  if(paidInt>0) return r2(Math.max(0,totalInterest-paidInt));
+  const paid=getLoanPaidTotal(l.lid);
   return r2(Math.max(0,totalInterest-Math.min(paid,totalInterest)));
 }
 function renderPosition(){
   const loans=D.loans||[];
-  const principal=r2(loans.reduce((s,l)=>s+(+l.book||+l.principal||0),0));
-  const interest=r2(loans.reduce((s,l)=>s+getFutureInterestReceivable(l),0));
+  const principal=r2(loans.reduce((s,l)=>s+(+l.book||+l.principal||+l.disbursed||0),0));
+  const interest=r2(loans.reduce((s,l)=>s+getRemainingInterest(l),0));
   const cash=r2(+D.cashAtHand||0);
   const total=r2(principal+interest+cash);
-  const statuses=loans.map(l=>Object.assign({loan:l},getLoanObligationStatus(l)));
-  const met=statuses.filter(x=>x.met).length;
-  const overLoans=statuses.filter(x=>x.over>0);
-  const overTotal=r2(overLoans.reduce((s,x)=>s+x.over,0));
-
+  const rows=loans.map(l=>Object.assign({loan:l},getLoanPositionStatus(l)));
+  const met=rows.filter(x=>x.met).length;
+  const overRows=rows.filter(x=>x.over>0);
+  const overTotal=r2(overRows.reduce((s,x)=>s+x.over,0));
   if($('pos-principal'))$('pos-principal').textContent=fmt(principal);
   if($('pos-interest'))$('pos-interest').textContent=fmt(interest);
   if($('pos-cash'))$('pos-cash').textContent=fmt(cash);
   if($('pos-total'))$('pos-total').textContent=fmt(total);
   if($('pos-met'))$('pos-met').textContent=String(met);
   if($('pos-over'))$('pos-over').textContent=fmt(overTotal);
-  if($('pos-over-n'))$('pos-over-n').textContent=`${overLoans.length} loans`;
-
+  if($('pos-over-n'))$('pos-over-n').textContent=overRows.length+' loans';
   if($('pos-summary'))$('pos-summary').innerHTML=`
     <div class="rr"><span class="rr-lbl">Current principal value</span><span class="rr-val">${fmt(principal)}</span></div>
     <div class="rr"><span class="rr-lbl">Total interest to be received</span><span class="rr-val">${fmt(interest)}</span></div>
     <div class="rr"><span class="rr-lbl">Total cash position</span><span class="rr-val">${fmt(cash)}</span></div>
-    <div class="rr total"><span>Total position</span><span>${fmt(total)}</span></div>
-  `;
-
-  if($('pos-loans'))$('pos-loans').innerHTML=statuses.map(x=>{
+    <div class="rr total"><span>Total position</span><span>${fmt(total)}</span></div>`;
+  if($('pos-loans'))$('pos-loans').innerHTML=rows.map(x=>{
     const label=x.over>0?'Overpaid':(x.met?'Obligations met':'Outstanding');
-    const cls=x.over>0?'b-a':(x.met?'b-g':'b-r');
+    const badge=x.over>0?'b-a':(x.met?'b-g':'b-r');
     return `<div class="lc ${x.met?'cur':'p1'}">
-      <div class="lh"><div><div class="ln">${x.loan.name}</div><div class="li">${x.loan.lid} · Total due ${fmt(x.totalDue)}</div></div><span class="bdg ${cls}">${label}</span></div>
+      <div class="lh"><div><div class="ln">${x.loan.name}</div><div class="li">${x.loan.lid} · Total due ${fmt(x.totalDue)}</div></div><span class="bdg ${badge}">${label}</span></div>
       <div class="lg">
         <div class="ls"><div class="lsl">Paid</div><div class="lsv">${fmt(x.paid)}</div></div>
         <div class="ls"><div class="lsl">Remaining</div><div class="lsv" style="color:${x.remaining>0?'var(--r)':'var(--g)'}">${fmt(x.remaining)}</div></div>
         <div class="ls"><div class="lsl">Overpayment</div><div class="lsv" style="color:${x.over>0?'var(--a)':'var(--muted)'}">${fmt(x.over)}</div></div>
       </div>
     </div>`;
-  }).join('')||'<div class="empty">No loans loaded.</div>';
+  }).join('')||'<div class="empty">No loan data loaded.</div>';
 }
 function buildDueItemsForRange(fromISO,toISO){
   if(!fromISO||!toISO)return [];
-  const from=parseISODateLocal(fromISO),to=parseISODateLocal(toISO),items=[];
+  const from=parseISODateLocal(fromISO), to=parseISODateLocal(toISO);
+  const items=[];
   (D.loans||[]).forEach(l=>{
     const disb=parseISODateLocal(l.date);
     const term=+l.term||0;
     const monthlyTotal=(+l.rt===1)?loanMonthlyInterest(l):r2(((+l.disbursed||0)+(+l.interest||0))/Math.max(term,1));
     for(let i=1;i<=term;i++){
       const due=addMonthsLocal(disb,i);
-      if(due>=from&&due<=to)items.push({loan:l,due,amount:monthlyTotal,iso:toISODateLocal(due)});
+      if(due>=from&&due<=to)items.push({loan:l,iso:toISODateLocal(due),amount:monthlyTotal});
     }
   });
   return items.sort((a,b)=>a.iso.localeCompare(b.iso)||a.loan.name.localeCompare(b.loan.name));
 }
 function renderDueRange(){
-  const from=$('due-from')?.value,to=$('due-to')?.value,box=$('due-range-list');
-  if(!box)return;
+  const box=$('due-range-list'); if(!box)return;
+  const from=$('due-from')?.value, to=$('due-to')?.value;
   if(!from||!to){box.innerHTML='<div class="empty">Select a start and end date.</div>';return;}
   const items=buildDueItemsForRange(from,to);
   const total=r2(items.reduce((s,x)=>s+x.amount,0));
-  box.innerHTML=`<div class="rr total"><span>Total due in range</span><span>${fmt(total)}</span></div>
-  ${items.map(x=>`<div class="ai">
-    <div style="font-size:18px">📅</div>
-    <div style="flex:1"><div style="font-weight:700">${x.loan.name}</div><div style="font-size:12px;color:var(--muted)">${x.loan.lid} · Due ${x.iso}</div></div>
-    <div style="font-weight:700">${fmt(x.amount)}</div>
-  </div>`).join('')||'<div class="empty">No payments due in selected range.</div>'}`;
-}
-
-
-function getAnyPaymentAmount(p){
-  return +(p?.amt ?? p?.amount ?? 0);
-}
-function safeLoanTotalDue(l){
-  return r2((+l.disbursed||0)+(+l.interest||0));
-}
-function safeLoanTotalPaid(lid){
-  return r2((D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+getAnyPaymentAmount(p),0));
-}
-function safeObligationStatus(l){
-  const totalDue=safeLoanTotalDue(l);
-  const paid=safeLoanTotalPaid(l.lid);
-  const over=r2(Math.max(0,paid-totalDue));
-  const remaining=r2(Math.max(0,totalDue-paid));
-  return {totalDue,paid,over,remaining,met:remaining<=0.005};
-}
-function forceRenderPosition(){
-  const loans=(D&&Array.isArray(D.loans))?D.loans:[];
-  const payments=(D&&Array.isArray(D.payments))?D.payments:[];
-  const principal=r2(loans.reduce((s,l)=>s+(+l.book||+l.principal||+l.disbursed||0),0));
-  const interest=r2(loans.reduce((s,l)=>{
-    const totalInterest=+l.interest||0;
-    const paidInterest=payments.filter(p=>p.lid===l.lid).reduce((a,p)=>a+(+p.intPaid||0),0);
-    const paidTotal=safeLoanTotalPaid(l.lid);
-    const estimatedInterestPaid=paidInterest>0?paidInterest:Math.min(paidTotal,totalInterest);
-    return s+Math.max(0,totalInterest-estimatedInterestPaid);
-  },0));
-  const cash=r2(+D.cashAtHand||0);
-  const total=r2(principal+interest+cash);
-  const statuses=loans.map(l=>({loan:l,...safeObligationStatus(l)}));
-  const met=statuses.filter(x=>x.met).length;
-  const overLoans=statuses.filter(x=>x.over>0);
-  const overTotal=r2(overLoans.reduce((s,x)=>s+x.over,0));
-
-  if($('pos-principal'))$('pos-principal').textContent=fmt(principal);
-  if($('pos-interest'))$('pos-interest').textContent=fmt(interest);
-  if($('pos-cash'))$('pos-cash').textContent=fmt(cash);
-  if($('pos-total'))$('pos-total').textContent=fmt(total);
-  if($('pos-met'))$('pos-met').textContent=String(met);
-  if($('pos-over'))$('pos-over').textContent=fmt(overTotal);
-  if($('pos-over-n'))$('pos-over-n').textContent=`${overLoans.length} loans`;
-
-  if($('pos-summary'))$('pos-summary').innerHTML=`
-    <div class="rr"><span class="rr-lbl">Current principal value</span><span class="rr-val">${fmt(principal)}</span></div>
-    <div class="rr"><span class="rr-lbl">Total interest to be received</span><span class="rr-val">${fmt(interest)}</span></div>
-    <div class="rr"><span class="rr-lbl">Total cash position</span><span class="rr-val">${fmt(cash)}</span></div>
-    <div class="rr total"><span>Total position</span><span>${fmt(total)}</span></div>
-  `;
-
-  if($('pos-loans')){
-    $('pos-loans').innerHTML=statuses.map(x=>{
-      const label=x.over>0?'Overpaid':(x.met?'Obligations met':'Outstanding');
-      const cls=x.over>0?'b-a':(x.met?'b-g':'b-r');
-      return `<div class="lc ${x.met?'cur':'p1'}">
-        <div class="lh"><div><div class="ln">${x.loan.name}</div><div class="li">${x.loan.lid} · Total due ${fmt(x.totalDue)}</div></div><span class="bdg ${cls}">${label}</span></div>
-        <div class="lg">
-          <div class="ls"><div class="lsl">Paid</div><div class="lsv">${fmt(x.paid)}</div></div>
-          <div class="ls"><div class="lsl">Remaining</div><div class="lsv" style="color:${x.remaining>0?'var(--r)':'var(--g)'}">${fmt(x.remaining)}</div></div>
-          <div class="ls"><div class="lsl">Overpayment</div><div class="lsv" style="color:${x.over>0?'var(--a)':'var(--muted)'}">${fmt(x.over)}</div></div>
-        </div>
-      </div>`;
-    }).join('') || `<div class="empty">No loan data loaded. If other tabs have data, refresh once after sync.</div>`;
-  }
+  box.innerHTML=`<div class="rr total"><span>Total due in range</span><span>${fmt(total)}</span></div>`+
+    (items.map(x=>`<div class="ai"><div style="font-size:18px">📅</div><div style="flex:1"><div style="font-weight:700">${x.loan.name}</div><div style="font-size:12px;color:var(--muted)">${x.loan.lid} · Due ${x.iso}</div></div><div style="font-weight:700">${fmt(x.amount)}</div></div>`).join('')||'<div class="empty">No payments due in selected range.</div>');
 }
 
 function renderPage(pg){
   ({overview:renderOverview,monthly:renderMonthly,interestonly:renderInterestOnly,profit:renderProfit,
-    payments:renderPayments,cashhand:renderCash,
+    payments:renderPayments,cashhand:renderCash,position:renderPosition,
     collections:renderCollections,disbursements:renderDisbursements,
     analytics:renderAnalytics,schedule:renderSchedule,
     today:renderToday,tools:renderTools,export:renderExport,
@@ -1649,7 +1547,6 @@ function renderPayments(){
   }).join(''):`<div class="empty">No payments yet.</div>`;
 }
 function addPayment(){
-  if(!guardEdit('payment'))return;
   const lid=$('pay-lid').value,amt=parseFloat($('pay-amt').value),date=$('pay-date').value;
   const notes=$('pay-notes').value,type=$('pay-type').value,msg=$('pay-msg');
   if(!lid){msg.innerHTML='<div class="msg-err">Select a loan.</div>';return;}
@@ -1820,7 +1717,6 @@ function renderProfit(){
 }
 
 function addExpense(){
-  if(!guardEdit('expense'))return;
   const date=$('exp-date').value,amt=parseFloat($('exp-amt').value);
   const cat=$('exp-cat').value,desc=$('exp-desc').value.trim();
   const msg=$('exp-msg');
@@ -2220,12 +2116,10 @@ function renderLb(){
 function lbc(i,f,v){D.loans[i][f]=v;}
 function delLoan(i){if(confirm('Delete '+D.loans[i].name+'?')){D.loans.splice(i,1);save();renderLb();}}
 function addLbRow(){
-  if(!guardEdit('loan'))return;
   D.loans.push({lid:'LN-'+(D.loans.length+1).toString().padStart(3,'0'),name:'New client',phone:'',date:todayISOHarare(),term:6,rate:0.10,rt:0,principal:0,interest:0,disbursed:0,notes:'',arrears:0,dpd:0,par1:0,par30:0,book:0,cumDue:0,cumColl:0,intExp:0,rank:D.loans.length+1,up7:false,upAmt:0,status:'Current'});
   renderLb();
 }
-function saveLb(){
-  if(!guardEdit('loan'))return;D.loans.forEach(l=>{l.book=l.principal;l.intExp=r2(l.principal*l.rate);});save();$('lb-msg').innerHTML='<div class="msg-ok">Saved.</div>';setTimeout(()=>$('lb-msg').innerHTML='',2000);}
+function saveLb(){D.loans.forEach(l=>{l.book=l.principal;l.intExp=r2(l.principal*l.rate);});save();$('lb-msg').innerHTML='<div class="msg-ok">Saved.</div>';setTimeout(()=>$('lb-msg').innerHTML='',2000);}
 
 /* ══════════════════════════════════════
    CLIENTS
@@ -2434,7 +2328,6 @@ function calcPrev(){
   $('pr-note').textContent=acRT===1?`Monthly: ${fmt(inst)} interest. Final month: ${fmt(r2(inst+amt))} (interest + full principal).`:`${term} equal payments of ${fmt(inst)} @ ${Math.round(rate*100)}% flat/mo.`;
 }
 function addClient(){
-  if(!guardEdit('loan'))return;
   const lid=$('ac-lid').value.trim(),name=$('ac-name').value.trim(),phone=$('ac-phone').value.trim();
   const amt=parseFloat($('ac-amt').value),term=parseInt($('ac-term').value),date=$('ac-date').value,notes=$('ac-notes').value;
   const msg=$('ac-msg');
@@ -3110,69 +3003,6 @@ const APP_STATE_ID='00000000-0000-0000-0000-000000000001';
 const CLIENT_ID='client-'+Math.random().toString(36).slice(2,10);
 let sb=null, saveTimer=null, syncing=false, realtimeReady=false;
 
-let CURRENT_USER=null, CURRENT_ROLE='viewer', CURRENT_EMAIL='';
-const ROLE_RULES={
-  superuser:{label:'Superuser',canView:true,canEdit:true,canLoans:true,canPayments:true,canExpenses:true,canDelete:true,canExport:true},
-  admin:{label:'Admin',canView:true,canEdit:true,canLoans:true,canPayments:true,canExpenses:true,canDelete:true,canExport:true},
-  manager:{label:'Manager',canView:true,canEdit:true,canLoans:true,canPayments:true,canExpenses:true,canDelete:false,canExport:true},
-  collector:{label:'Collector',canView:true,canEdit:true,canLoans:false,canPayments:true,canExpenses:false,canDelete:false,canExport:false},
-  viewer:{label:'Viewer',canView:true,canEdit:false,canLoans:false,canPayments:false,canExpenses:false,canDelete:false,canExport:true}
-};
-function roleRules(){return ROLE_RULES[CURRENT_ROLE]||ROLE_RULES.viewer}
-function canEdit(){return !!roleRules().canEdit}
-function canManageLoans(){return !!roleRules().canLoans}
-function canManagePayments(){return !!roleRules().canPayments}
-function canManageExpenses(){return !!roleRules().canExpenses}
-function canDelete(){return !!roleRules().canDelete}
-function showAuthError(msg){const el=$('auth-error'); if(el){el.textContent=msg; el.style.display='block';}}
-async function loginUser(){
-  const client=getSb();
-  const email=($('auth-email')?.value||'').trim();
-  const password=$('auth-password')?.value||'';
-  if(!email||!password){showAuthError('Enter email and password.');return;}
-  const {data,error}=await client.auth.signInWithPassword({email,password});
-  if(error){showAuthError(error.message);return;}
-  await loadUserRole(data.user);
-  $('auth-screen').style.display='none';
-  await initAppAfterAuth();
-}
-async function logoutUser(){const client=getSb(); await client.auth.signOut(); location.reload();}
-async function loadUserRole(user){
-  CURRENT_USER=user||null; CURRENT_EMAIL=user?.email||''; CURRENT_ROLE='viewer';
-  if(!user)return;
-  const client=getSb();
-  const {data,error}=await client.from('app_user_roles').select('role,active,email').eq('user_id',user.id).maybeSingle();
-  if(error) console.warn('Role lookup failed:',error);
-  if(data && data.active!==false) CURRENT_ROLE=(data.role||'viewer').toLowerCase();
-  if(!ROLE_RULES[CURRENT_ROLE]) CURRENT_ROLE='viewer';
-  const pill=$('user-role-pill'); if(pill){pill.style.display='inline-block';pill.textContent=(ROLE_RULES[CURRENT_ROLE]?.label||'Viewer');}
-  applyRoleUI();
-}
-function applyRoleUI(){
-  const r=roleRules();
-  const note=$('role-note');
-  if(note){note.style.display='block'; note.textContent=CURRENT_ROLE==='superuser'?'Superuser access: full system rights enabled.':`Logged in as ${r.label}. Access rights are limited by role.`;}
-  document.querySelectorAll('[data-pg="addclient"], [data-pg="loanbook"]').forEach(el=>{ if(!r.canLoans) el.style.display='none'; });
-  document.querySelectorAll('button').forEach(btn=>{
-    const oc=(btn.getAttribute('onclick')||'').toLowerCase();
-    if(!r.canLoans && (oc.includes('addclient')||oc.includes('savelb')||oc.includes('addlbrow'))) btn.style.display='none';
-    if(!r.canPayments && (oc.includes('addpayment')||oc.includes('editpayment')||oc.includes('deletepayment'))) btn.style.display='none';
-    if(!r.canExpenses && oc.includes('addexpense')) btn.style.display='none';
-    if(!r.canDelete && oc.includes('delete')) btn.style.display='none';
-  });
-}
-function guardEdit(action='edit'){
-  if(CURRENT_ROLE==='superuser')return true;
-  if(action==='loan'&&!canManageLoans()){alert('You do not have rights to add or edit loans.');return false;}
-  if(action==='payment'&&!canManagePayments()){alert('You do not have rights to record payments.');return false;}
-  if(action==='expense'&&!canManageExpenses()){alert('You do not have rights to add expenses.');return false;}
-  if(action==='delete'&&!canDelete()){alert('You do not have delete rights.');return false;}
-  if(!canEdit()){alert('View-only access. You cannot make changes.');return false;}
-  return true;
-}
-async function requireAuth(){ CURRENT_ROLE='superuser'; return true; }
-
-
 function snapshotState(){
   return {
     loans:D.loans,
@@ -3242,7 +3072,6 @@ function showSaveStatus(text='✓ Saved', color='var(--g)'){
   showSaveStatus._t=setTimeout(()=>el.style.opacity='0',2200);
 }
 async function pushCloud(forceText='☁ Synced'){
-  if(!canEdit()){backupLocal();showSaveStatus('View only — not saved','var(--a)');return;}
   const client=getSb();
   if(!client||syncing)return;
   syncing=true;
@@ -3251,7 +3080,7 @@ async function pushCloud(forceText='☁ Synced'){
     const {error}=await client.from('mf_state').upsert({
       id:APP_STATE_ID,
       data: payload,
-      updated_at:new Date().toISOString(), updated_by:CURRENT_EMAIL||CURRENT_ROLE
+      updated_at:new Date().toISOString()
     });
     if(error) throw error;
     backupLocal();
@@ -3305,6 +3134,7 @@ function refreshAllViews(){
   buildStatement?.();
   buildReminder?.();
   renderPage((document.querySelector('.page.on')||{}).id?.replace('pg-','')||'overview');
+  if($('due-from')&&$('due-to')) renderDueRange();
 }
 async function setupRealtime(){
   const client=getSb();
@@ -3317,9 +3147,6 @@ async function setupRealtime(){
       applyState(row.data);
       backupLocal();
       refreshAllViews();
-  setTimeout(forceRenderPosition,300);
-        if($('due-from')&&$('due-to')) renderDueRange();
-  if($('pos-principal')) renderPosition();
       showSaveStatus('☁ Updated from cloud','var(--teal)');
     })
     .subscribe();
@@ -3333,7 +3160,7 @@ function showLoadedNotice(text='✓ Cloud data loaded'){
 }
 
 /* ── STARTUP ── */
-async function initAppAfterAuth(){
+async function initApp(){
   const wasLoaded=await loadSaved();
 
   $('pay-date').value=todayISOHarare();
@@ -3353,98 +3180,7 @@ async function initAppAfterAuth(){
   showLoadedNotice(wasLoaded?'✓ Shared data loaded':'✓ Cloud sync ready');
 }
 
-async function initApp(){ CURRENT_ROLE='superuser'; await initAppAfterAuth(); }
 initApp();
-
-/* ── POSITION TAB EMERGENCY RENDER FIX ── */
-(function(){
-  function money(v){
-    v = Number(v || 0);
-    return '$' + v.toLocaleString('en',{maximumFractionDigits:0});
-  }
-  function n2(v){ return Math.round(Number(v||0)*100)/100; }
-  function payAmount(p){ return Number((p && (p.amt ?? p.amount)) || 0); }
-  function loanPaid(lid){
-    try{return n2((window.D?.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+payAmount(p),0));}
-    catch(e){return 0;}
-  }
-  function loanTotalDue(l){
-    return n2(Number(l.disbursed||0)+Number(l.interest||0));
-  }
-  function renderPositionEmergency(){
-    try{
-      const D = window.D || {};
-      const loans = Array.isArray(D.loans) ? D.loans : [];
-      const payments = Array.isArray(D.payments) ? D.payments : [];
-      if(!document.getElementById('pos-principal')) return;
-
-      const principal = n2(loans.reduce((s,l)=>s+Number(l.book || l.principal || l.disbursed || 0),0));
-      const interest = n2(loans.reduce((s,l)=>{
-        const totalInt = Number(l.interest || 0);
-        const paidTotal = loanPaid(l.lid);
-        const intPaidSaved = payments.filter(p=>p.lid===l.lid).reduce((a,p)=>a+Number(p.intPaid||0),0);
-        const intPaid = intPaidSaved > 0 ? intPaidSaved : Math.min(paidTotal,totalInt);
-        return s + Math.max(0,totalInt-intPaid);
-      },0));
-      const cash = n2(Number(D.cashAtHand || 0));
-      const total = n2(principal + interest + cash);
-
-      const rows = loans.map(l=>{
-        const totalDue = loanTotalDue(l);
-        const paid = loanPaid(l.lid);
-        const remaining = n2(Math.max(0,totalDue-paid));
-        const over = n2(Math.max(0,paid-totalDue));
-        const met = remaining <= 0.005;
-        return {loan:l,totalDue,paid,remaining,over,met};
-      });
-      const overRows = rows.filter(x=>x.over>0);
-
-      document.getElementById('pos-principal').textContent = money(principal);
-      document.getElementById('pos-interest').textContent = money(interest);
-      document.getElementById('pos-cash').textContent = money(cash);
-      document.getElementById('pos-total').textContent = money(total);
-      document.getElementById('pos-met').textContent = String(rows.filter(x=>x.met).length);
-      document.getElementById('pos-over').textContent = money(overRows.reduce((s,x)=>s+x.over,0));
-      const overN=document.getElementById('pos-over-n'); if(overN) overN.textContent = overRows.length + ' loans';
-
-      const summary=document.getElementById('pos-summary');
-      if(summary) summary.innerHTML =
-        '<div class="rr"><span class="rr-lbl">Current principal value</span><span class="rr-val">'+money(principal)+'</span></div>'+
-        '<div class="rr"><span class="rr-lbl">Total interest to be received</span><span class="rr-val">'+money(interest)+'</span></div>'+
-        '<div class="rr"><span class="rr-lbl">Total cash position</span><span class="rr-val">'+money(cash)+'</span></div>'+
-        '<div class="rr total"><span>Total position</span><span>'+money(total)+'</span></div>';
-
-      const list=document.getElementById('pos-loans');
-      if(list) list.innerHTML = rows.map(x=>{
-        const label = x.over>0 ? 'Overpaid' : (x.met ? 'Obligations met' : 'Outstanding');
-        const badge = x.over>0 ? 'b-a' : (x.met ? 'b-g' : 'b-r');
-        return '<div class="lc '+(x.met?'cur':'p1')+'">'+
-          '<div class="lh"><div><div class="ln">'+(x.loan.name||'Unnamed')+'</div><div class="li">'+(x.loan.lid||'')+' · Total due '+money(x.totalDue)+'</div></div><span class="bdg '+badge+'">'+label+'</span></div>'+
-          '<div class="lg">'+
-            '<div class="ls"><div class="lsl">Paid</div><div class="lsv">'+money(x.paid)+'</div></div>'+
-            '<div class="ls"><div class="lsl">Remaining</div><div class="lsv" style="color:'+(x.remaining>0?'var(--r)':'var(--g)')+'">'+money(x.remaining)+'</div></div>'+
-            '<div class="ls"><div class="lsl">Overpayment</div><div class="lsv" style="color:'+(x.over>0?'var(--a)':'var(--muted)')+'">'+money(x.over)+'</div></div>'+
-          '</div></div>';
-      }).join('') || '<div class="empty">No loan data loaded yet. Refresh once after sync.</div>';
-    }catch(e){
-      console.warn('Position emergency render failed',e);
-    }
-  }
-  window.renderPositionEmergency = renderPositionEmergency;
-  document.addEventListener('click',function(e){
-    if(e.target.closest && e.target.closest('[data-pg="position"]')){
-      setTimeout(renderPositionEmergency,100);
-      setTimeout(renderPositionEmergency,500);
-      setTimeout(renderPositionEmergency,1200);
-    }
-  });
-  setInterval(function(){
-    const active=document.querySelector('#pg-position.page.on');
-    if(active) renderPositionEmergency();
-  },1500);
-  setTimeout(renderPositionEmergency,1500);
-})();
-
 </script>
 </body>
 </html>
