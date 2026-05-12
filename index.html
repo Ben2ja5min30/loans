@@ -3355,6 +3355,96 @@ async function initAppAfterAuth(){
 
 async function initApp(){ CURRENT_ROLE='superuser'; await initAppAfterAuth(); }
 initApp();
+
+/* ── POSITION TAB EMERGENCY RENDER FIX ── */
+(function(){
+  function money(v){
+    v = Number(v || 0);
+    return '$' + v.toLocaleString('en',{maximumFractionDigits:0});
+  }
+  function n2(v){ return Math.round(Number(v||0)*100)/100; }
+  function payAmount(p){ return Number((p && (p.amt ?? p.amount)) || 0); }
+  function loanPaid(lid){
+    try{return n2((window.D?.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+payAmount(p),0));}
+    catch(e){return 0;}
+  }
+  function loanTotalDue(l){
+    return n2(Number(l.disbursed||0)+Number(l.interest||0));
+  }
+  function renderPositionEmergency(){
+    try{
+      const D = window.D || {};
+      const loans = Array.isArray(D.loans) ? D.loans : [];
+      const payments = Array.isArray(D.payments) ? D.payments : [];
+      if(!document.getElementById('pos-principal')) return;
+
+      const principal = n2(loans.reduce((s,l)=>s+Number(l.book || l.principal || l.disbursed || 0),0));
+      const interest = n2(loans.reduce((s,l)=>{
+        const totalInt = Number(l.interest || 0);
+        const paidTotal = loanPaid(l.lid);
+        const intPaidSaved = payments.filter(p=>p.lid===l.lid).reduce((a,p)=>a+Number(p.intPaid||0),0);
+        const intPaid = intPaidSaved > 0 ? intPaidSaved : Math.min(paidTotal,totalInt);
+        return s + Math.max(0,totalInt-intPaid);
+      },0));
+      const cash = n2(Number(D.cashAtHand || 0));
+      const total = n2(principal + interest + cash);
+
+      const rows = loans.map(l=>{
+        const totalDue = loanTotalDue(l);
+        const paid = loanPaid(l.lid);
+        const remaining = n2(Math.max(0,totalDue-paid));
+        const over = n2(Math.max(0,paid-totalDue));
+        const met = remaining <= 0.005;
+        return {loan:l,totalDue,paid,remaining,over,met};
+      });
+      const overRows = rows.filter(x=>x.over>0);
+
+      document.getElementById('pos-principal').textContent = money(principal);
+      document.getElementById('pos-interest').textContent = money(interest);
+      document.getElementById('pos-cash').textContent = money(cash);
+      document.getElementById('pos-total').textContent = money(total);
+      document.getElementById('pos-met').textContent = String(rows.filter(x=>x.met).length);
+      document.getElementById('pos-over').textContent = money(overRows.reduce((s,x)=>s+x.over,0));
+      const overN=document.getElementById('pos-over-n'); if(overN) overN.textContent = overRows.length + ' loans';
+
+      const summary=document.getElementById('pos-summary');
+      if(summary) summary.innerHTML =
+        '<div class="rr"><span class="rr-lbl">Current principal value</span><span class="rr-val">'+money(principal)+'</span></div>'+
+        '<div class="rr"><span class="rr-lbl">Total interest to be received</span><span class="rr-val">'+money(interest)+'</span></div>'+
+        '<div class="rr"><span class="rr-lbl">Total cash position</span><span class="rr-val">'+money(cash)+'</span></div>'+
+        '<div class="rr total"><span>Total position</span><span>'+money(total)+'</span></div>';
+
+      const list=document.getElementById('pos-loans');
+      if(list) list.innerHTML = rows.map(x=>{
+        const label = x.over>0 ? 'Overpaid' : (x.met ? 'Obligations met' : 'Outstanding');
+        const badge = x.over>0 ? 'b-a' : (x.met ? 'b-g' : 'b-r');
+        return '<div class="lc '+(x.met?'cur':'p1')+'">'+
+          '<div class="lh"><div><div class="ln">'+(x.loan.name||'Unnamed')+'</div><div class="li">'+(x.loan.lid||'')+' · Total due '+money(x.totalDue)+'</div></div><span class="bdg '+badge+'">'+label+'</span></div>'+
+          '<div class="lg">'+
+            '<div class="ls"><div class="lsl">Paid</div><div class="lsv">'+money(x.paid)+'</div></div>'+
+            '<div class="ls"><div class="lsl">Remaining</div><div class="lsv" style="color:'+(x.remaining>0?'var(--r)':'var(--g)')+'">'+money(x.remaining)+'</div></div>'+
+            '<div class="ls"><div class="lsl">Overpayment</div><div class="lsv" style="color:'+(x.over>0?'var(--a)':'var(--muted)')+'">'+money(x.over)+'</div></div>'+
+          '</div></div>';
+      }).join('') || '<div class="empty">No loan data loaded yet. Refresh once after sync.</div>';
+    }catch(e){
+      console.warn('Position emergency render failed',e);
+    }
+  }
+  window.renderPositionEmergency = renderPositionEmergency;
+  document.addEventListener('click',function(e){
+    if(e.target.closest && e.target.closest('[data-pg="position"]')){
+      setTimeout(renderPositionEmergency,100);
+      setTimeout(renderPositionEmergency,500);
+      setTimeout(renderPositionEmergency,1200);
+    }
+  });
+  setInterval(function(){
+    const active=document.querySelector('#pg-position.page.on');
+    if(active) renderPositionEmergency();
+  },1500);
+  setTimeout(renderPositionEmergency,1500);
+})();
+
 </script>
 </body>
 </html>
