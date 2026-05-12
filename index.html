@@ -187,9 +187,25 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 .empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
 .info-box{background:var(--bb);border-radius:var(--rads);padding:10px 12px;font-size:12px;color:var(--bt);line-height:1.5;margin-bottom:11px;border-left:3px solid var(--b)}
 .warn-box{background:var(--ab);border-radius:var(--rads);padding:10px 12px;font-size:12px;color:var(--at);line-height:1.5;margin-bottom:11px;border-left:3px solid var(--a)}
+
+/* ── AUTH / ROLE ACCESS ── */
+.auth-screen{position:fixed;inset:0;background:linear-gradient(135deg,#0E9F6E,#064E3B);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px}
+.auth-card{width:100%;max-width:420px;background:#fff;border-radius:18px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.auth-title{font-size:22px;font-weight:800;margin-bottom:4px;color:#101828}
+.auth-sub{font-size:13px;color:#667085;margin-bottom:16px;line-height:1.5}
+.auth-card input{width:100%;padding:12px;border:1.5px solid #CDD1DA;border-radius:10px;margin-bottom:10px;font-size:14px}
+.auth-card button{width:100%;padding:12px;border:none;border-radius:10px;background:#039855;color:#fff;font-weight:700;cursor:pointer}
+.auth-error{color:#B42318;background:#FEF3F2;border-radius:8px;padding:8px 10px;font-size:12px;margin-top:10px;display:none}
+.role-pill{font-size:10px;color:#027A48;background:#ECFDF3;padding:3px 8px;border-radius:20px;font-weight:700}
+.role-note{font-size:11px;color:#B54708;background:#FFFAEB;border-left:3px solid #DC6803;border-radius:8px;padding:8px 10px;margin-bottom:10px;display:none}
+
 </style>
 </head>
 <body>
+
+
+</div>
+
 
 <!-- HEADER -->
 <div class="hdr">
@@ -210,6 +226,7 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
     <button class="tab"        data-pg="collections">Collections</button>
     <button class="tab blue"   data-pg="disbursements">Disbursements</button>
     <button class="tab"        data-pg="cashhand">Cash</button>
+    <button class="tab blue"   data-pg="position">Position</button>
     <button class="tab red"    data-pg="arrears">Arrears</button>
     <button class="tab amber"  data-pg="alerts">Alerts</button>
     <button class="tab blue"   data-pg="growth">Growth</button>
@@ -226,6 +243,7 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 </div>
 
 <div class="content">
+<div id="role-note" class="role-note"></div>
 
 <!-- ══ OVERVIEW ══ -->
 <div class="page on" id="pg-overview">
@@ -473,6 +491,24 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
   <div id="cah-list"></div>
 </div>
 
+
+<!-- ══ ASSET POSITION / OBLIGATIONS ══ -->
+<div class="page" id="pg-position">
+  <div class="kg">
+    <div class="kc"><div class="kl">Current principal value</div><div class="kv" style="color:var(--p)" id="pos-principal">$0</div><div class="ks">Outstanding principal/book value</div></div>
+    <div class="kc"><div class="kl">Interest to be received</div><div class="kv" style="color:var(--g)" id="pos-interest">$0</div><div class="ks">Remaining expected interest</div></div>
+    <div class="kc"><div class="kl">Total cash position</div><div class="kv" style="color:var(--b)" id="pos-cash">$0</div><div class="ks">Cash at hand</div></div>
+    <div class="kc"><div class="kl">Total position</div><div class="kv" id="pos-total">$0</div><div class="ks">Principal + interest + cash</div></div>
+  </div>
+  <div class="kg">
+    <div class="kc"><div class="kl">Obligations met</div><div class="kv" style="color:var(--g)" id="pos-met">0</div><div class="ks">Fully paid loans</div></div>
+    <div class="kc"><div class="kl">Overpayments</div><div class="kv" style="color:var(--a)" id="pos-over">$0</div><div class="ks" id="pos-over-n">0 loans</div></div>
+  </div>
+  <div class="card"><div class="ct">Portfolio position summary</div><div id="pos-summary"></div></div>
+  <div class="st">Loan obligation status</div>
+  <div id="pos-loans"></div>
+</div>
+
 <!-- ══ ARREARS ══ -->
 <div class="page" id="pg-arrears">
   <div class="kg">
@@ -490,6 +526,17 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
     <div class="kc"><div class="kl">Due 7 days</div><div class="kv" style="color:var(--a)" id="al-7d">$0</div><div class="ks" id="al-7dn">0</div></div>
     <div class="kc"><div class="kl">Overdue now</div><div class="kv" style="color:var(--r)" id="al-od">$0</div><div class="ks" id="al-odn">0</div></div>
   </div>
+
+  <div class="card">
+    <div class="ct">Payments due date range</div>
+    <div class="fr2" style="margin-bottom:10px">
+      <div class="fg" style="margin:0"><label class="fl">From</label><input class="fi" type="date" id="due-from" onchange="renderDueRange()"/></div>
+      <div class="fg" style="margin:0"><label class="fl">To</label><input class="fi" type="date" id="due-to" onchange="renderDueRange()"/></div>
+    </div>
+    <button class="btn btn-b btn-sm" onclick="renderDueRange()">Show payments due</button>
+    <div id="due-range-list" style="margin-top:10px"></div>
+  </div>
+
   <div id="al-list"></div>
   <div class="st">DPD watch list</div>
   <div id="al-risk"></div>
@@ -1077,6 +1124,97 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   navTo(this.dataset.pg);
 }));
+
+function getLoanTotalDue(l){
+  return r2((+l.disbursed||0)+(+l.interest||0));
+}
+function getLoanTotalPaid(lid){
+  return r2((D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+getPaymentAmount(p),0));
+}
+function getLoanObligationStatus(l){
+  const totalDue=getLoanTotalDue(l);
+  const paid=getLoanTotalPaid(l.lid);
+  const over=Math.max(0,paid-totalDue);
+  const remaining=Math.max(0,totalDue-paid);
+  const met=remaining<=0.005;
+  return {totalDue:r2(totalDue),paid:r2(paid),remaining:r2(remaining),over:r2(over),met};
+}
+function getFutureInterestReceivable(l){
+  const status=getLoanObligationStatus(l);
+  if(status.met)return 0;
+  const totalInterest=+l.interest||0;
+  const paidInterest=(D.payments||[]).filter(p=>p.lid===l.lid).reduce((s,p)=>s+(+p.intPaid||0),0);
+  if(paidInterest>0)return r2(Math.max(0,totalInterest-paidInterest));
+  const paid=getLoanTotalPaid(l.lid);
+  return r2(Math.max(0,totalInterest-Math.min(paid,totalInterest)));
+}
+function renderPosition(){
+  const loans=D.loans||[];
+  const principal=r2(loans.reduce((s,l)=>s+(+l.book||+l.principal||0),0));
+  const interest=r2(loans.reduce((s,l)=>s+getFutureInterestReceivable(l),0));
+  const cash=r2(+D.cashAtHand||0);
+  const total=r2(principal+interest+cash);
+  const statuses=loans.map(l=>Object.assign({loan:l},getLoanObligationStatus(l)));
+  const met=statuses.filter(x=>x.met).length;
+  const overLoans=statuses.filter(x=>x.over>0);
+  const overTotal=r2(overLoans.reduce((s,x)=>s+x.over,0));
+
+  if($('pos-principal'))$('pos-principal').textContent=fmt(principal);
+  if($('pos-interest'))$('pos-interest').textContent=fmt(interest);
+  if($('pos-cash'))$('pos-cash').textContent=fmt(cash);
+  if($('pos-total'))$('pos-total').textContent=fmt(total);
+  if($('pos-met'))$('pos-met').textContent=String(met);
+  if($('pos-over'))$('pos-over').textContent=fmt(overTotal);
+  if($('pos-over-n'))$('pos-over-n').textContent=`${overLoans.length} loans`;
+
+  if($('pos-summary'))$('pos-summary').innerHTML=`
+    <div class="rr"><span class="rr-lbl">Current principal value</span><span class="rr-val">${fmt(principal)}</span></div>
+    <div class="rr"><span class="rr-lbl">Total interest to be received</span><span class="rr-val">${fmt(interest)}</span></div>
+    <div class="rr"><span class="rr-lbl">Total cash position</span><span class="rr-val">${fmt(cash)}</span></div>
+    <div class="rr total"><span>Total position</span><span>${fmt(total)}</span></div>
+  `;
+
+  if($('pos-loans'))$('pos-loans').innerHTML=statuses.map(x=>{
+    const label=x.over>0?'Overpaid':(x.met?'Obligations met':'Outstanding');
+    const cls=x.over>0?'b-a':(x.met?'b-g':'b-r');
+    return `<div class="lc ${x.met?'cur':'p1'}">
+      <div class="lh"><div><div class="ln">${x.loan.name}</div><div class="li">${x.loan.lid} · Total due ${fmt(x.totalDue)}</div></div><span class="bdg ${cls}">${label}</span></div>
+      <div class="lg">
+        <div class="ls"><div class="lsl">Paid</div><div class="lsv">${fmt(x.paid)}</div></div>
+        <div class="ls"><div class="lsl">Remaining</div><div class="lsv" style="color:${x.remaining>0?'var(--r)':'var(--g)'}">${fmt(x.remaining)}</div></div>
+        <div class="ls"><div class="lsl">Overpayment</div><div class="lsv" style="color:${x.over>0?'var(--a)':'var(--muted)'}">${fmt(x.over)}</div></div>
+      </div>
+    </div>`;
+  }).join('')||'<div class="empty">No loans loaded.</div>';
+}
+function buildDueItemsForRange(fromISO,toISO){
+  if(!fromISO||!toISO)return [];
+  const from=parseISODateLocal(fromISO),to=parseISODateLocal(toISO),items=[];
+  (D.loans||[]).forEach(l=>{
+    const disb=parseISODateLocal(l.date);
+    const term=+l.term||0;
+    const monthlyTotal=(+l.rt===1)?loanMonthlyInterest(l):r2(((+l.disbursed||0)+(+l.interest||0))/Math.max(term,1));
+    for(let i=1;i<=term;i++){
+      const due=addMonthsLocal(disb,i);
+      if(due>=from&&due<=to)items.push({loan:l,due,amount:monthlyTotal,iso:toISODateLocal(due)});
+    }
+  });
+  return items.sort((a,b)=>a.iso.localeCompare(b.iso)||a.loan.name.localeCompare(b.loan.name));
+}
+function renderDueRange(){
+  const from=$('due-from')?.value,to=$('due-to')?.value,box=$('due-range-list');
+  if(!box)return;
+  if(!from||!to){box.innerHTML='<div class="empty">Select a start and end date.</div>';return;}
+  const items=buildDueItemsForRange(from,to);
+  const total=r2(items.reduce((s,x)=>s+x.amount,0));
+  box.innerHTML=`<div class="rr total"><span>Total due in range</span><span>${fmt(total)}</span></div>
+  ${items.map(x=>`<div class="ai">
+    <div style="font-size:18px">📅</div>
+    <div style="flex:1"><div style="font-weight:700">${x.loan.name}</div><div style="font-size:12px;color:var(--muted)">${x.loan.lid} · Due ${x.iso}</div></div>
+    <div style="font-weight:700">${fmt(x.amount)}</div>
+  </div>`).join('')||'<div class="empty">No payments due in selected range.</div>'}`;
+}
+
 function renderPage(pg){
   ({overview:renderOverview,monthly:renderMonthly,interestonly:renderInterestOnly,profit:renderProfit,
     payments:renderPayments,cashhand:renderCash,
@@ -1436,6 +1574,7 @@ function renderPayments(){
   }).join(''):`<div class="empty">No payments yet.</div>`;
 }
 function addPayment(){
+  if(!guardEdit('payment'))return;
   const lid=$('pay-lid').value,amt=parseFloat($('pay-amt').value),date=$('pay-date').value;
   const notes=$('pay-notes').value,type=$('pay-type').value,msg=$('pay-msg');
   if(!lid){msg.innerHTML='<div class="msg-err">Select a loan.</div>';return;}
@@ -1606,6 +1745,7 @@ function renderProfit(){
 }
 
 function addExpense(){
+  if(!guardEdit('expense'))return;
   const date=$('exp-date').value,amt=parseFloat($('exp-amt').value);
   const cat=$('exp-cat').value,desc=$('exp-desc').value.trim();
   const msg=$('exp-msg');
@@ -2005,10 +2145,12 @@ function renderLb(){
 function lbc(i,f,v){D.loans[i][f]=v;}
 function delLoan(i){if(confirm('Delete '+D.loans[i].name+'?')){D.loans.splice(i,1);save();renderLb();}}
 function addLbRow(){
+  if(!guardEdit('loan'))return;
   D.loans.push({lid:'LN-'+(D.loans.length+1).toString().padStart(3,'0'),name:'New client',phone:'',date:todayISOHarare(),term:6,rate:0.10,rt:0,principal:0,interest:0,disbursed:0,notes:'',arrears:0,dpd:0,par1:0,par30:0,book:0,cumDue:0,cumColl:0,intExp:0,rank:D.loans.length+1,up7:false,upAmt:0,status:'Current'});
   renderLb();
 }
-function saveLb(){D.loans.forEach(l=>{l.book=l.principal;l.intExp=r2(l.principal*l.rate);});save();$('lb-msg').innerHTML='<div class="msg-ok">Saved.</div>';setTimeout(()=>$('lb-msg').innerHTML='',2000);}
+function saveLb(){
+  if(!guardEdit('loan'))return;D.loans.forEach(l=>{l.book=l.principal;l.intExp=r2(l.principal*l.rate);});save();$('lb-msg').innerHTML='<div class="msg-ok">Saved.</div>';setTimeout(()=>$('lb-msg').innerHTML='',2000);}
 
 /* ══════════════════════════════════════
    CLIENTS
@@ -2217,6 +2359,7 @@ function calcPrev(){
   $('pr-note').textContent=acRT===1?`Monthly: ${fmt(inst)} interest. Final month: ${fmt(r2(inst+amt))} (interest + full principal).`:`${term} equal payments of ${fmt(inst)} @ ${Math.round(rate*100)}% flat/mo.`;
 }
 function addClient(){
+  if(!guardEdit('loan'))return;
   const lid=$('ac-lid').value.trim(),name=$('ac-name').value.trim(),phone=$('ac-phone').value.trim();
   const amt=parseFloat($('ac-amt').value),term=parseInt($('ac-term').value),date=$('ac-date').value,notes=$('ac-notes').value;
   const msg=$('ac-msg');
@@ -2892,6 +3035,69 @@ const APP_STATE_ID='00000000-0000-0000-0000-000000000001';
 const CLIENT_ID='client-'+Math.random().toString(36).slice(2,10);
 let sb=null, saveTimer=null, syncing=false, realtimeReady=false;
 
+let CURRENT_USER=null, CURRENT_ROLE='viewer', CURRENT_EMAIL='';
+const ROLE_RULES={
+  superuser:{label:'Superuser',canView:true,canEdit:true,canLoans:true,canPayments:true,canExpenses:true,canDelete:true,canExport:true},
+  admin:{label:'Admin',canView:true,canEdit:true,canLoans:true,canPayments:true,canExpenses:true,canDelete:true,canExport:true},
+  manager:{label:'Manager',canView:true,canEdit:true,canLoans:true,canPayments:true,canExpenses:true,canDelete:false,canExport:true},
+  collector:{label:'Collector',canView:true,canEdit:true,canLoans:false,canPayments:true,canExpenses:false,canDelete:false,canExport:false},
+  viewer:{label:'Viewer',canView:true,canEdit:false,canLoans:false,canPayments:false,canExpenses:false,canDelete:false,canExport:true}
+};
+function roleRules(){return ROLE_RULES[CURRENT_ROLE]||ROLE_RULES.viewer}
+function canEdit(){return !!roleRules().canEdit}
+function canManageLoans(){return !!roleRules().canLoans}
+function canManagePayments(){return !!roleRules().canPayments}
+function canManageExpenses(){return !!roleRules().canExpenses}
+function canDelete(){return !!roleRules().canDelete}
+function showAuthError(msg){const el=$('auth-error'); if(el){el.textContent=msg; el.style.display='block';}}
+async function loginUser(){
+  const client=getSb();
+  const email=($('auth-email')?.value||'').trim();
+  const password=$('auth-password')?.value||'';
+  if(!email||!password){showAuthError('Enter email and password.');return;}
+  const {data,error}=await client.auth.signInWithPassword({email,password});
+  if(error){showAuthError(error.message);return;}
+  await loadUserRole(data.user);
+  $('auth-screen').style.display='none';
+  await initAppAfterAuth();
+}
+async function logoutUser(){const client=getSb(); await client.auth.signOut(); location.reload();}
+async function loadUserRole(user){
+  CURRENT_USER=user||null; CURRENT_EMAIL=user?.email||''; CURRENT_ROLE='viewer';
+  if(!user)return;
+  const client=getSb();
+  const {data,error}=await client.from('app_user_roles').select('role,active,email').eq('user_id',user.id).maybeSingle();
+  if(error) console.warn('Role lookup failed:',error);
+  if(data && data.active!==false) CURRENT_ROLE=(data.role||'viewer').toLowerCase();
+  if(!ROLE_RULES[CURRENT_ROLE]) CURRENT_ROLE='viewer';
+  const pill=$('user-role-pill'); if(pill){pill.style.display='inline-block';pill.textContent=(ROLE_RULES[CURRENT_ROLE]?.label||'Viewer');}
+  applyRoleUI();
+}
+function applyRoleUI(){
+  const r=roleRules();
+  const note=$('role-note');
+  if(note){note.style.display='block'; note.textContent=CURRENT_ROLE==='superuser'?'Superuser access: full system rights enabled.':`Logged in as ${r.label}. Access rights are limited by role.`;}
+  document.querySelectorAll('[data-pg="addclient"], [data-pg="loanbook"]').forEach(el=>{ if(!r.canLoans) el.style.display='none'; });
+  document.querySelectorAll('button').forEach(btn=>{
+    const oc=(btn.getAttribute('onclick')||'').toLowerCase();
+    if(!r.canLoans && (oc.includes('addclient')||oc.includes('savelb')||oc.includes('addlbrow'))) btn.style.display='none';
+    if(!r.canPayments && (oc.includes('addpayment')||oc.includes('editpayment')||oc.includes('deletepayment'))) btn.style.display='none';
+    if(!r.canExpenses && oc.includes('addexpense')) btn.style.display='none';
+    if(!r.canDelete && oc.includes('delete')) btn.style.display='none';
+  });
+}
+function guardEdit(action='edit'){
+  if(CURRENT_ROLE==='superuser')return true;
+  if(action==='loan'&&!canManageLoans()){alert('You do not have rights to add or edit loans.');return false;}
+  if(action==='payment'&&!canManagePayments()){alert('You do not have rights to record payments.');return false;}
+  if(action==='expense'&&!canManageExpenses()){alert('You do not have rights to add expenses.');return false;}
+  if(action==='delete'&&!canDelete()){alert('You do not have delete rights.');return false;}
+  if(!canEdit()){alert('View-only access. You cannot make changes.');return false;}
+  return true;
+}
+async function requireAuth(){ CURRENT_ROLE='superuser'; return true; }
+
+
 function snapshotState(){
   return {
     loans:D.loans,
@@ -2961,6 +3167,7 @@ function showSaveStatus(text='✓ Saved', color='var(--g)'){
   showSaveStatus._t=setTimeout(()=>el.style.opacity='0',2200);
 }
 async function pushCloud(forceText='☁ Synced'){
+  if(!canEdit()){backupLocal();showSaveStatus('View only — not saved','var(--a)');return;}
   const client=getSb();
   if(!client||syncing)return;
   syncing=true;
@@ -2969,7 +3176,7 @@ async function pushCloud(forceText='☁ Synced'){
     const {error}=await client.from('mf_state').upsert({
       id:APP_STATE_ID,
       data: payload,
-      updated_at:new Date().toISOString()
+      updated_at:new Date().toISOString(), updated_by:CURRENT_EMAIL||CURRENT_ROLE
     });
     if(error) throw error;
     backupLocal();
@@ -3035,6 +3242,8 @@ async function setupRealtime(){
       applyState(row.data);
       backupLocal();
       refreshAllViews();
+        if($('due-from')&&$('due-to')) renderDueRange();
+  if($('pos-principal')) renderPosition();
       showSaveStatus('☁ Updated from cloud','var(--teal)');
     })
     .subscribe();
@@ -3048,12 +3257,14 @@ function showLoadedNotice(text='✓ Cloud data loaded'){
 }
 
 /* ── STARTUP ── */
-async function initApp(){
+async function initAppAfterAuth(){
   const wasLoaded=await loadSaved();
 
   $('pay-date').value=todayISOHarare();
   $('ac-date').value=todayISOHarare();
   if($('exp-date'))$('exp-date').value=todayISOHarare();
+  if($('due-from'))$('due-from').value=todayISOHarare();
+  if($('due-to')){const d=getHarareNow();d.setDate(d.getDate()+7);$('due-to').value=toISODateLocal(d);}
   if($('cah-input'))$('cah-input').value=D.cashAtHand||0;
   if($('col-mo-sel'))$('col-mo-sel').value='3';
   if($('dis-mo-sel'))$('dis-mo-sel').value='all';
@@ -3066,6 +3277,7 @@ async function initApp(){
   showLoadedNotice(wasLoaded?'✓ Shared data loaded':'✓ Cloud sync ready');
 }
 
+async function initApp(){ CURRENT_ROLE='superuser'; await initAppAfterAuth(); }
 initApp();
 </script>
 </body>
