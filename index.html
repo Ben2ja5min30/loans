@@ -228,6 +228,7 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
     <button class="tab"        data-pg="loanbook">Loan Book</button>
     <button class="tab"        data-pg="analytics">Analytics</button>
     <button class="tab"        data-pg="schedule">Schedule</button>
+    <button class="tab blue"   data-pg="reschedule">Reschedule</button>
     <button class="tab"        data-pg="today">Today</button>
     <button class="tab"        data-pg="tools">Tools</button>
     <button class="tab"        data-pg="export">Export</button>
@@ -773,6 +774,29 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
     <div id="sch-rows"></div>
   </div>
   <div id="sch-empty" class="empty">Select a loan above to view its full repayment schedule.</div>
+</div>
+
+
+<!-- ══ RESCHEDULE ══ -->
+<div class="page" id="pg-reschedule">
+  <div class="card">
+    <div class="ct">Reschedule loan</div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">Select loan</label><select class="fi" id="rs-lid" onchange="renderReschedulePreview()"></select></div>
+      <div class="fg"><label class="fl">Payment received today</label><input class="fi" type="number" id="rs-pay" value="1100"/></div>
+    </div>
+    <div class="fr2">
+      <div class="fg"><label class="fl">New principal balance</label><input class="fi" type="number" id="rs-prin" value="700"/></div>
+      <div class="fg"><label class="fl">Final clearance date</label><input class="fi" type="date" id="rs-final" value="2026-12-31"/></div>
+    </div>
+    <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="rs-note">Paid 300 interest arrears and 800 principal. New balance 700. Interest now 70/month until final clearance.</textarea></div>
+    <button class="btn btn-b" onclick="applyRescheduleFromTab()">Apply reschedule</button>
+    <div id="rs-msg" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <div class="ct">Current selected loan position</div>
+    <div id="rs-preview"></div>
+  </div>
 </div>
 
 <!-- ══ TODAY ══ -->
@@ -3427,6 +3451,89 @@ async function initApp(){
 }
 
 initApp();
+
+/* ── RESCHEDULE TAB ONLY ── */
+function populateRescheduleSelect(){
+  const sel=$('rs-lid'); 
+  if(!sel)return;
+  sel.innerHTML=(D.loans||[]).map(l=>`<option value="${l.lid}">${l.lid} — ${l.name}</option>`).join('');
+  renderReschedulePreview();
+}
+function renderReschedulePreview(){
+  const lid=$('rs-lid')?.value;
+  const box=$('rs-preview');
+  if(!box)return;
+  const l=(D.loans||[]).find(x=>x.lid===lid);
+  if(!l){box.innerHTML='<div class="empty">Select a loan.</div>';return;}
+  const paid=(D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+(+(p.amt??p.amount)||0),0);
+  const currentPrincipal=+(l.book??l.principal??l.disbursed??0);
+  const arrears=+(l.arrears||0);
+  const monthlyInterest=+(l.intExp||currentPrincipal*(+l.rate||0));
+  box.innerHTML=`
+    <div class="rr"><span class="rr-lbl">Client</span><span class="rr-val">${l.name}</span></div>
+    <div class="rr"><span class="rr-lbl">Current principal</span><span class="rr-val">${fmt(currentPrincipal)}</span></div>
+    <div class="rr"><span class="rr-lbl">Interest arrears/accrued</span><span class="rr-val">${fmt(arrears)}</span></div>
+    <div class="rr"><span class="rr-lbl">Current monthly interest</span><span class="rr-val">${fmt(monthlyInterest)}</span></div>
+    <div class="rr"><span class="rr-lbl">Total paid</span><span class="rr-val">${fmt(paid)}</span></div>
+  `;
+}
+function applyRescheduleFromTab(){
+  const lid=$('rs-lid')?.value;
+  const l=(D.loans||[]).find(x=>x.lid===lid);
+  if(!l)return alert('Select a loan.');
+  const pay=+$('rs-pay').value||0;
+  const newP=+$('rs-prin').value||0;
+  const final=$('rs-final').value;
+  const note=$('rs-note').value||'Rescheduled loan';
+  const arrears=+(l.arrears||0);
+  const intPaid=Math.min(pay,arrears);
+  const princPaid=Math.max(0,pay-intPaid);
+  D.payments.push({
+    id:'p'+Date.now(),
+    date:todayISOHarare(),
+    lid,
+    amt:pay,
+    amount:pay,
+    expected:arrears,
+    type:'reschedule',
+    notes:note,
+    intPaid:r2(intPaid),
+    princPaid:r2(princPaid)
+  });
+  l.reschedules=l.reschedules||[];
+  l.reschedules.push({
+    date:todayISOHarare(),
+    oldPrincipal:+(l.book??l.principal??l.disbursed??0),
+    payment:pay,
+    interestPaid:r2(intPaid),
+    principalPaid:r2(princPaid),
+    newPrincipal:newP,
+    finalDate:final,
+    note
+  });
+  l._origPrincipal=newP;
+  l.disbursed=newP;
+  l.principal=newP;
+  l.book=newP;
+  const months=Math.max(1,Math.round((parseISODateLocal(final)-getHarareNow())/2592000000));
+  l.term=months;
+  l.interest=r2(newP*(+l.rate||0)*months);
+  l.intExp=r2(newP*(+l.rate||0));
+  l.arrears=0;
+  l.status='Current';
+  l.notes=(l.notes||'')+' | Rescheduled '+todayISOHarare()+': '+note;
+  save();
+  $('rs-msg').innerHTML='<div class="msg-ok">Reschedule applied and saved.</div>';
+  renderReschedulePreview();
+}
+document.addEventListener('click',function(e){
+  const tab=e.target.closest?.('[data-pg="reschedule"]');
+  if(tab){
+    setTimeout(populateRescheduleSelect,150);
+    setTimeout(populateRescheduleSelect,700);
+  }
+});
+
 </script>
 </body>
 </html>
