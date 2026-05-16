@@ -3547,5 +3547,105 @@ function renderDisbursementsFinal(){
 }
 
 </script>
+
+<script>
+/* EMERGENCY DISBURSEMENTS DOM PATCH - runs independently of route switch */
+(function(){
+  function money(v){ return '$' + Number(v||0).toLocaleString('en',{maximumFractionDigits:0}); }
+  function round(v){ return Math.round(Number(v||0)*100)/100; }
+  function dateLocal(s){
+    if(typeof parseISODateLocal === 'function') return parseISODateLocal(s);
+    const parts=String(s||'').split('-').map(Number);
+    return new Date(parts[0]||2026,(parts[1]||1)-1,parts[2]||1);
+  }
+  function byId(id){ return document.getElementById(id); }
+  function setTextMany(ids,val){ ids.forEach(id=>{ const el=byId(id); if(el) el.textContent=val; }); }
+
+  function renderDisbDOM(){
+    try{
+      const page=byId('pg-disbursements');
+      if(!page) return;
+      const isVisible = page.classList.contains('on') || page.style.display==='block' || document.querySelector('.tab.on[data-pg="disbursements"]');
+      if(!isVisible) return;
+
+      const D = window.D || {};
+      const loans = Array.isArray(D.loans) ? D.loans : [];
+      const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const rows=months.map(m=>({m,loans:0,disb:0,int:0,repay:0,items:[]}));
+
+      loans.forEach(l=>{
+        const d=dateLocal(l.date || (typeof todayISOHarare==='function'?todayISOHarare():'2026-01-01'));
+        if(d.getFullYear()!==2026) return;
+        const i=d.getMonth();
+        const disb=Number(l.disbursed ?? l._origPrincipal ?? l.originalPrincipal ?? l.principal ?? 0);
+        const intr=Number(l.interest ?? 0);
+        rows[i].loans += 1;
+        rows[i].disb = round(rows[i].disb + disb);
+        rows[i].int = round(rows[i].int + intr);
+        rows[i].repay = round(rows[i].repay + disb + intr);
+        rows[i].items.push(l);
+      });
+
+      const total=rows.reduce((s,r)=>s+r.disb,0);
+      const count=rows.reduce((s,r)=>s+r.loans,0);
+      const intr=rows.reduce((s,r)=>s+r.int,0);
+      const repay=rows.reduce((s,r)=>s+r.repay,0);
+
+      setTextMany(['db-total','db-disb-total','disb-total'], money(total));
+      setTextMany(['db-count','db-loans','disb-count'], String(count));
+      setTextMany(['db-avg','disb-avg'], money(count?total/count:0));
+      setTextMany(['db-int','disb-int'], money(intr));
+      setTextMany(['db-repay','disb-repay'], money(repay));
+
+      const rowBox=byId('db-rows') || byId('disb-rows');
+      if(rowBox){
+        rowBox.innerHTML = rows.map(r =>
+          `<div class="mr" style="grid-template-columns:1fr 1fr 1fr 1fr">
+             <div>${r.m}</div>
+             <div>${r.loans||'—'}</div>
+             <div>${r.disb?money(r.disb):'—'}</div>
+             <div>${r.repay?money(r.repay):'—'}</div>
+           </div>`
+        ).join('');
+      }
+
+      const list=byId('db-list') || byId('disb-list');
+      if(list){
+        const all=rows.flatMap(r=>r.items.map(l=>({m:r.m,l})));
+        list.innerHTML = all.map(x=>{
+          const l=x.l;
+          const disb=Number(l.disbursed ?? l._origPrincipal ?? l.originalPrincipal ?? l.principal ?? 0);
+          const intr=Number(l.interest ?? 0);
+          return `<div class="lc cur">
+            <div class="lh"><div><div class="ln">${l.name||'Client'}</div><div class="li">${l.lid||''} · ${x.m} · ${l.date||''}</div></div><span class="bdg b-g">${Number(l.rt)===1?'Int-only':'Standard'}</span></div>
+            <div class="lg">
+              <div class="ls"><div class="lsl">Disbursed</div><div class="lsv">${money(disb)}</div></div>
+              <div class="ls"><div class="lsl">Interest</div><div class="lsv">${money(intr)}</div></div>
+              <div class="ls"><div class="lsl">Total repay.</div><div class="lsv">${money(disb+intr)}</div></div>
+            </div>
+          </div>`;
+        }).join('') || '<div class="empty">No disbursement data loaded.</div>';
+      }
+
+      if(byId('ch-disb') && typeof mkChart==='function'){
+        mkChart('ch-disb',{
+          type:'bar',
+          data:{labels:months,datasets:[{label:'Disbursed',data:rows.map(r=>r.disb),backgroundColor:'rgba(105,65,198,.45)',borderWidth:0,borderRadius:2}]},
+          options: typeof bo==='function' ? bo({leg:{display:false}}) : {}
+        });
+      }
+    }catch(e){ console.warn('Disbursement DOM patch failed:', e); }
+  }
+
+  window.renderDisbDOM = renderDisbDOM;
+  document.addEventListener('click', function(e){
+    const tab=e.target.closest && e.target.closest('[data-pg="disbursements"]');
+    if(tab){ setTimeout(renderDisbDOM,100); setTimeout(renderDisbDOM,500); setTimeout(renderDisbDOM,1200); }
+  });
+  setInterval(renderDisbDOM, 1500);
+  setTimeout(renderDisbDOM, 1200);
+})();
+</script>
+
 </body>
 </html>
