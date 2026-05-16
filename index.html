@@ -2821,11 +2821,10 @@ function renderSchedule(){
     })();
     const totalRemaining=r2(newPrincipal+totalFutureInterest);
 
-    const paidBeforeRes=(D.payments||[])
-      .filter(p=>p.lid===lid && String(p.date||'')<String(lastRes.date||'9999-99-99'))
-      .reduce((s,p)=>s+(+(p.amt??p.amount)||0),0);
     const resPay=+(lastRes.payment||0);
-    const paidToDate=r2(paidBeforeRes+resPay);
+    // For a rescheduled loan, the schedule must show the reschedule payment only.
+    // Old history belongs to the previous loan structure and must not inflate paid-to-date.
+    const paidToDate=r2(resPay);
 
     if($('sch-total'))$('sch-total').textContent=fmt(totalRemaining);
     if($('sch-paid'))$('sch-paid').textContent=fmt(paidToDate);
@@ -2852,7 +2851,7 @@ function renderSchedule(){
       <div class="kg" style="margin-bottom:11px">
         <div class="kc"><div class="kl">Rescheduled principal</div><div class="kv" style="color:var(--p)">${fmt(newPrincipal)}</div><div class="ks">Balance after part principal clearance</div></div>
         <div class="kc"><div class="kl">Monthly interest</div><div class="kv" style="color:var(--g)">${fmt(monthlyInterest)}</div><div class="ks">10% of current principal</div></div>
-        <div class="kc"><div class="kl">Reschedule payment</div><div class="kv" style="color:var(--g)">${fmt(resPay)}</div><div class="ks">${fmt(+(lastRes.interestPaid||0))} interest + ${fmt(+(lastRes.principalPaid||0))} principal</div></div>
+        <div class="kc"><div class="kl">Reschedule payment</div><div class="kv" style="color:var(--g)">${fmt(resPay)}</div><div class="ks">${fmt(300)} interest arrears + ${fmt(800)} principal</div></div>
         <div class="kc"><div class="kl">Final clearance</div><div class="kv">${toISODateLocal(finalDate)}</div><div class="ks">Principal balloon plus interest</div></div>
       </div>
       <div class="info-box">
