@@ -780,7 +780,7 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 <!-- ══ RESCHEDULE ══ -->
 <div class="page" id="pg-reschedule">
   <div class="card">
-    <div class="ct">Reschedule loan</div>
+    <div class="ct">Reschedule loan — select correct client/account</div>
     <div class="fr2">
       <div class="fg"><label class="fl">Select loan</label><select class="fi" id="rs-lid" onchange="renderReschedulePreview()"></select></div>
       <div class="fg"><label class="fl">Payment received today</label><input class="fi" type="number" id="rs-pay" value="1100"/></div>
@@ -3452,11 +3452,18 @@ async function initApp(){
 
 initApp();
 
-/* ── RESCHEDULE TAB ONLY ── */
+
+/* ── RESCHEDULE TAB ONLY - SAFE GORORO DEFAULT ── */
+function findGororoLoanId(){
+  const g=(D.loans||[]).find(l=>String(l.name||'').toLowerCase().includes('gororo'));
+  return g ? g.lid : '';
+}
 function populateRescheduleSelect(){
   const sel=$('rs-lid'); 
   if(!sel)return;
   sel.innerHTML=(D.loans||[]).map(l=>`<option value="${l.lid}">${l.lid} — ${l.name}</option>`).join('');
+  const gororoId=findGororoLoanId();
+  if(gororoId) sel.value=gororoId;
   renderReschedulePreview();
 }
 function renderReschedulePreview(){
@@ -3470,7 +3477,11 @@ function renderReschedulePreview(){
   const arrears=+(l.arrears||0);
   const monthlyInterest=+(l.intExp||currentPrincipal*(+l.rate||0));
   box.innerHTML=`
+    <div class="msg-ok" style="margin-bottom:10px">
+      Selected loan for reschedule: <b>${l.name}</b> — <b>${l.lid}</b>
+    </div>
     <div class="rr"><span class="rr-lbl">Client</span><span class="rr-val">${l.name}</span></div>
+    <div class="rr"><span class="rr-lbl">Account / Loan No.</span><span class="rr-val">${l.lid}</span></div>
     <div class="rr"><span class="rr-lbl">Current principal</span><span class="rr-val">${fmt(currentPrincipal)}</span></div>
     <div class="rr"><span class="rr-lbl">Interest arrears/accrued</span><span class="rr-val">${fmt(arrears)}</span></div>
     <div class="rr"><span class="rr-lbl">Current monthly interest</span><span class="rr-val">${fmt(monthlyInterest)}</span></div>
@@ -3481,13 +3492,20 @@ function applyRescheduleFromTab(){
   const lid=$('rs-lid')?.value;
   const l=(D.loans||[]).find(x=>x.lid===lid);
   if(!l)return alert('Select a loan.');
+
+  const selectedName=String(l.name||'');
   const pay=+$('rs-pay').value||0;
   const newP=+$('rs-prin').value||0;
   const final=$('rs-final').value;
   const note=$('rs-note').value||'Rescheduled loan';
+
+  const warning=`Confirm reschedule for:\n\n${selectedName} — ${lid}\n\nPayment received: ${fmt(pay)}\nNew principal balance: ${fmt(newP)}\nFinal clearance date: ${final}\n\nProceed?`;
+  if(!confirm(warning))return;
+
   const arrears=+(l.arrears||0);
   const intPaid=Math.min(pay,arrears);
   const princPaid=Math.max(0,pay-intPaid);
+
   D.payments.push({
     id:'p'+Date.now(),
     date:todayISOHarare(),
@@ -3500,6 +3518,7 @@ function applyRescheduleFromTab(){
     intPaid:r2(intPaid),
     princPaid:r2(princPaid)
   });
+
   l.reschedules=l.reschedules||[];
   l.reschedules.push({
     date:todayISOHarare(),
@@ -3511,6 +3530,7 @@ function applyRescheduleFromTab(){
     finalDate:final,
     note
   });
+
   l._origPrincipal=newP;
   l.disbursed=newP;
   l.principal=newP;
@@ -3523,7 +3543,7 @@ function applyRescheduleFromTab(){
   l.status='Current';
   l.notes=(l.notes||'')+' | Rescheduled '+todayISOHarare()+': '+note;
   save();
-  $('rs-msg').innerHTML='<div class="msg-ok">Reschedule applied and saved.</div>';
+  $('rs-msg').innerHTML='<div class="msg-ok">Reschedule applied to '+selectedName+' and saved.</div>';
   renderReschedulePreview();
 }
 document.addEventListener('click',function(e){
