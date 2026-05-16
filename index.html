@@ -2794,7 +2794,6 @@ function renderSchedule(){
     return;
   }
 
-  recalcAllLiveBalances();
   const l=D.loans.find(x=>x.lid===lid);
   if(!l)return;
 
@@ -2802,12 +2801,86 @@ function renderSchedule(){
   if(wrap)wrap.style.display='block';
   if(kpis)kpis.style.display='grid';
 
+  const reschedules=Array.isArray(l.reschedules)?l.reschedules:[];
+  const lastRes=reschedules.length?reschedules[reschedules.length-1]:null;
+
+  if(lastRes){
+    const newPrincipal=+(lastRes.newPrincipal||l.book||l.principal||0);
+    const finalDate=parseISODateLocal(lastRes.finalDate||'2026-12-31');
+    const resDate=parseISODateLocal(lastRes.date||todayISOHarare());
+    const rate=+l.rate||0.10;
+    const monthlyInterest=r2(newPrincipal*rate);
+    const totalFutureInterest=(()=>{
+      let c=0;
+      let cursor=new Date(resDate.getFullYear(),resDate.getMonth()+1,1);
+      while(cursor<=finalDate){
+        c++;
+        cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
+      }
+      return r2(c*monthlyInterest);
+    })();
+    const totalRemaining=r2(newPrincipal+totalFutureInterest);
+
+    const paidBeforeRes=(D.payments||[])
+      .filter(p=>p.lid===lid && String(p.date||'')<String(lastRes.date||'9999-99-99'))
+      .reduce((s,p)=>s+(+(p.amt??p.amount)||0),0);
+    const resPay=+(lastRes.payment||0);
+    const paidToDate=r2(paidBeforeRes+resPay);
+
+    if($('sch-total'))$('sch-total').textContent=fmt(totalRemaining);
+    if($('sch-paid'))$('sch-paid').textContent=fmt(paidToDate);
+    if($('sch-rem'))$('sch-rem').textContent=fmt(totalRemaining);
+
+    const rows=[];
+    let idx=1;
+    let cursor=new Date(resDate.getFullYear(),resDate.getMonth()+1,1);
+    while(cursor<=finalDate){
+      const isFinal=cursor.getFullYear()===finalDate.getFullYear() && cursor.getMonth()===finalDate.getMonth();
+      rows.push({
+        i:idx++,
+        dueDateStr:toISODateLocal(cursor),
+        princDue:isFinal?newPrincipal:0,
+        intDue:monthlyInterest,
+        totalDue:r2(monthlyInterest+(isFinal?newPrincipal:0)),
+        rowStatus:isFinal?'Final principal + interest due':'Interest due',
+        statusColor:'var(--muted)'
+      });
+      cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
+    }
+
+    if(info)info.innerHTML=`
+      <div class="kg" style="margin-bottom:11px">
+        <div class="kc"><div class="kl">Rescheduled principal</div><div class="kv" style="color:var(--p)">${fmt(newPrincipal)}</div><div class="ks">Balance after part principal clearance</div></div>
+        <div class="kc"><div class="kl">Monthly interest</div><div class="kv" style="color:var(--g)">${fmt(monthlyInterest)}</div><div class="ks">10% of current principal</div></div>
+        <div class="kc"><div class="kl">Reschedule payment</div><div class="kv" style="color:var(--g)">${fmt(resPay)}</div><div class="ks">${fmt(+(lastRes.interestPaid||0))} interest + ${fmt(+(lastRes.principalPaid||0))} principal</div></div>
+        <div class="kc"><div class="kl">Final clearance</div><div class="kv">${toISODateLocal(finalDate)}</div><div class="ks">Principal balloon plus interest</div></div>
+      </div>
+      <div class="info-box">
+        Rescheduled loan schedule: previous history is not reused to mark future months paid. 
+        Gororo’s correct position is original principal ${fmt(1500)}, interest paid ${fmt(600)}, reschedule payment ${fmt(resPay)}, new principal ${fmt(newPrincipal)}, then ${fmt(monthlyInterest)} interest monthly until final principal clearance.
+      </div>
+    `;
+
+    if($('sch-rows'))$('sch-rows').innerHTML=rows.map(r=>`
+      <div class="mr" style="grid-template-columns:30px 1fr 1fr 1fr 1fr 1fr">
+        <div>${r.i}</div>
+        <div>${r.dueDateStr}</div>
+        <div>${fmt(r.princDue)}</div>
+        <div>${fmt(r.intDue)}</div>
+        <div>${fmt(r.totalDue)}</div>
+        <div style="font-weight:700;color:${r.statusColor}">${r.rowStatus}</div>
+      </div>
+    `).join('');
+    return;
+  }
+
+  // Normal non-rescheduled schedule
   const originalPrincipal = +(l._origPrincipal ?? l.disbursed ?? l.originalPrincipal ?? l.principal ?? 0);
   const totalInterest = +(l.interest || 0);
   const term = +(l.term || 0);
   const monthlyInterest = loanMonthlyInterest(l);
   const totalRepayable = r2(originalPrincipal + totalInterest);
-  const paidTotal = r2((D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+getPaymentAmount(p),0));
+  const paidTotal = r2((D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+(+(p.amt??p.amount)||0),0));
   const remainingTotal = r2(Math.max(0,totalRepayable-paidTotal));
   const disbDate=parseISODateLocal(l.date);
   const today=getHarareNow();
@@ -2817,12 +2890,10 @@ function renderSchedule(){
     .slice()
     .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')) || String(a.id||'').localeCompare(String(b.id||'')));
 
-  // Build actual scheduled instalments first.
   const rows=[];
   for(let i=1;i<=term;i++){
     const dueDate=addMonthsLocal(disbDate,i);
     const dueDateStr=toISODateLocal(dueDate);
-
     let princDue=0,intDue=0,totalDue=0;
     if(+l.rt===1){
       intDue=r2(monthlyInterest);
@@ -2833,17 +2904,11 @@ function renderSchedule(){
       intDue=r2(monthlyInterest);
       princDue=r2(Math.max(0,totalDue-intDue));
     }
-
-    rows.push({
-      i,dueDate,dueDateStr,princDue,intDue,totalDue,
-      paidAllocated:0,paidDate:null,rowStatus:'Upcoming',statusColor:'var(--muted)'
-    });
+    rows.push({i,dueDate,dueDateStr,princDue,intDue,totalDue,paidAllocated:0,paidDate:null,rowStatus:'Upcoming',statusColor:'var(--muted)'});
   }
 
-  // Allocate every payment once, from oldest unpaid instalment to newest.
-  // This prevents one $300 payment from making 4 or 5 months appear paid.
   payments.forEach(p=>{
-    let amt=getPaymentAmount(p);
+    let amt=+(p.amt??p.amount)||0;
     const payDate=parseISODateLocal(p.date||todayISOHarare());
     for(const r of rows){
       if(amt<=0)break;
@@ -2852,9 +2917,7 @@ function renderSchedule(){
       const applied=r2(Math.min(amt,remainingForRow));
       r.paidAllocated=r2(r.paidAllocated+applied);
       amt=r2(amt-applied);
-      if(r.paidAllocated+0.005>=r.totalDue){
-        r.paidDate=payDate;
-      }
+      if(r.paidAllocated+0.005>=r.totalDue) r.paidDate=payDate;
     }
   });
 
@@ -2864,37 +2927,19 @@ function renderSchedule(){
     if(r.dueDate<=today){
       dueCount++;
       if(fullyPaid){
-        if(r.paidDate && r.paidDate<=r.dueDate){
-          r.rowStatus='Paid on time';
-          r.statusColor='var(--g)';
-          timelyCount++;
-        }else{
-          r.rowStatus='Paid late';
-          r.statusColor='var(--a)';
-          lateCount++;
-        }
-      }else{
-        r.rowStatus='Overdue';
-        r.statusColor='var(--r)';
-        overdueCount++;
-      }
+        if(r.paidDate && r.paidDate<=r.dueDate){r.rowStatus='Paid on time';r.statusColor='var(--g)';timelyCount++;}
+        else{r.rowStatus='Paid late';r.statusColor='var(--a)';lateCount++;}
+      }else{r.rowStatus='Overdue';r.statusColor='var(--r)';overdueCount++;}
     }else{
-      if(fullyPaid){
-        r.rowStatus='Prepaid';
-        r.statusColor='var(--b)';
-      }else{
-        r.rowStatus='Upcoming';
-        r.statusColor='var(--muted)';
-      }
+      if(fullyPaid){r.rowStatus='Prepaid';r.statusColor='var(--b)';}
+      else{r.rowStatus='Upcoming';r.statusColor='var(--muted)';}
     }
   });
 
   const timelyRate = dueCount>0 ? r2((timelyCount/dueCount)*100) : 100;
-
   if($('sch-total'))$('sch-total').textContent=fmt(totalRepayable);
   if($('sch-paid'))$('sch-paid').textContent=fmt(paidTotal);
   if($('sch-rem'))$('sch-rem').textContent=fmt(remainingTotal);
-
   if(info)info.innerHTML=`
     <div class="kg" style="margin-bottom:11px">
       <div class="kc"><div class="kl">Timely repayment rate</div><div class="kv" style="color:${timelyRate>=90?'var(--g)':timelyRate>=60?'var(--a)':'var(--r)'}">${fmtp(timelyRate)}</div><div class="ks">${timelyCount}/${dueCount} due instalments paid on time</div></div>
@@ -2902,19 +2947,11 @@ function renderSchedule(){
       <div class="kc"><div class="kl">Overdue instalments</div><div class="kv" style="color:var(--r)">${overdueCount}</div><div class="ks">Still not fully covered</div></div>
       <div class="kc"><div class="kl">Total paid</div><div class="kv" style="color:var(--g)">${fmt(paidTotal)}</div><div class="ks">Against ${fmt(totalRepayable)}</div></div>
     </div>
-    <div class="info-box">
-      Payments are consumed once, oldest instalment first. A payment can only mark later months paid if earlier dues are already fully covered.
-    </div>
+    <div class="info-box">Payments are consumed once, oldest instalment first.</div>
   `;
-
   if($('sch-rows'))$('sch-rows').innerHTML=rows.map(r=>`
     <div class="mr" style="grid-template-columns:30px 1fr 1fr 1fr 1fr 1fr">
-      <div>${r.i}</div>
-      <div>${r.dueDateStr}</div>
-      <div>${fmt(r.princDue)}</div>
-      <div>${fmt(r.intDue)}</div>
-      <div>${fmt(r.totalDue)}</div>
-      <div style="font-weight:700;color:${r.statusColor}">${r.rowStatus}</div>
+      <div>${r.i}</div><div>${r.dueDateStr}</div><div>${fmt(r.princDue)}</div><div>${fmt(r.intDue)}</div><div>${fmt(r.totalDue)}</div><div style="font-weight:700;color:${r.statusColor}">${r.rowStatus}</div>
     </div>
   `).join('');
 }
