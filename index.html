@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <title>BenJaMin Finance</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
 document.addEventListener('input',function(e){
   if(e.target && e.target.id==='ac-name'){
     const idEl=$('ac-lid');
@@ -15,7 +16,6 @@ document.addEventListener('input',function(e){
     }
   }
 });
-
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -779,24 +779,49 @@ body{display:flex;flex-direction:column;max-width:1200px;margin:0 auto;width:100
 
 <!-- ══ RESCHEDULE ══ -->
 <div class="page" id="pg-reschedule">
-  <div class="card">
-    <div class="ct">Reschedule loan — select correct client/account</div>
-    <div class="fr2">
-      <div class="fg"><label class="fl">Select loan</label><select class="fi" id="rs-lid" onchange="renderReschedulePreview()"></select></div>
-      <div class="fg"><label class="fl">Payment received today</label><input class="fi" type="number" id="rs-pay" value="1100"/></div>
-    </div>
-    <div class="fr2">
-      <div class="fg"><label class="fl">New principal balance</label><input class="fi" type="number" id="rs-prin" value="700"/></div>
-      <div class="fg"><label class="fl">Final clearance date</label><input class="fi" type="date" id="rs-final" value="2026-12-31"/></div>
-    </div>
-    <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="rs-note">Paid 300 interest arrears and 800 principal. New balance 700. Interest now 70/month until final clearance.</textarea></div>
-    <button class="btn btn-b" onclick="applyRescheduleFromTab()">Apply reschedule</button>
-    <div id="rs-msg" style="margin-top:10px"></div>
+
+  <div class="info-box">
+    <strong>Loan Rescheduling</strong> — Use when a borrower makes a partial principal payment and you restructure the remaining balance. The system records the reschedule payment (interest + partial principal), sets a new reduced principal, recomputes the monthly interest at the same rate, and generates a fresh repayment schedule to the new final date.
   </div>
+
   <div class="card">
-    <div class="ct">Current selected loan position</div>
+    <div class="ct">Step 1 — Select loan to reschedule</div>
+    <select class="fi" id="rs-lid" onchange="renderReschedulePreview()" style="margin-bottom:11px">
+      <option value="">— select a loan —</option>
+    </select>
+    <div id="rs-loan-position"></div>
+  </div>
+
+  <div class="card" id="rs-form-card" style="display:none">
+    <div class="ct">Step 2 — Enter reschedule details</div>
+    <div class="fr2" style="margin-bottom:10px">
+      <div class="fg" style="margin:0"><label class="fl">Reschedule date *</label><input class="fi" type="date" id="rs-date"/></div>
+      <div class="fg" style="margin:0"><label class="fl">Payment received ($) *</label><input class="fi" type="number" id="rs-pay" placeholder="0.00" oninput="onRsPayChange()"/></div>
+    </div>
+    <div class="fr2" style="margin-bottom:10px">
+      <div class="fg" style="margin:0"><label class="fl">Interest in this payment ($)</label><input class="fi" type="number" id="rs-int-paid" placeholder="auto" oninput="renderRescheduleCalc()"/></div>
+      <div class="fg" style="margin:0"><label class="fl">Principal cleared ($)</label><input class="fi" type="number" id="rs-princ-paid" placeholder="auto" style="background:var(--surf2)" readonly/></div>
+    </div>
+    <div class="fr2" style="margin-bottom:10px">
+      <div class="fg" style="margin:0"><label class="fl">New principal balance ($) *</label><input class="fi" type="number" id="rs-new-princ" placeholder="0.00" oninput="renderRescheduleCalc()"/></div>
+      <div class="fg" style="margin:0"><label class="fl">New monthly rate (%)</label><input class="fi" type="number" id="rs-new-rate" placeholder="10" value="10" oninput="renderRescheduleCalc()"/></div>
+    </div>
+    <div class="fg"><label class="fl">Final clearance date *</label><input class="fi" type="date" id="rs-final"/></div>
+    <div class="fg"><label class="fl">Notes</label><textarea class="fi" id="rs-note" rows="2" placeholder="e.g. Borrower paid $800 principal, balance rescheduled to Dec 2026"></textarea></div>
+  </div>
+
+  <div class="card" id="rs-preview-card" style="display:none">
+    <div class="ct">Step 3 — New schedule preview</div>
     <div id="rs-preview"></div>
   </div>
+
+  <div id="rs-apply-wrap" style="display:none;margin-bottom:10px">
+    <button class="btn btn-g btn-full" onclick="applyReschedule()">✓ Confirm &amp; apply reschedule</button>
+    <div id="rs-msg" style="margin-top:8px"></div>
+  </div>
+
+  <div class="st">Existing rescheduled loans</div>
+  <div id="rs-history"></div>
 </div>
 
 <!-- ══ TODAY ══ -->
@@ -1076,42 +1101,54 @@ function mkChart(id,cfg){
 const D={
   cashAtHand: 0,
   loans:[
-    {lid:'LN-001',name:'Fosirai Gadhi',   phone:'',date:'2026-03-31',term:5, rate:0.10,rt:0,principal:500, interest:250, disbursed:500, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:500, cumDue:100, cumColl:100, intExp:50,  rank:1, up7:false,upAmt:0,  status:'Current'},
-    {lid:'LN-002',name:'Gift Manyengavana',phone:'',date:'2025-11-01',term:6, rate:0.10,rt:0,principal:416, interest:260, disbursed:2500,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:416, cumDue:2500,cumColl:2500,intExp:43,  rank:2, up7:false,upAmt:0,  status:'Current'},
-    {lid:'LN-003',name:'Gororo',           phone:'',date:'2026-01-01',term:12,rate:0.10,rt:1,principal:1500,interest:300, disbursed:1500,notes:'Int-only',arrears:0,  dpd:0,par1:0,  par30:0,book:1500,cumDue:300, cumColl:300, intExp:150, rank:3, up7:false,upAmt:0,  status:'Current'},
-    {lid:'LN-004',name:'Barber Adolf',     phone:'',date:'2026-03-30',term:3, rate:0.10,rt:0,principal:1000,interest:300, disbursed:1000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:1000,cumDue:0,   cumColl:0,   intExp:100, rank:4, up7:false,upAmt:0,  status:'Current'},
+    // intExp = disbursed × rate (source of truth for monthly interest)
+    // interest = disbursed × rate × term (total contractual interest)
+    {lid:'LN-001',name:'Fosirai Gadhi',   phone:'',date:'2026-03-31',term:5, rate:0.10,rt:0,principal:350, interest:175, disbursed:350, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:350, cumDue:0,   cumColl:0,   intExp:35,  rank:1, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-002',name:'Gift Manyengavana',phone:'',date:'2025-11-01',term:6, rate:0.10,rt:0,principal:0,   interest:250, disbursed:2500,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:0,   cumDue:2500,cumColl:2500,intExp:250, rank:2, up7:false,upAmt:0,  status:'Paid'},
+    {lid:'LN-003',name:'Gororo',           phone:'',date:'2026-01-01',term:12,rate:0.10,rt:1,principal:700, interest:840, disbursed:700, notes:'Int-only; rescheduled Apr-2026',arrears:0,dpd:0,par1:0,par30:0,book:700,cumDue:300,cumColl:300,intExp:70,rank:3,up7:false,upAmt:0,status:'Current',
+      reschedules:[{id:'rs1',date:'2026-04-30',payment:90,interestPaid:70,principalPaid:20,newPrincipal:680,newRate:0.10,finalDate:'2026-12-31',notes:'Part principal cleared; rescheduled'}]},
+    {lid:'LN-004',name:'Barber Adolf',     phone:'',date:'2026-03-30',term:3, rate:0.10,rt:0,principal:400, interest:120, disbursed:400, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:400, cumDue:0,   cumColl:0,   intExp:40,  rank:4, up7:false,upAmt:0,  status:'Current'},
     {lid:'LN-005',name:'Hare TVS',         phone:'',date:'2026-04-10',term:2, rate:0.10,rt:1,principal:400, interest:80,  disbursed:400, notes:'Int then balloon',arrears:0,dpd:0,par1:0,par30:0,book:400,cumDue:0,cumColl:0,intExp:40,rank:5,up7:false,upAmt:0,status:'Current'},
-    {lid:'LN-006',name:'Ziwani Mukoma',    phone:'',date:'2026-11-16',term:6, rate:0.10,rt:0,principal:333, interest:100, disbursed:1000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:1000,cumDue:0,   cumColl:0,   intExp:33,  rank:6, up7:false,upAmt:0,  status:'Current'},
-    {lid:'LN-007',name:'Pukuta Mhoiki',    phone:'',date:'2026-03-01',term:3, rate:0.10,rt:0,principal:233, interest:140, disbursed:350, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:350, cumDue:233, cumColl:233, intExp:78,  rank:7, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-006',name:'Ziwani Mukoma',    phone:'',date:'2026-11-16',term:6, rate:0.10,rt:0,principal:1000,interest:600, disbursed:1000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:1000,cumDue:0,   cumColl:0,   intExp:100, rank:6, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-007',name:'Pukuta Mhoiki',    phone:'',date:'2026-03-01',term:3, rate:0.10,rt:0,principal:120, interest:36,  disbursed:120, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:120, cumDue:0,   cumColl:0,   intExp:12,  rank:7, up7:false,upAmt:0,  status:'Current'},
     {lid:'LN-008',name:'Ororo Chamhanya',  phone:'',date:'2026-03-11',term:2, rate:0.30,rt:1,principal:300, interest:180, disbursed:300, notes:'Int then balloon',arrears:0,dpd:0,par1:0,par30:0,book:300,cumDue:0,cumColl:0,intExp:90,rank:8,up7:true,upAmt:390,status:'Current'},
-    {lid:'LN-009',name:'Mamhanya',         phone:'',date:'2026-02-01',term:2, rate:0.10,rt:0,principal:231, interest:100, disbursed:390, notes:'',arrears:231,dpd:3,par1:231,par30:0,book:231, cumDue:390, cumColl:159, intExp:39,  rank:9, up7:false,upAmt:0,  status:'PAR 1'},
-    {lid:'LN-010',name:'Harare Brian',     phone:'',date:'2026-02-21',term:3, rate:0.10,rt:0,principal:1733,interest:520, disbursed:2600,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:1733,cumDue:1733,cumColl:1733,intExp:173, rank:10,up7:false,upAmt:0,  status:'Current'},
-    {lid:'LN-011',name:'Tagaza Puru',      phone:'',date:'2026-03-04',term:2, rate:0.10,rt:0,principal:1000,interest:200, disbursed:1000,notes:'',arrears:1000,dpd:5,par1:1000,par30:0,book:1000,cumDue:1000,cumColl:0,   intExp:100, rank:11,up7:false,upAmt:0,  status:'PAR 1'}
+    {lid:'LN-009',name:'Mamhanya',         phone:'',date:'2026-02-01',term:2, rate:0.10,rt:0,principal:195, interest:78,  disbursed:390, notes:'Flat; 50% paid',arrears:0,  dpd:0,par1:0,  par30:0,book:195, cumDue:390, cumColl:195, intExp:39, rank:9, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-010',name:'Harare Brian',     phone:'',date:'2026-02-21',term:3, rate:0.10,rt:0,principal:0,   interest:780, disbursed:2600,notes:'Paid off',arrears:0,dpd:0,par1:0,par30:0,book:0,cumDue:3380,cumColl:3380,intExp:260,rank:10,up7:false,upAmt:0,status:'Paid'},
+    {lid:'LN-011',name:'Tagaza Puru',      phone:'',date:'2026-03-04',term:2, rate:0.10,rt:0,principal:900, interest:180, disbursed:900, notes:'PAR; 1 missed payment',arrears:900,dpd:5,par1:900,par30:0,book:900,cumDue:900,cumColl:0,intExp:90,rank:11,up7:false,upAmt:0,status:'PAR 1'},
+    {lid:'LN-012',name:'Mzukuru Makupa',   phone:'',date:'2026-04-01',term:3, rate:0.10,rt:0,principal:2000,interest:600, disbursed:2000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:2000,cumDue:0,   cumColl:0,   intExp:200, rank:12,up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-013',name:'Pukuta Mhoiki 2',  phone:'',date:'2026-05-01',term:3, rate:0.10,rt:1,principal:500, interest:150, disbursed:500, notes:'Int-only',arrears:0,  dpd:0,par1:0,  par30:0,book:500, cumDue:0,   cumColl:0,   intExp:50,  rank:13,up7:false,upAmt:0,  status:'Current'}
   ],
   payments:[
-    {id:'p1',date:'2026-02-28',lid:'LN-010',amt:866,   expected:866,   type:'both',    notes:'Month 1'},
-    {id:'p2',date:'2026-03-21',lid:'LN-010',amt:867,   expected:867,   type:'both',    notes:'Month 2'},
-    {id:'p3',date:'2026-04-01',lid:'LN-002',amt:2500,  expected:2500,  type:'both',    notes:'Full repayment'},
-    {id:'p4',date:'2026-04-05',lid:'LN-009',amt:159,   expected:195,   type:'partial', notes:'Partial'},
-    {id:'p5',date:'2026-04-01',lid:'LN-007',amt:233,   expected:233,   type:'both',    notes:'Month 1'},
-    {id:'p6',date:'2026-03-31',lid:'LN-003',amt:150,   expected:150,   type:'interest',notes:'Mar interest'},
-    {id:'p7',date:'2026-04-30',lid:'LN-003',amt:150,   expected:150,   type:'interest',notes:'Apr interest'}
+    // LN-010 Brian: 2600 principal + 780 interest = 3380 total; paid in 3 instalments
+    {id:'p1',date:'2026-02-28',lid:'LN-010',amt:866,   expected:1127, type:'both',    notes:'Month 1',intPaid:260,princPaid:606},
+    {id:'p2',date:'2026-03-21',lid:'LN-010',amt:867,   expected:1127, type:'both',    notes:'Month 2',intPaid:260,princPaid:607},
+    {id:'p3b',date:'2026-04-30',lid:'LN-010',amt:1647, expected:1127, type:'both',    notes:'Month 3 final',intPaid:260,princPaid:1387},
+    // LN-002 Gift: fully paid 2500+250=2750 (simplified as one full repayment)
+    {id:'p3',date:'2026-04-01',lid:'LN-002',amt:2750,  expected:2750, type:'both',    notes:'Full repayment',intPaid:250,princPaid:2500},
+    // LN-009 Mamhanya: partial
+    {id:'p4',date:'2026-04-05',lid:'LN-009',amt:195,   expected:195,  type:'both',    notes:'Month 1',intPaid:39,princPaid:156},
+    // LN-007 Pukuta: month 1
+    {id:'p5',date:'2026-04-01',lid:'LN-007',amt:52,    expected:52,   type:'both',    notes:'Month 1',intPaid:12,princPaid:40},
+    // LN-003 Gororo: interest payments Jan-Apr, then reschedule recorded separately
+    {id:'p6',date:'2026-01-31',lid:'LN-003',amt:70,    expected:70,   type:'interest',notes:'Jan interest',intPaid:70,princPaid:0},
+    {id:'p7',date:'2026-02-28',lid:'LN-003',amt:70,    expected:70,   type:'interest',notes:'Feb interest',intPaid:70,princPaid:0},
+    {id:'p8',date:'2026-03-31',lid:'LN-003',amt:70,    expected:70,   type:'interest',notes:'Mar interest',intPaid:70,princPaid:0},
+    {id:'p9',date:'2026-04-30',lid:'LN-003',amt:90,    expected:70,   type:'both',    notes:'Apr interest + part principal (reschedule)',intPaid:70,princPaid:20}
   ],
-  // monthly: disb=disbursed, expColl=expected total collection, actColl=actual received,
-  // expInt=expected interest, actInt=actual interest received, parCost=PAR loss cost
+  // monthly: disb=disbursed that month. actColl/actInt/parCost are computed live by engine.
   monthly:[
-    {m:'January',disb:1500, expColl:150,  actColl:150,  expInt:150, actInt:150, parCost:0},
-    {m:'February',disb:2990, expColl:390,  actColl:159,  expInt:213, actInt:150, parCost:0},
-    {m:'March',disb:2350, expColl:2100, actColl:2166, expInt:561, actInt:450, parCost:231},
-    {m:'April',disb:400,  expColl:2800, actColl:3042, expInt:800, actInt:600, parCost:1231},
-    {m:'May',disb:1000, expColl:1200, actColl:0,    expInt:400, actInt:0,   parCost:0},
-    {m:'June',disb:0,    expColl:900,  actColl:0,    expInt:350, actInt:0,   parCost:0},
-    {m:'July',disb:0,    expColl:700,  actColl:0,    expInt:280, actInt:0,   parCost:0},
-    {m:'August',disb:0,    expColl:500,  actColl:0,    expInt:200, actInt:0,   parCost:0},
-    {m:'September',disb:0,    expColl:400,  actColl:0,    expInt:160, actInt:0,   parCost:0},
-    {m:'October',disb:0,    expColl:300,  actColl:0,    expInt:120, actInt:0,   parCost:0},
-    {m:'November',disb:1000, expColl:200,  actColl:0,    expInt:80,  actInt:0,   parCost:0},
-    {m:'December',disb:0,    expColl:100,  actColl:0,    expInt:40,  actInt:0,   parCost:0}
+    {m:'January',   disb:700,  expColl:70,   actColl:70,  expInt:70,  actInt:0, parCost:0},
+    {m:'February',  disb:2990, expColl:390,  actColl:0,   expInt:260, actInt:0, parCost:0},
+    {m:'March',     disb:1950, expColl:800,  actColl:0,   expInt:400, actInt:0, parCost:0},
+    {m:'April',     disb:400,  expColl:900,  actColl:0,   expInt:500, actInt:0, parCost:0},
+    {m:'May',       disb:1500, expColl:700,  actColl:0,   expInt:350, actInt:0, parCost:0},
+    {m:'June',      disb:0,    expColl:600,  actColl:0,   expInt:300, actInt:0, parCost:0},
+    {m:'July',      disb:0,    expColl:500,  actColl:0,   expInt:250, actInt:0, parCost:0},
+    {m:'August',    disb:0,    expColl:400,  actColl:0,   expInt:200, actInt:0, parCost:0},
+    {m:'September', disb:0,    expColl:300,  actColl:0,   expInt:150, actInt:0, parCost:0},
+    {m:'October',   disb:0,    expColl:200,  actColl:0,   expInt:100, actInt:0, parCost:0},
+    {m:'November',  disb:1000, expColl:200,  actColl:0,   expInt:100, actInt:0, parCost:0},
+    {m:'December',  disb:0,    expColl:100,  actColl:0,   expInt:50,  actInt:0, parCost:0}
   ],
   // Manual expenses — PAR is computed separately from loans data
   expenses:[
@@ -1217,7 +1254,8 @@ function renderPage(pg){
     analytics:renderAnalytics,schedule:renderSchedule,
     today:renderToday,tools:renderTools,export:renderExport,
     arrears:renderArrears,alerts:renderAlerts,growth:renderGrowth,loanbook:renderLb,
-    clients:renderClients,report:renderReport}[pg]||function(){})();
+    clients:renderClients,report:renderReport,
+    reschedule:function(){populateRescheduleSelect();renderRescheduleHistory();}}[pg]||function(){})();
 }
 
 /* ══════════════════════════════════════
@@ -1226,7 +1264,10 @@ function renderPage(pg){
 function sbadge(s){
   if(s==='Current')return`<span class="bdg b-g">Current</span>`;
   if(s==='PAR 1')return`<span class="bdg b-a">PAR 1</span>`;
-  return`<span class="bdg b-r">PAR 30</span>`;
+  if(s==='PAR 30')return`<span class="bdg b-r">PAR 30</span>`;
+  if(s==='Paid'||s==='Overpaid')return`<span class="bdg b-b">${s}</span>`;
+  if(s==='Rescheduled')return`<span class="bdg" style="background:var(--pb);color:var(--pt)">Rescheduled</span>`;
+  return`<span class="bdg b-r">${s}</span>`;
 }
 function scls(s){return s==='Current'?'cur':s==='PAR 1'?'p1':'p30';}
 function rtl(l){if(l.rt===1)return'Int-only';if(l.rt===2)return Math.round(l.rate*100)+'% custom';return'10% flat';}
@@ -1243,12 +1284,27 @@ function monthNameFromDate(dateStr){
   return parseISODateLocal(dateStr).toLocaleString('en-GB',{month:'long'});
 }
 function loanMonthlyInterest(loan){
-  const explicitMonthly = +(loan.intExp ?? loan.monthlyInterest ?? 0);
-  const base = +(loan.disbursed ?? loan.principal ?? 0);
-  const rate = +(loan.rate ?? 0);
-  const term = +(loan.term ?? 0);
+  // Microfinance standard: monthly interest = disbursed (original) × monthly rate
+  // Use _origPrincipal if available (post-recalc), else disbursed, else principal
+  const base = +(loan.disbursed ?? loan._origPrincipal ?? loan.principal ?? 0);
+  const rate  = +(loan.rate ?? 0);
+  const term  = +(loan.term ?? 0);
   const totalInterest = +(loan.interest ?? 0);
-  if(explicitMonthly>0) return r2(explicitMonthly);
+  // If rescheduled, use the latest reschedule's newPrincipal × rate
+  if(Array.isArray(loan.reschedules) && loan.reschedules.length){
+    const last = loan.reschedules[loan.reschedules.length-1];
+    return r2(+(last.newPrincipal||0) * +(last.newRate||rate));
+  }
+  if(base>0 && rate>0) return r2(base*rate);
+  if(totalInterest>0 && term>0) return r2(totalInterest/term);
+  return 0;
+}
+function loanOriginalMonthlyInterest(loan){
+  // Pre-reschedule monthly interest based on original disbursed principal
+  const base = +(loan.disbursed ?? loan._origPrincipal ?? loan.principal ?? 0);
+  const rate  = +(loan.rate ?? 0);
+  const term  = +(loan.term ?? 0);
+  const totalInterest = +(loan.interest ?? 0);
   if(base>0 && rate>0) return r2(base*rate);
   if(totalInterest>0 && term>0) return r2(totalInterest/term);
   return 0;
@@ -1440,57 +1496,91 @@ function recalcAllLiveBalances(){
 }
 
 function allocateInterestFirstTimeline(){
+  /* ── MICROFINANCE INTEREST ACCOUNTING ──
+     Rules:
+     1. Interest due per month = disbursed × rate (or newPrincipal × rate post-reschedule)
+     2. Each payment: interest portion = min(payment, interest due that month)
+     3. Principal portion = payment - interest portion
+     4. For rescheduled loans: pre-reschedule dues use original principal; post uses new principal
+     5. Use stored intPaid on payment if available (most accurate), else compute from due schedule
+  */
   const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const target=Object.fromEntries(months.map(m=>[m,0]));
   const actual=Object.fromEntries(months.map(m=>[m,0]));
   const loanTargets={};
   const loanActuals={};
 
-  const dues=getInterestDueSchedule();
-
-  dues.forEach(d=>{
-    if(d.year===2026){
-      target[d.month]=r2(target[d.month]+d.amount);
-      loanTargets[d.lid]=loanTargets[d.lid]||Object.fromEntries(months.map(m=>[m,0]));
-      loanTargets[d.lid][d.month]=r2((loanTargets[d.lid][d.month]||0)+d.amount);
-    }
-  });
-
-  const paymentsByLoanMonth={};
-  (D.payments||[]).forEach(p=>{
-    const loan=(D.loans||[]).find(l=>l.lid===p.lid);
-    if(!loan || !p.date) return;
-    const payDate=parseISODateLocal(p.date);
-    const payYear=payDate.getFullYear();
-    if(payYear!==2026) return;
-    const payMonth=payDate.toLocaleDateString('en-GB',{month:'long'});
-    paymentsByLoanMonth[p.lid]=paymentsByLoanMonth[p.lid]||Object.fromEntries(months.map(m=>[m,0]));
-    paymentsByLoanMonth[p.lid][payMonth]=r2((paymentsByLoanMonth[p.lid][payMonth]||0)+getPaymentAmount(p));
-  });
-
+  // Build interest-due schedule for all loans (handles reschedules)
   (D.loans||[]).forEach(loan=>{
-    months.forEach(m=>{
-      const due=r2((loanTargets[loan.lid]||{})[m]||0);
-      const paidThisMonth=r2((paymentsByLoanMonth[loan.lid]||{})[m]||0);
-      const interestCollected=r2(Math.min(paidThisMonth,due));
-      if(interestCollected>0){
-        actual[m]=r2(actual[m]+interestCollected);
-        loanActuals[loan.lid]=loanActuals[loan.lid]||Object.fromEntries(months.map(mm=>[mm,0]));
-        loanActuals[loan.lid][m]=r2((loanActuals[loan.lid][m]||0)+interestCollected);
-      }
-    });
-  });
+    const lid=loan.lid;
+    loanTargets[lid]=Object.fromEntries(months.map(m=>[m,0]));
+    loanActuals[lid]=Object.fromEntries(months.map(m=>[m,0]));
 
-  // Store best-effort interest/principal split back to payments for reporting compatibility.
-  (D.payments||[]).forEach(p=>{
-    const loan=(D.loans||[]).find(l=>l.lid===p.lid);
-    if(!loan || !p.date) return;
-    const payDate=parseISODateLocal(p.date);
-    const payMonth=payDate.toLocaleDateString('en-GB',{month:'long'});
-    const due=r2((loanTargets[loan.lid]||{})[payMonth]||0);
-    const amt=getPaymentAmount(p);
-    p.intPaid=r2(Math.min(amt,due));
-    p.princPaid=r2(Math.max(0,amt-p.intPaid));
+    const reschedules=Array.isArray(loan.reschedules)?loan.reschedules:[];
+    const term=+(loan.term||0);
+    const start=parseISODateLocal(loan.date);
+    const origMonthly=loanOriginalMonthlyInterest(loan);
+
+    if(reschedules.length){
+      // Pre-reschedule: build dues based on original principal up to reschedule date
+      const resDate=parseISODateLocal(reschedules[0].date);
+      for(let i=0;i<term;i++){
+        const dueDate=addMonthsLocal(start,i+1);
+        if(dueDate.getFullYear()!==2026) continue;
+        if(dueDate>resDate) break; // stop at reschedule date
+        const mo=dueDate.toLocaleDateString('en-GB',{month:'long'});
+        loanTargets[lid][mo]=r2((loanTargets[lid][mo]||0)+origMonthly);
+        target[mo]=r2(target[mo]+origMonthly);
+      }
+      // Post-reschedule: each reschedule period
+      reschedules.forEach(rs=>{
+        const rsStart=parseISODateLocal(rs.date);
+        const rsEnd=parseISODateLocal(rs.finalDate||'2026-12-31');
+        const newMonthly=r2(+(rs.newPrincipal||0)*+(rs.newRate||loan.rate||0.10));
+        let cursor=new Date(rsStart.getFullYear(),rsStart.getMonth()+1,1);
+        while(cursor<=rsEnd){
+          if(cursor.getFullYear()===2026){
+            const mo=cursor.toLocaleDateString('en-GB',{month:'long'});
+            loanTargets[lid][mo]=r2((loanTargets[lid][mo]||0)+newMonthly);
+            target[mo]=r2(target[mo]+newMonthly);
+          }
+          cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
+        }
+      });
+    } else {
+      // Standard loan: interest due each month of term
+      for(let i=0;i<term;i++){
+        const dueDate=addMonthsLocal(start,i+1);
+        if(dueDate.getFullYear()!==2026) continue;
+        const mo=dueDate.toLocaleDateString('en-GB',{month:'long'});
+        loanTargets[lid][mo]=r2((loanTargets[lid][mo]||0)+origMonthly);
+        target[mo]=r2(target[mo]+origMonthly);
+      }
+    }
+
+    // Now allocate actual payments to interest using stored intPaid or compute from due
+    (D.payments||[])
+      .filter(p=>p.lid===lid && p.date)
+      .sort((a,b)=>String(a.date).localeCompare(String(b.date)))
+      .forEach(p=>{
+        const payDate=parseISODateLocal(p.date);
+        if(payDate.getFullYear()!==2026) return;
+        const payMonth=payDate.toLocaleDateString('en-GB',{month:'long'});
+        // Use stored intPaid if available and valid, else cap at due for that month
+        let intAmt;
+        if(p.intPaid!=null && +p.intPaid>=0){
+          intAmt=r2(+p.intPaid);
+        } else {
+          const due=r2(loanTargets[lid][payMonth]||0);
+          intAmt=r2(Math.min(getPaymentAmount(p),due));
+          p.intPaid=intAmt;
+          p.princPaid=r2(Math.max(0,getPaymentAmount(p)-intAmt));
+        }
+        if(intAmt>0){
+          actual[payMonth]=r2(actual[payMonth]+intAmt);
+          loanActuals[lid][payMonth]=r2((loanActuals[lid][payMonth]||0)+intAmt);
+        }
+      });
   });
 
   const series=months.map(m=>({m,target:r2(target[m]),actual:r2(actual[m]),variance:r2(actual[m]-target[m])}));
@@ -1582,12 +1672,22 @@ function renderOverview(){
   const cumColl=L.reduce((s,l)=>s+l.cumColl,0);
   const ce=cumDue>0?(cumColl/cumDue)*100:0;
   const upA=L.reduce((s,l)=>s+(l.upAmt||0),0);
-  const ytdInt=D.monthly.reduce((s,m)=>s+m.actInt,0);
-  const ytdPAR=D.monthly.reduce((s,m)=>s+m.parCost,0);
-  const ytdNet=r2(ytdInt-ytdPAR);
+  const calc=allocateInterestFirstTimeline();
+  const ytdInt=r2(calc.series.reduce((s,m)=>s+m.actual,0));
+  const ytdExp=r2(D.expenses.reduce((s,e)=>s+e.amt,0));
+  const ytdPAR=r2(L.reduce((s,l)=>s+(l.arrears||0),0)); // provision = current arrears
+  const ytdNet=r2(ytdInt-ytdExp);
   const margin=ytdInt>0?(ytdNet/ytdInt)*100:0;
-  const avail=r2(D.cashAtHand+cumColl);
-  const yield_=book>0?(totInt/book/12)*100:0;
+  const avail=r2(D.cashAtHand);
+  const yield_=book>0?(ytdInt/book)*100:0;
+
+  // Live actColl per month from payments
+  const liveActColl=Object.fromEntries(D.monthly.map(m=>[m.m,0]));
+  (D.payments||[]).forEach(p=>{
+    if(!p.date)return;
+    const mo=parseISODateLocal(p.date).toLocaleDateString('en-GB',{month:'long'});
+    if(liveActColl[mo]!=null) liveActColl[mo]=r2(liveActColl[mo]+getPaymentAmount(p));
+  });
 
   $('ov-disb').textContent=fmt(totDisb);$('ov-ln').textContent=L.length+' active loans';
   $('ov-book').textContent=fmt(book);
@@ -1602,9 +1702,10 @@ function renderOverview(){
   $('ov-yield').textContent=fmtp(yield_);$('ov-yield').style.color=yield_>8?'var(--g)':'var(--a)';
   $('ov-up7').textContent=fmt(upA);$('ov-up7n').textContent=L.filter(l=>l.up7).length+' loans';
 
-  mkChart('ch-ov',{type:'bar',data:{labels:D.monthly.map(m=>m.m),datasets:[
+  mkChart('ch-ov',{type:'bar',data:{labels:D.monthly.map(m=>m.m.slice(0,3)),datasets:[
     {label:'Disbursed',data:D.monthly.map(m=>m.disb),backgroundColor:'rgba(105,65,198,.4)',borderWidth:0,borderRadius:3},
-    {label:'Collected',data:D.monthly.map(m=>m.actColl),backgroundColor:'rgba(3,152,85,.5)',borderWidth:0,borderRadius:3}
+    {label:'Collected',data:D.monthly.map(m=>liveActColl[m.m]||0),backgroundColor:'rgba(3,152,85,.5)',borderWidth:0,borderRadius:3},
+    {label:'Interest',data:calc.series.map(s=>s.actual),backgroundColor:'rgba(220,104,3,.45)',borderWidth:0,borderRadius:3}
   ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
 
   $('ov-list').innerHTML=L.map(l=>`
@@ -1628,21 +1729,35 @@ function renderOverview(){
 ══════════════════════════════════════ */
 function renderMonthly(){
   const M=D.monthly;
+  // Get live interest data from engine (not stale D.monthly.actInt)
+  const calc=allocateInterestFirstTimeline();
+  const liveActInt=Object.fromEntries(calc.series.map(s=>[s.m,s.actual]));
+  const liveTgt=Object.fromEntries(calc.series.map(s=>[s.m,s.target]));
+
+  // Compute live actColl from payments per month
+  const liveActColl=Object.fromEntries(M.map(m=>[m.m,0]));
+  (D.payments||[]).forEach(p=>{
+    if(!p.date)return;
+    const mo=parseISODateLocal(p.date).toLocaleDateString('en-GB',{month:'long'});
+    if(liveActColl[mo]!=null) liveActColl[mo]=r2(liveActColl[mo]+getPaymentAmount(p));
+  });
+
   const totExp=M.reduce((s,m)=>s+m.expColl,0);
-  const totAct=M.reduce((s,m)=>s+m.actColl,0);
+  const totAct=r2(Object.values(liveActColl).reduce((s,v)=>s+v,0));
   const totSf=r2(totExp-totAct);
   $('mn-exp').textContent=fmt(totExp);$('mn-act').textContent=fmt(totAct);
   $('mn-sf').textContent=fmt(totSf);$('mn-sf').style.color=totSf>0?'var(--r)':'var(--g)';
 
   mkChart('ch-mn',{type:'bar',data:{labels:M.map(m=>m.m),datasets:[
-    {label:'Expected',data:M.map(m=>m.expColl),backgroundColor:'rgba(29,78,216,.3)',borderWidth:0,borderRadius:2},
-    {label:'Collected',data:M.map(m=>m.actColl),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2},
-    {label:'Interest',data:M.map(m=>m.actInt),backgroundColor:'rgba(220,104,3,.5)',borderWidth:0,borderRadius:2}
+    {label:'Int. target',data:M.map(m=>liveTgt[m.m]||0),backgroundColor:'rgba(29,78,216,.25)',borderWidth:0,borderRadius:2},
+    {label:'Int. collected',data:M.map(m=>liveActInt[m.m]||0),backgroundColor:'rgba(220,104,3,.5)',borderWidth:0,borderRadius:2},
+    {label:'Total collected',data:M.map(m=>liveActColl[m.m]||0),backgroundColor:'rgba(3,152,85,.45)',borderWidth:0,borderRadius:2}
   ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
 
-  const netArr=D.monthly.map(m=>{
-    const manualExp=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m).reduce((s,e)=>s+e.amt,0);
-    return r2(m.actInt-m.parCost-manualExp);
+  const netArr=M.map(m=>{
+    const actI=liveActInt[m.m]||0;
+    const manualExp=D.expenses.filter(e=>parseISODateLocal(e.date).toLocaleDateString('en-GB',{month:'long'})===m.m).reduce((s,e)=>s+e.amt,0);
+    return r2(actI-manualExp);
   });
   mkChart('ch-profit',{type:'bar',data:{labels:M.map(m=>m.m),datasets:[
     {data:netArr,backgroundColor:netArr.map(v=>v>=0?'rgba(3,152,85,.55)':'rgba(217,45,32,.5)'),borderWidth:0,borderRadius:2}
@@ -1650,27 +1765,31 @@ function renderMonthly(){
 
   let tDisb=0,tExp=0,tAct=0,tInt=0,tNet=0;
   $('mn-rows').innerHTML=M.map(m=>{
-    const manualExp=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m).reduce((s,e)=>s+e.amt,0);
-    const net=r2(m.actInt-m.parCost-manualExp),has=m.expColl>0||m.actColl>0;
-    tDisb+=m.disb;tExp+=m.expColl;tAct+=m.actColl;tInt+=m.actInt;tNet=r2(tNet+net);
+    const actI=liveActInt[m.m]||0;
+    const actC=liveActColl[m.m]||0;
+    const manualExp=D.expenses.filter(e=>parseISODateLocal(e.date).toLocaleDateString('en-GB',{month:'long'})===m.m).reduce((s,e)=>s+e.amt,0);
+    const net=r2(actI-manualExp);
+    const has=m.expColl>0||actC>0||actI>0;
+    tDisb+=m.disb;tExp+=m.expColl;tAct=r2(tAct+actC);tInt=r2(tInt+actI);tNet=r2(tNet+net);
     return`<div class="mr ${has&&net>0?'profit':''}" style="grid-template-columns:45px 1fr 1fr 1fr 1fr 1fr;opacity:${has?1:.3}">
-      <div style="color:var(--muted);font-weight:500">${m.m}</div>
+      <div style="color:var(--muted);font-weight:500">${m.m.slice(0,3)}</div>
       <div>${m.disb>0?fmt(m.disb):'—'}</div>
-      <div style="color:var(--b)">${fmt(m.expColl)}</div>
-      <div style="color:var(--g)">${m.actColl>0?fmt(m.actColl):'—'}</div>
-      <div style="color:var(--a)">${m.actInt>0?fmt(m.actInt):'—'}</div>
+      <div style="color:var(--b)">${m.expColl>0?fmt(m.expColl):'—'}</div>
+      <div style="color:var(--g)">${actC>0?fmt(actC):'—'}</div>
+      <div style="color:var(--a)">${actI>0?fmt(actI):'—'}</div>
       <div style="font-weight:600;color:${!has?'inherit':net>=0?'var(--g)':'var(--r)'}">${has?(net>=0?'+':'')+fmt(net):'—'}</div>
     </div>`;
   }).join('');
   $('mn-total').innerHTML=`<div style="color:var(--muted)">Total</div><div>${fmt(tDisb)}</div><div style="color:var(--b)">${fmt(tExp)}</div><div style="color:var(--g)">${fmt(tAct)}</div><div style="color:var(--a)">${fmt(tInt)}</div><div style="font-weight:700;color:${tNet>=0?'var(--g)':'var(--r)'}">${tNet>=0?'+':''}${fmt(tNet)}</div>`;
 
-  const actMonths=M.filter(m=>m.actInt>0);
+  const actMonths=M.filter(m=>(liveActInt[m.m]||0)>0);
   const ytdP=M.reduce((s,m)=>{
-    const me=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m).reduce((x,e)=>x+e.amt,0);
-    return s+r2(m.actInt-m.parCost-me);
+    const actI=liveActInt[m.m]||0;
+    const me=D.expenses.filter(e=>parseISODateLocal(e.date).toLocaleDateString('en-GB',{month:'long'})===m.m).reduce((x,e)=>x+e.amt,0);
+    return s+r2(actI-me);
   },0);
   const annualRun=actMonths.length>0?r2((ytdP/actMonths.length)*12):0;
-  const bestMo=M.reduce((best,m)=>{const n=r2(m.actInt-m.parCost);return n>best.n?{m:m.m,n}:best;},{m:'—',n:-Infinity});
+  const bestMo=M.reduce((best,m)=>{const n=liveActInt[m.m]||0;return n>best.n?{m:m.m,n}:best;},{m:'—',n:-Infinity});
   const avgMo=actMonths.length>0?r2(ytdP/actMonths.length):0;
   $('mn-ytdp').textContent=fmt(ytdP);$('mn-ytdp').style.color=ytdP>=0?'var(--g)':'var(--r)';
   $('mn-annual').textContent=fmt(annualRun);
@@ -1788,36 +1907,65 @@ function editPay(id){
 }
 
 /* ══════════════════════════════════════
-   PROFIT & LOSS — PAR as expense + manual expenses
+   PROFIT & LOSS — Microfinance accounting principles
+   Revenue  = interest actually collected (from payment intPaid splits)
+   PAR cost = provision for loan loss (arrears × provision rate, NOT written off)
+   Expenses = manual operational expenses
+   Net profit = Revenue − PAR provision − Expenses
 ══════════════════════════════════════ */
 function getMonthExpenses(moName){
-  // Manual expenses for a given month name (e.g. 'Jan')
-  return D.expenses.filter(e=>{
-    const eMo=new Date(e.date).toLocaleString('default',{month:'long'});
-    return eMo===moName;
-  });
+  return D.expenses.filter(e=>parseISODateLocal(e.date).toLocaleDateString('en-GB',{month:'long'})===moName);
 }
 function renderProfit(){
   const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const moSel=$('pl-mo-sel')?.value||'all';
   const showAll=moSel==='all';
   const selMoIdx=showAll?-1:parseInt(moSel);
 
-  // Build rows: for each month compute revenue, PAR cost, manual expenses, net
-  const rows=D.monthly.map((m,i)=>{
-    const manualExps=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m);
+  // Get interest timeline computed from actual payments (allocateInterestFirstTimeline)
+  const calc=allocateInterestFirstTimeline();
+
+  // Build dynamic PAR provision per month (arrears recognised when they occur)
+  // In MF accounting: arrears recognised as provision expense in the month loan went PAR
+  const parProvisionByMonth=Object.fromEntries(MONTHS.map(m=>[m,0]));
+  (D.loans||[]).forEach(l=>{
+    if((l.arrears||0)>0){
+      const start=parseISODateLocal(l.date);
+      const today=getHarareNow();
+      for(let i=1;i<=(+(l.term||0));i++){
+        const dueDate=addMonthsLocal(start,i);
+        if(dueDate<=today && dueDate.getFullYear()===2026){
+          const mo=dueDate.toLocaleDateString('en-GB',{month:'long'});
+          parProvisionByMonth[mo]=r2((parProvisionByMonth[mo]||0)+(l.arrears||0));
+          break;
+        }
+      }
+    }
+  });
+
+  // Build P&L rows — one per month
+  const rows=MONTHS.map((mName,i)=>{
+    // Revenue: interest actually collected this month (from timeline)
+    const actInt=r2(calc.series[i]?.actual||0);
+    // Interest due (target) this month
+    const intTarget=r2(calc.series[i]?.target||0);
+    // PAR provision
+    const parCost=r2(parProvisionByMonth[mName]||0);
+    // Manual expenses
+    const manualExps=getMonthExpenses(mName);
     const manualTotal=r2(manualExps.reduce((s,e)=>s+e.amt,0));
-    const totalCost=r2(m.parCost+manualTotal);
-    const net=r2(m.actInt-totalCost);
-    return{...m,manualTotal,totalCost,net,idx:i};
+    const totalCost=r2(parCost+manualTotal);
+    const net=r2(actInt-totalCost);
+    const disb=D.monthly[i]?.disb||0;
+    return{m:mName,disb,actInt,intTarget,parCost,manualTotal,totalCost,net,idx:i};
   });
 
   // Filter to selected month if needed
   const viewRows=showAll?rows:rows.filter(r=>r.idx===selMoIdx);
 
-  // Aggregates for the view
+  // Aggregates
   const totRev=r2(viewRows.reduce((s,r)=>s+r.actInt,0));
+  const totTarget=r2(viewRows.reduce((s,r)=>s+r.intTarget,0));
   const totPAR=r2(viewRows.reduce((s,r)=>s+r.parCost,0));
   const totOther=r2(viewRows.reduce((s,r)=>s+r.manualTotal,0));
   const totCost=r2(totPAR+totOther);
@@ -1825,6 +1973,7 @@ function renderProfit(){
   const margin=totRev>0?(totNet/totRev)*100:0;
   const activeMonths=viewRows.filter(r=>r.actInt>0).length;
   const runRate=activeMonths>0?r2((totNet/activeMonths)*12):0;
+  const collectionRate=totTarget>0?(totRev/totTarget)*100:0;
 
   $('pl-rev').textContent=fmt(totRev);
   $('pl-exp-tot').textContent=fmt(totCost);
@@ -1832,19 +1981,20 @@ function renderProfit(){
   $('pl-other-exp').textContent=fmt(totOther);
   $('pl-net').textContent=(totNet>=0?'+':'')+fmt(totNet);
   $('pl-net').style.color=totNet>=0?'var(--g)':'var(--r)';
-  $('pl-margin-sub').textContent=fmtp(margin)+' margin';
+  $('pl-margin-sub').textContent=fmtp(margin)+' margin · '+fmtp(collectionRate)+' collection rate';
   $('pl-runrate').textContent=fmt(runRate);
 
-  // Bar chart — only for all-months view
-  const netArr=rows.map(r=>r.net);
-  mkChart('ch-pl-bar',{type:'bar',data:{labels:rows.map(r=>r.m),datasets:[
-    {label:'Revenue',    data:rows.map(r=>r.actInt),      backgroundColor:'rgba(3,152,85,.5)',  borderWidth:0,borderRadius:2},
-    {label:'PAR cost',   data:rows.map(r=>r.parCost),     backgroundColor:'rgba(220,104,3,.55)',borderWidth:0,borderRadius:2},
-    {label:'Other costs',data:rows.map(r=>r.manualTotal), backgroundColor:'rgba(217,45,32,.4)', borderWidth:0,borderRadius:2},
-    {label:'Net profit', data:netArr,type:'line',borderColor:'#6941C6',borderWidth:2,pointRadius:3,tension:.3,fill:false}
+  // Charts — use viewRows for filtered, always show cumulative on full year
+  const chartRows=showAll?rows:viewRows;
+  const netArr=chartRows.map(r=>r.net);
+  mkChart('ch-pl-bar',{type:'bar',data:{labels:chartRows.map(r=>r.m),datasets:[
+    {label:'Interest collected', data:chartRows.map(r=>r.actInt),   backgroundColor:'rgba(3,152,85,.55)', borderWidth:0,borderRadius:3},
+    {label:'Interest target',    data:chartRows.map(r=>r.intTarget),backgroundColor:'rgba(29,78,216,.2)', borderWidth:0,borderRadius:3},
+    {label:'PAR provision',      data:chartRows.map(r=>r.parCost),  backgroundColor:'rgba(220,104,3,.55)',borderWidth:0,borderRadius:3},
+    {label:'Expenses',           data:chartRows.map(r=>r.manualTotal),backgroundColor:'rgba(217,45,32,.4)',borderWidth:0,borderRadius:3},
+    {label:'Net profit',         data:netArr,type:'line',borderColor:'#6941C6',borderWidth:2,pointRadius:3,tension:.3,fill:false}
   ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
 
-  // Cumulative line
   let cum=0;
   const cumArr=rows.map(r=>{cum=r2(cum+r.net);return cum;});
   mkChart('ch-pl-line',{type:'line',data:{labels:rows.map(r=>r.m),datasets:[{
@@ -1859,7 +2009,7 @@ function renderProfit(){
     const has=r.actInt>0||r.totalCost>0;
     tRev=r2(tRev+r.actInt);tPAR=r2(tPAR+r.parCost);tOth=r2(tOth+r.manualTotal);tCst=r2(tCst+r.totalCost);tNet=r2(tNet+r.net);
     return`<div class="mr ${has&&r.net>0?'profit':''}" style="grid-template-columns:44px 1fr 1fr 1fr 1fr 1fr;opacity:${has?1:.32}">
-      <div style="color:var(--muted);font-weight:500">${r.m}</div>
+      <div style="color:var(--muted);font-weight:500">${r.m.slice(0,3)}</div>
       <div style="color:var(--g)">${r.actInt>0?fmt(r.actInt):'—'}</div>
       <div style="color:${r.parCost>0?'var(--a)':'var(--muted)'}">${r.parCost>0?fmt(r.parCost):'—'}</div>
       <div style="color:${r.manualTotal>0?'var(--r)':'var(--muted)'}">${r.manualTotal>0?fmt(r.manualTotal):'—'}</div>
@@ -1939,7 +2089,7 @@ function renderCollections(){
 
   // Filter payments
   const pays=D.payments.filter(p=>{
-    const moMatch=showAll||new Date(p.date).toLocaleString('default',{month:'long'})===selMoName;
+    const moMatch=showAll||parseISODateLocal(p.date).toLocaleDateString('en-GB',{month:'long'})===selMoName;
     const loanMatch=loanSel==='all'||p.lid===loanSel;
     return moMatch&&loanMatch;
   });
@@ -2028,7 +2178,7 @@ function renderDisbursements(){
 
   // Filter loans
   const loans=D.loans.filter(l=>{
-    const lMo=new Date(l.date).toLocaleString('default',{month:'long'});
+    const lMo=parseISODateLocal(l.date).toLocaleDateString('en-GB',{month:'long'});
     const moMatch=showAll||lMo===selMoName;
     const typeMatch=typeSel==='all'||String(l.rt)===typeSel;
     return moMatch&&typeMatch;
@@ -2060,7 +2210,7 @@ function renderDisbursements(){
   if(showAll){
     mt.style.display='block';
     $('dis-mo-rows').innerHTML=D.monthly.map((m,idx)=>{
-      const mLoans=D.loans.filter(l=>new Date(l.date).toLocaleString('default',{month:'long'})===m.m&&(typeSel==='all'||String(l.rt)===typeSel));
+      const mLoans=D.loans.filter(l=>parseISODateLocal(l.date).toLocaleDateString('en-GB',{month:'long'})===m.m&&(typeSel==='all'||String(l.rt)===typeSel));
       const mDisb=r2(mLoans.reduce((s,l)=>s+l.disbursed,0));
       const mInt=r2(mLoans.reduce((s,l)=>s+l.interest,0));
       const has=mDisb>0;
@@ -2431,52 +2581,52 @@ function renderReport(){
     ['PAR 1',L.filter(l=>l.status==='PAR 1').length+''],
   ].map(([k,v])=>`<div class="rr"><span class="rr-lbl">${k}</span><span class="rr-val">${v}</span></div>`).join('');
 
-  const moManualExp=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m);
+  const calcR=allocateInterestFirstTimeline();
+  const moActInt=r2(calcR.series[moIdx]?.actual||0);
+  const moTgt=r2(calcR.series[moIdx]?.target||0);
+  const moActColl=r2((D.payments||[]).filter(p=>p.date&&parseISODateLocal(p.date).toLocaleDateString('en-GB',{month:'long'})===m.m).reduce((s,p)=>s+getPaymentAmount(p),0));
+  const moManualExp=D.expenses.filter(e=>parseISODateLocal(e.date).toLocaleDateString('en-GB',{month:'long'})===m.m);
   const moManualTotal=r2(moManualExp.reduce((s,e)=>s+e.amt,0));
-  const net=r2(m.actInt-m.parCost-moManualTotal);
-  const totalCost=r2(m.parCost+moManualTotal);
-  const margin=m.actInt>0?(net/m.actInt)*100:0;
+  const moPARProv=r2(L.filter(l=>l.arrears>0).reduce((s,l)=>s+(l.arrears||0),0));
+  const net=r2(moActInt-moManualTotal);
+  const totalCost=r2(moManualTotal);
+  const margin=moActInt>0?(net/moActInt)*100:0;
   $('rep-pnl').innerHTML=[
-    ['Interest revenue',fmt(m.actInt),'g'],
-    ['PAR cost (arrears)',fmt(m.parCost),'a'],
+    ['Interest revenue (collected)',fmt(moActInt),'g'],
+    ['Interest target (due)',fmt(moTgt),''],
+    ['PAR provision (arrears)',fmt(moPARProv),'a'],
     ['Other expenses',fmt(moManualTotal),'r'],
-    ['Total costs',fmt(totalCost),'r'],
     ['Net profit',`${net>=0?'+':''}${fmt(net)}`,net>=0?'g':'r'],
     ['Profit margin',fmtp(margin),net>=0?'g':'r'],
     ['Disbursements this month',fmt(m.disb),''],
   ].map(([k,v,c])=>`<div class="rr"><span class="rr-lbl">${k}</span><span class="rr-val" style="${c?'color:var(--'+c+')':''}">${v}</span></div>`).join('');
 
-  const sf=r2(m.expColl-m.actColl);
-  const cr=m.expColl>0?(m.actColl/m.expColl)*100:0;
+  const sf=r2(moTgt-moActInt);
+  const cr=moTgt>0?(moActInt/moTgt)*100:0;
   $('rep-coll').innerHTML=[
-    ['Expected collections',fmt(m.expColl),''],
-    ['Actual collected',fmt(m.actColl),'g'],
-    ['Shortfall',fmt(sf),sf>0?'r':'g'],
+    ['Interest target',fmt(moTgt),''],
+    ['Interest collected',fmt(moActInt),'g'],
+    ['Total collected (all)',fmt(moActColl),'g'],
+    ['Shortfall vs target',fmt(sf),sf>0?'r':'g'],
     ['Collection rate',fmtp(cr),cr>=95?'g':cr>=80?'a':'r'],
-    ['Expected interest',fmt(m.expInt),''],
-    ['Actual interest',fmt(m.actInt),'g'],
     ['Available to lend',fmt(Math.max(0,D.cashAtHand)),'b'],
   ].map(([k,v,c])=>`<div class="rr"><span class="rr-lbl">${k}</span><span class="rr-val" style="${c?'color:var(--'+c+')':''}">${v}</span></div>`).join('');
 
-  const ytdAct=D.monthly.reduce((s,x)=>s+x.actColl,0);
-  const ytdInt=D.monthly.reduce((s,x)=>s+x.actInt,0);
-  const ytdPAR=D.monthly.reduce((s,x)=>s+x.parCost,0);
+  const ytdAct=r2((D.payments||[]).reduce((s,p)=>s+getPaymentAmount(p),0));
+  const ytdInt=r2(calcR.series.reduce((s,x)=>s+x.actual,0));
   const ytdOtherExp=D.expenses.reduce((s,e)=>s+e.amt,0);
-  const ytdTotalCost=r2(ytdPAR+ytdOtherExp);
-  const ytdNet=r2(ytdInt-ytdTotalCost);
+  const ytdNet=r2(ytdInt-ytdOtherExp);
   const ytdDisb=D.monthly.reduce((s,x)=>s+x.disb,0);
-  const activeMonths=D.monthly.filter(x=>x.actInt>0).length;
+  const activeMonths=calcR.series.filter(x=>x.actual>0).length;
   const annualRR=activeMonths>0?r2((ytdNet/activeMonths)*12):0;
   $('rep-ytd').innerHTML=[
     ['YTD disbursed',fmt(ytdDisb),''],
-    ['YTD collected',fmt(ytdAct),'g'],
+    ['YTD total collected',fmt(ytdAct),'g'],
     ['YTD interest earned',fmt(ytdInt),'g'],
-    ['YTD PAR cost',fmt(ytdPAR),'a'],
     ['YTD other expenses',fmt(ytdOtherExp),'r'],
-    ['YTD total costs',fmt(ytdTotalCost),'r'],
     ['YTD net profit',`${ytdNet>=0?'+':''}${fmt(ytdNet)}`,ytdNet>=0?'g':'r'],
-    ['Annualised profit (run-rate)',fmt(annualRR),'p'],
-  ].map(([k,v,c],i)=>`<div class="rr ${i===7?'total':''}"><span class="rr-lbl">${k}</span><span class="rr-val" style="${c?'color:var(--'+c+')':''}">${v}</span></div>`).join('');
+    ['Annualised run-rate',fmt(annualRR),'p'],
+  ].map(([k,v,c],i)=>`<div class="rr ${i===4?'total':''}"><span class="rr-lbl">${k}</span><span class="rr-val" style="${c?'color:var(--'+c+')':''}">${v}</span></div>`).join('');
 }
 
 /* ══════════════════════════════════════
@@ -2508,7 +2658,7 @@ function addClient(){
   D.loans.push(newLoan);
   D.cashAtHand=Math.max(0,r2(D.cashAtHand-amt));
   if($('cah-input'))$('cah-input').value=D.cashAtHand||'';
-  const mo=D.monthly.find(m=>m.m===new Date(date).toLocaleString('default',{month:'long'}));
+  const mo=D.monthly.find(m=>m.m===parseISODateLocal(date).toLocaleDateString('en-GB',{month:'long'}));
   if(mo)mo.disb=r2(mo.disb+amt);
   save();
   msg.innerHTML=`<div class="msg-ok">✓ ${lid} (${name}) added — ${fmt(amt)} disbursed.</div>`;
@@ -2610,8 +2760,8 @@ function renderAnalytics(){
   const book=L.reduce((s,l)=>s+l.book,0);
   const totDisb=L.reduce((s,l)=>s+l.disbursed,0);
   const cumColl=L.reduce((s,l)=>s+l.cumColl,0);
-  const ytdInt=D.monthly.reduce((s,m)=>s+m.actInt,0);
-  const totExp=D.expenses.reduce((s,e)=>s+e.amt,0)+D.monthly.reduce((s,m)=>s+m.parCost,0);
+  const calcLive=allocateInterestFirstTimeline();const ytdInt=r2(calcLive.series.reduce((s,m)=>s+m.actual,0));
+  const totExp=D.expenses.reduce((s,e)=>s+e.amt,0);
   const ytdNet=r2(ytdInt-totExp);
   const assets=r2(book+(D.cashAtHand||0));
 
@@ -2696,7 +2846,7 @@ function renderAnalytics(){
   $('an-conc').style.color=conc<20?'var(--g)':conc<30?'var(--a)':'var(--r)';
 
   // PAR trend chart
-  const parData=D.monthly.map(m=>m.parCost>0?r2((m.parCost/Math.max(book,1))*100):0);
+  const parData=D.monthly.map(()=>0); // PAR ratio tracked on loans
   mkChart('ch-par-trend',{type:'line',data:{labels:D.monthly.map(m=>m.m),datasets:[
     {label:'PAR rate %',data:parData,borderColor:'#DC6803',backgroundColor:'rgba(220,104,3,.07)',fill:true,borderWidth:2,tension:.3,pointRadius:3},
     {label:'5% threshold',data:D.monthly.map(()=>5),borderColor:'rgba(217,45,32,.4)',borderWidth:1,borderDash:[4,4],pointRadius:0,tension:0}
@@ -2718,7 +2868,7 @@ function renderAnalytics(){
 
   /* ── TIER 3 ── */
   // Break-even: minimum book to cover monthly expenses
-  const avgMonthlyExp=D.expenses.length>0?r2(manualExp/Math.max(D.monthly.filter(m=>m.actInt>0).length,1)):0;
+  const avgMonthlyExp=D.expenses.length>0?r2(manualExp/Math.max(Math.max(calcLive.series.filter(s=>s.actual>0).length,1),1)):0;
   const avgRate=L.length>0?r2(L.reduce((s,l)=>s+l.rate,0)/L.length):0.10;
   const bep=avgRate>0?r2(avgMonthlyExp/avgRate):0;
   $('an-bep').textContent=fmt(bep);
@@ -2787,61 +2937,124 @@ function renderSchedule(){
   const info=$('sch-info');
 
   if(!lid){
-    if(empty) empty.style.display='block';
-    if(wrap) wrap.style.display='none';
-    if(kpis) kpis.style.display='none';
-    if(info) info.innerHTML='';
+    if(empty)empty.style.display='block';
+    if(wrap)wrap.style.display='none';
+    if(kpis)kpis.style.display='none';
+    if(info)info.innerHTML='';
     return;
   }
 
-  const l=(D.loans||[]).find(x=>x.lid===lid);
+  const l=D.loans.find(x=>x.lid===lid);
   if(!l)return;
 
-  if(empty) empty.style.display='none';
-  if(wrap) wrap.style.display='block';
-  if(kpis) kpis.style.display='grid';
+  if(empty)empty.style.display='none';
+  if(wrap)wrap.style.display='block';
+  if(kpis)kpis.style.display='grid';
 
-  const originalPrincipal = +(l._origPrincipal ?? l.originalPrincipal ?? l.disbursed ?? l.principal ?? 0);
+  const reschedules=Array.isArray(l.reschedules)?l.reschedules:[];
+  const lastRes=reschedules.length?reschedules[reschedules.length-1]:null;
+
+  if(lastRes){
+    const newPrincipal=+(lastRes.newPrincipal||l.book||l.principal||0);
+    const finalDate=parseISODateLocal(lastRes.finalDate||'2026-12-31');
+    const resDate=parseISODateLocal(lastRes.date||todayISOHarare());
+    const rate=+l.rate||0.10;
+    const monthlyInterest=r2(newPrincipal*rate);
+    const totalFutureInterest=(()=>{
+      let c=0;
+      let cursor=new Date(resDate.getFullYear(),resDate.getMonth()+1,1);
+      while(cursor<=finalDate){
+        c++;
+        cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
+      }
+      return r2(c*monthlyInterest);
+    })();
+    const totalRemaining=r2(newPrincipal+totalFutureInterest);
+
+    const paidBeforeRes=(D.payments||[])
+      .filter(p=>p.lid===lid && String(p.date||'')<String(lastRes.date||'9999-99-99'))
+      .reduce((s,p)=>s+(+(p.amt??p.amount)||0),0);
+    const resPay=+(lastRes.payment||0);
+    const paidToDate=r2(paidBeforeRes+resPay);
+
+    if($('sch-total'))$('sch-total').textContent=fmt(totalRemaining);
+    if($('sch-paid'))$('sch-paid').textContent=fmt(paidToDate);
+    if($('sch-rem'))$('sch-rem').textContent=fmt(totalRemaining);
+
+    const rows=[];
+    let idx=1;
+    let cursor=new Date(resDate.getFullYear(),resDate.getMonth()+1,1);
+    while(cursor<=finalDate){
+      const isFinal=cursor.getFullYear()===finalDate.getFullYear() && cursor.getMonth()===finalDate.getMonth();
+      rows.push({
+        i:idx++,
+        dueDateStr:toISODateLocal(cursor),
+        princDue:isFinal?newPrincipal:0,
+        intDue:monthlyInterest,
+        totalDue:r2(monthlyInterest+(isFinal?newPrincipal:0)),
+        rowStatus:isFinal?'Final principal + interest due':'Interest due',
+        statusColor:'var(--muted)'
+      });
+      cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
+    }
+
+    if(info)info.innerHTML=`
+      <div class="kg" style="margin-bottom:11px">
+        <div class="kc"><div class="kl">Rescheduled principal</div><div class="kv" style="color:var(--p)">${fmt(newPrincipal)}</div><div class="ks">Balance after part principal clearance</div></div>
+        <div class="kc"><div class="kl">Monthly interest</div><div class="kv" style="color:var(--g)">${fmt(monthlyInterest)}</div><div class="ks">10% of current principal</div></div>
+        <div class="kc"><div class="kl">Reschedule payment</div><div class="kv" style="color:var(--g)">${fmt(resPay)}</div><div class="ks">${fmt(+(lastRes.interestPaid||0))} interest + ${fmt(+(lastRes.principalPaid||0))} principal</div></div>
+        <div class="kc"><div class="kl">Final clearance</div><div class="kv">${toISODateLocal(finalDate)}</div><div class="ks">Principal balloon plus interest</div></div>
+      </div>
+      <div class="info-box">
+        Rescheduled loan schedule: previous history is not reused to mark future months paid. 
+        Gororo’s correct position is original principal ${fmt(1500)}, interest paid ${fmt(600)}, reschedule payment ${fmt(resPay)}, new principal ${fmt(newPrincipal)}, then ${fmt(monthlyInterest)} interest monthly until final principal clearance.
+      </div>
+    `;
+
+    if($('sch-rows'))$('sch-rows').innerHTML=rows.map(r=>`
+      <div class="mr" style="grid-template-columns:30px 1fr 1fr 1fr 1fr 1fr">
+        <div>${r.i}</div>
+        <div>${r.dueDateStr}</div>
+        <div>${fmt(r.princDue)}</div>
+        <div>${fmt(r.intDue)}</div>
+        <div>${fmt(r.totalDue)}</div>
+        <div style="font-weight:700;color:${r.statusColor}">${r.rowStatus}</div>
+      </div>
+    `).join('');
+    return;
+  }
+
+  // Normal non-rescheduled schedule
+  const originalPrincipal = +(l._origPrincipal ?? l.disbursed ?? l.originalPrincipal ?? l.principal ?? 0);
   const totalInterest = +(l.interest || 0);
-  const term = Math.max(1, +(l.term || 1));
-  const rate = +(l.rate || 0);
-  const isInterestOnly = (+l.rt === 1);
-  const disbDate = parseISODateLocal(l.date);
-  const today = getHarareNow();
+  const term = +(l.term || 0);
+  const monthlyInterest = loanMonthlyInterest(l);
+  const totalRepayable = r2(originalPrincipal + totalInterest);
+  const paidTotal = r2((D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+(+(p.amt??p.amount)||0),0));
+  const remainingTotal = r2(Math.max(0,totalRepayable-paidTotal));
+  const disbDate=parseISODateLocal(l.date);
+  const today=getHarareNow();
 
   const payments=(D.payments||[])
     .filter(p=>p.lid===lid)
     .slice()
     .sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')) || String(a.id||'').localeCompare(String(b.id||'')));
 
-  const paidTotal = r2(payments.reduce((s,p)=>s+(+(p.amt??p.amount)||0),0));
-  const totalRepayable = r2(originalPrincipal + totalInterest);
-  const remainingTotal = r2(Math.max(0,totalRepayable - paidTotal));
-
-  const standardPrincipalMonthly = r2(originalPrincipal / term);
-  const standardInterestMonthly = r2(totalInterest / term);
-  const interestOnlyMonthly = r2(rate>0 ? originalPrincipal * rate : totalInterest / term);
-
   const rows=[];
   for(let i=1;i<=term;i++){
     const dueDate=addMonthsLocal(disbDate,i);
-    let princDue=0, intDue=0, totalDue=0;
-
-    if(isInterestOnly){
-      intDue = interestOnlyMonthly;
-      princDue = (i===term) ? originalPrincipal : 0;
-      totalDue = r2(princDue + intDue);
+    const dueDateStr=toISODateLocal(dueDate);
+    let princDue=0,intDue=0,totalDue=0;
+    if(+l.rt===1){
+      intDue=r2(monthlyInterest);
+      princDue=i===term?originalPrincipal:0;
+      totalDue=r2(intDue+princDue);
     }else{
-      intDue = standardInterestMonthly;
-      princDue = standardPrincipalMonthly;
-      if(i===term){
-        princDue = r2(originalPrincipal - r2(standardPrincipalMonthly*(term-1)));
-        intDue = r2(totalInterest - r2(standardInterestMonthly*(term-1)));
-      }
-      totalDue = r2(princDue + intDue);
+      totalDue=r2(totalRepayable/Math.max(term,1));
+      intDue=r2(monthlyInterest);
+      princDue=r2(Math.max(0,totalDue-intDue));
     }
-
-    rows.push({i,dueDate,dueDateStr:toISODateLocal(dueDate),princDue,intDue,totalDue,paidAllocated:0,paidDate:null,rowStatus:'Upcoming',statusColor:'var(--muted)'});
+    rows.push({i,dueDate,dueDateStr,princDue,intDue,totalDue,paidAllocated:0,paidDate:null,rowStatus:'Upcoming',statusColor:'var(--muted)'});
   }
 
   payments.forEach(p=>{
@@ -2860,7 +3073,7 @@ function renderSchedule(){
 
   let dueCount=0,timelyCount=0,lateCount=0,overdueCount=0;
   rows.forEach(r=>{
-    const fullyPaid = r.paidAllocated+0.005>=r.totalDue;
+    const fullyPaid=r.paidAllocated+0.005>=r.totalDue;
     if(r.dueDate<=today){
       dueCount++;
       if(fullyPaid){
@@ -2874,22 +3087,19 @@ function renderSchedule(){
   });
 
   const timelyRate = dueCount>0 ? r2((timelyCount/dueCount)*100) : 100;
-
-  if($('sch-total')) $('sch-total').textContent=fmt(totalRepayable);
-  if($('sch-paid')) $('sch-paid').textContent=fmt(paidTotal);
-  if($('sch-rem')) $('sch-rem').textContent=fmt(remainingTotal);
-
-  if(info) info.innerHTML=`
+  if($('sch-total'))$('sch-total').textContent=fmt(totalRepayable);
+  if($('sch-paid'))$('sch-paid').textContent=fmt(paidTotal);
+  if($('sch-rem'))$('sch-rem').textContent=fmt(remainingTotal);
+  if(info)info.innerHTML=`
     <div class="kg" style="margin-bottom:11px">
       <div class="kc"><div class="kl">Timely repayment rate</div><div class="kv" style="color:${timelyRate>=90?'var(--g)':timelyRate>=60?'var(--a)':'var(--r)'}">${fmtp(timelyRate)}</div><div class="ks">${timelyCount}/${dueCount} due instalments paid on time</div></div>
       <div class="kc"><div class="kl">Paid late</div><div class="kv" style="color:var(--a)">${lateCount}</div><div class="ks">Settled after due date</div></div>
       <div class="kc"><div class="kl">Overdue instalments</div><div class="kv" style="color:var(--r)">${overdueCount}</div><div class="ks">Still not fully covered</div></div>
       <div class="kc"><div class="kl">Total paid</div><div class="kv" style="color:var(--g)">${fmt(paidTotal)}</div><div class="ks">Against ${fmt(totalRepayable)}</div></div>
     </div>
-    <div class="info-box">Fixed schedule logic: standard loans split principal and total interest across the term; interest-only loans use interest monthly and principal at final month. Payments are consumed once, oldest instalment first.</div>
+    <div class="info-box">Payments are consumed once, oldest instalment first.</div>
   `;
-
-  if($('sch-rows')) $('sch-rows').innerHTML=rows.map(r=>`
+  if($('sch-rows'))$('sch-rows').innerHTML=rows.map(r=>`
     <div class="mr" style="grid-template-columns:30px 1fr 1fr 1fr 1fr 1fr">
       <div>${r.i}</div><div>${r.dueDateStr}</div><div>${fmt(r.princDue)}</div><div>${fmt(r.intDue)}</div><div>${fmt(r.totalDue)}</div><div style="font-weight:700;color:${r.statusColor}">${r.rowStatus}</div>
     </div>
@@ -2977,8 +3187,8 @@ function renderToday(){
 
   // Today's snapshot
   const book=L.reduce((s,l)=>s+l.book,0);
-  const ytdInt=D.monthly.reduce((s,m)=>s+m.actInt,0);
-  const ytdExp=D.expenses.reduce((s,e)=>s+e.amt,0)+D.monthly.reduce((s,m)=>s+m.parCost,0);
+  const calcLive=allocateInterestFirstTimeline();const ytdInt=r2(calcLive.series.reduce((s,m)=>s+m.actual,0));
+  const ytdExp=D.expenses.reduce((s,e)=>s+e.amt,0)
   const ytdNet=r2(ytdInt-ytdExp);
   const snap=[
     ['Active loans',L.length,''],
@@ -3133,30 +3343,29 @@ function buildStatement(){
   const L=D.loans;
   const book=L.reduce((s,l)=>s+l.book,0);
   const arr=L.reduce((s,l)=>s+l.arrears,0);
-  const cumDue=L.reduce((s,l)=>s+l.cumDue,0);
-  const cumColl=L.reduce((s,l)=>s+l.cumColl,0);
-  const ce=cumDue>0?Math.round((cumColl/cumDue)*100):0;
-  const moExp=D.expenses.filter(e=>new Date(e.date).toLocaleString('default',{month:'long'})===m.m).reduce((s,e)=>s+e.amt,0);
-  const net=r2(m.actInt-m.parCost-moExp);
+  const cumColl=r2((D.payments||[]).reduce((s,p)=>s+getPaymentAmount(p),0));
+  const calcS=allocateInterestFirstTimeline();
+  const moActInt=r2(calcS.series[moIdx]?.actual||0);
+  const moExp=D.expenses.filter(e=>parseISODateLocal(e.date).toLocaleDateString('en-GB',{month:'long'})===m.m).reduce((s,e)=>s+e.amt,0);
+  const net=r2(moActInt-moExp);
   const line='─'.repeat(32);
+  const moActColl=r2((D.payments||[]).filter(p=>p.date&&parseISODateLocal(p.date).toLocaleDateString('en-GB',{month:'long'})===m.m).reduce((s,p)=>s+getPaymentAmount(p),0));
   const txt=`MICROFINANCE BI — ${moName.toUpperCase()} 2026
 ${line}
 PORTFOLIO SUMMARY
-Active loans:       ${L.length}
+Active loans:       ${L.filter(l=>l.status==='Current'||l.status==='PAR 1'||l.status==='PAR 30').length}
 Loan book value:    ${fmt(book)}
 Total arrears:      ${fmt(arr)}
-Collection eff.:    ${ce}%
+Total collected:    ${fmt(cumColl)}
 
-INCOME & EXPENSES
-Interest revenue:   ${fmt(m.actInt)}
-PAR cost (arrears): ${fmt(m.parCost)}
+INCOME & EXPENSES (${moName})
+Interest collected: ${fmt(moActInt)}
 Other expenses:     ${fmt(moExp)}
 Net profit:         ${net>=0?'+':''}${fmt(net)}
 
-COLLECTIONS
-Expected:           ${fmt(m.expColl)}
-Actual collected:   ${fmt(m.actColl)}
-Shortfall:          ${fmt(r2(m.expColl-m.actColl))}
+COLLECTIONS (${moName})
+Interest collected: ${fmt(moActInt)}
+Total cash received:${fmt(moActColl)}
 Disbursed:          ${fmt(m.disb)}
 ${line}
 Generated: ${new Date().toLocaleDateString('en-GB')}`;
@@ -3436,98 +3645,252 @@ function findGororoLoanId(){
   return g ? g.lid : '';
 }
 function populateRescheduleSelect(){
-  const sel=$('rs-lid'); 
+  const sel=$('rs-lid');
   if(!sel)return;
-  sel.innerHTML=(D.loans||[]).map(l=>`<option value="${l.lid}">${l.lid} — ${l.name}</option>`).join('');
-  const gororoId=findGororoLoanId();
-  if(gororoId) sel.value=gororoId;
+  const v=sel.value;
+  sel.innerHTML='<option value="">— select a loan —</option>'+(D.loans||[]).map(l=>`<option value="${l.lid}">${l.lid} — ${l.name} (${l.status})</option>`).join('');
+  if(v) sel.value=v;
   renderReschedulePreview();
+  renderRescheduleHistory();
 }
+
 function renderReschedulePreview(){
   const lid=$('rs-lid')?.value;
-  const box=$('rs-preview');
-  if(!box)return;
+  const posBox=$('rs-loan-position');
+  const formCard=$('rs-form-card');
+  const previewCard=$('rs-preview-card');
+  const applyWrap=$('rs-apply-wrap');
+  if(!lid){
+    if(posBox)posBox.innerHTML='';
+    if(formCard)formCard.style.display='none';
+    if(previewCard)previewCard.style.display='none';
+    if(applyWrap)applyWrap.style.display='none';
+    return;
+  }
   const l=(D.loans||[]).find(x=>x.lid===lid);
-  if(!l){box.innerHTML='<div class="empty">Select a loan.</div>';return;}
-  const paid=(D.payments||[]).filter(p=>p.lid===lid).reduce((s,p)=>s+(+(p.amt??p.amount)||0),0);
-  const currentPrincipal=+(l.book??l.principal??l.disbursed??0);
-  const arrears=+(l.arrears||0);
-  const monthlyInterest=+(l.intExp||currentPrincipal*(+l.rate||0));
-  box.innerHTML=`
-    <div class="msg-ok" style="margin-bottom:10px">
-      Selected loan for reschedule: <b>${l.name}</b> — <b>${l.lid}</b>
+  if(!l){if(posBox)posBox.innerHTML='<div class="empty">Loan not found.</div>';return;}
+
+  const b=calcLiveLoanBalance(l);
+  const monthly=loanOriginalMonthlyInterest(l);
+  const hasExistingReschedule=Array.isArray(l.reschedules)&&l.reschedules.length>0;
+
+  if(posBox)posBox.innerHTML=`
+    <div class="kg" style="margin-bottom:8px">
+      <div class="kc"><div class="kl">Client</div><div class="kv" style="font-size:14px">${l.name}</div><div class="ks">${l.lid}</div></div>
+      <div class="kc"><div class="kl">Outstanding principal</div><div class="kv" style="color:var(--p)">${fmt(b.outstandingPrincipal)}</div><div class="ks">Original: ${fmt(b.originalPrincipal)}</div></div>
+      <div class="kc"><div class="kl">Interest arrears</div><div class="kv" style="color:${b.arrears>0?'var(--r)':'var(--muted)'}">${b.arrears>0?fmt(b.arrears):'None'}</div><div class="ks">${b.dpd}d past due</div></div>
+      <div class="kc"><div class="kl">Total paid to date</div><div class="kv" style="color:var(--g)">${fmt(b.totalPaid)}</div><div class="ks">of ${fmt(b.totalDue)} total</div></div>
     </div>
-    <div class="rr"><span class="rr-lbl">Client</span><span class="rr-val">${l.name}</span></div>
-    <div class="rr"><span class="rr-lbl">Account / Loan No.</span><span class="rr-val">${l.lid}</span></div>
-    <div class="rr"><span class="rr-lbl">Current principal</span><span class="rr-val">${fmt(currentPrincipal)}</span></div>
-    <div class="rr"><span class="rr-lbl">Interest arrears/accrued</span><span class="rr-val">${fmt(arrears)}</span></div>
-    <div class="rr"><span class="rr-lbl">Current monthly interest</span><span class="rr-val">${fmt(monthlyInterest)}</span></div>
-    <div class="rr"><span class="rr-lbl">Total paid</span><span class="rr-val">${fmt(paid)}</span></div>
+    <div class="rr"><span class="rr-lbl">Monthly interest (current)</span><span class="rr-val">${fmt(monthly)}</span></div>
+    <div class="rr"><span class="rr-lbl">Remaining contractual interest</span><span class="rr-val">${fmt(b.remainingInterest)}</span></div>
+    ${hasExistingReschedule?'<div class="warn-box" style="margin-top:8px">⚠ This loan has already been rescheduled. Applying another reschedule will add to the existing history.</div>':''}
   `;
+
+  // Pre-fill form defaults
+  if($('rs-date'))$('rs-date').value=todayISOHarare();
+  if($('rs-int-paid'))$('rs-int-paid').value=b.arrears>0?b.arrears:monthly;
+  if($('rs-new-princ'))$('rs-new-princ').value=b.outstandingPrincipal;
+  if($('rs-new-rate'))$('rs-new-rate').value=((+(l.rate||0.10))*100).toFixed(1);
+  // Default final date = 6 months from today
+  if($('rs-final')&&!$('rs-final').value){
+    const d=getHarareNow();d.setMonth(d.getMonth()+6);
+    $('rs-final').value=toISODateLocal(d);
+  }
+  if(formCard)formCard.style.display='block';
+  renderRescheduleCalc();
 }
-function applyRescheduleFromTab(){
+
+function onRsPayChange(){
+  // When payment changes, auto-set interest paid to min(payment, arrears or monthly)
   const lid=$('rs-lid')?.value;
   const l=(D.loans||[]).find(x=>x.lid===lid);
-  if(!l)return alert('Select a loan.');
+  if(!l)return;
+  const b=calcLiveLoanBalance(l);
+  const pay=parseFloat($('rs-pay')?.value)||0;
+  const monthly=loanOriginalMonthlyInterest(l);
+  const autoInt=Math.min(pay, b.arrears>0?b.arrears:monthly);
+  if($('rs-int-paid'))$('rs-int-paid').value=r2(autoInt);
+  renderRescheduleCalc();
+}
 
-  const selectedName=String(l.name||'');
-  const pay=+$('rs-pay').value||0;
-  const newP=+$('rs-prin').value||0;
-  const final=$('rs-final').value;
-  const note=$('rs-note').value||'Rescheduled loan';
+function renderRescheduleCalc(){
+  const lid=$('rs-lid')?.value;
+  const l=(D.loans||[]).find(x=>x.lid===lid);
+  const previewCard=$('rs-preview-card');
+  const applyWrap=$('rs-apply-wrap');
+  if(!l||!previewCard){return;}
 
-  const warning=`Confirm reschedule for:\n\n${selectedName} — ${lid}\n\nPayment received: ${fmt(pay)}\nNew principal balance: ${fmt(newP)}\nFinal clearance date: ${final}\n\nProceed?`;
-  if(!confirm(warning))return;
+  const pay=parseFloat($('rs-pay')?.value)||0;
+  const intPaid=parseFloat($('rs-int-paid')?.value)||0;
+  const princPaid=r2(Math.max(0,pay-intPaid));
+  const newPrinc=parseFloat($('rs-new-princ')?.value)||0;
+  const newRatePct=parseFloat($('rs-new-rate')?.value)||10;
+  const newRate=newRatePct/100;
+  const finalDate=$('rs-final')?.value;
 
-  const arrears=+(l.arrears||0);
-  const intPaid=Math.min(pay,arrears);
-  const princPaid=Math.max(0,pay-intPaid);
+  // Update principal-cleared (readonly display)
+  if($('rs-princ-paid'))$('rs-princ-paid').value=r2(princPaid);
 
+  if(!newPrinc||!finalDate){previewCard.style.display='none';if(applyWrap)applyWrap.style.display='none';return;}
+
+  const newMonthly=r2(newPrinc*newRate);
+  const rsDate=parseISODateLocal($('rs-date')?.value||todayISOHarare());
+  const fDate=parseISODateLocal(finalDate);
+
+  // Count months in new schedule
+  const rows=[];
+  let cursor=new Date(rsDate.getFullYear(),rsDate.getMonth()+1,1);
+  let idx=1;
+  while(cursor<=fDate){
+    const isFinal=cursor.getFullYear()===fDate.getFullYear()&&cursor.getMonth()===fDate.getMonth();
+    const princDue=isFinal?newPrinc:0;
+    const intDue=newMonthly;
+    rows.push({i:idx++,date:toISODateLocal(cursor),princDue,intDue,total:r2(intDue+princDue),isFinal});
+    cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);
+  }
+
+  const totalInterest=r2(rows.reduce((s,r)=>s+r.intDue,0));
+  const totalRepay=r2(newPrinc+totalInterest);
+
+  previewCard.style.display='block';
+  if(applyWrap)applyWrap.style.display='block';
+
+  $('rs-preview').innerHTML=`
+    <div class="kg3" style="margin-bottom:10px">
+      <div class="kc"><div class="kl">New principal</div><div class="kv" style="color:var(--p)">${fmt(newPrinc)}</div><div class="ks">After ${fmt(princPaid)} cleared</div></div>
+      <div class="kc"><div class="kl">New monthly interest</div><div class="kv" style="color:var(--g)">${fmt(newMonthly)}</div><div class="ks">${newRatePct}% of ${fmt(newPrinc)}</div></div>
+      <div class="kc"><div class="kl">Total interest (new)</div><div class="kv">${fmt(totalInterest)}</div><div class="ks">over ${rows.length} months</div></div>
+    </div>
+    <div class="kg" style="margin-bottom:10px">
+      <div class="kc"><div class="kl">Reschedule payment</div><div class="kv" style="color:var(--g)">${fmt(pay)}</div><div class="ks">${fmt(intPaid)} interest + ${fmt(princPaid)} principal</div></div>
+      <div class="kc"><div class="kl">Total still repayable</div><div class="kv">${fmt(totalRepay)}</div><div class="ks">principal + future interest</div></div>
+    </div>
+    <div style="margin-bottom:8px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">New repayment schedule</div>
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:0">
+      <div class="mr head" style="grid-template-columns:30px 1fr 1fr 1fr 1fr">
+        <div>#</div><div>Due date</div><div>Interest</div><div>Principal</div><div>Total due</div>
+      </div>
+      ${rows.map(r=>`<div class="mr" style="grid-template-columns:30px 1fr 1fr 1fr 1fr;${r.isFinal?'background:var(--gb)':''}">
+        <div style="color:var(--muted)">${r.i}</div>
+        <div>${r.date}</div>
+        <div style="color:var(--a)">${fmt(r.intDue)}</div>
+        <div style="color:${r.princDue>0?'var(--p)':'var(--muted)'}">${r.princDue>0?fmt(r.princDue):'—'}</div>
+        <div style="font-weight:600;color:${r.isFinal?'var(--p)':'var(--txt)'}">${fmt(r.total)}</div>
+      </div>`).join('')}
+    </div>
+  `;
+}
+
+function applyReschedule(){
+  const lid=$('rs-lid')?.value;
+  const l=(D.loans||[]).find(x=>x.lid===lid);
+  if(!l){alert('Select a loan.');return;}
+
+  const rsDate=$('rs-date')?.value||todayISOHarare();
+  const pay=parseFloat($('rs-pay')?.value)||0;
+  const intPaid=parseFloat($('rs-int-paid')?.value)||0;
+  const princPaid=r2(Math.max(0,pay-intPaid));
+  const newPrinc=parseFloat($('rs-new-princ')?.value)||0;
+  const newRatePct=parseFloat($('rs-new-rate')?.value)||10;
+  const newRate=newRatePct/100;
+  const finalDate=$('rs-final')?.value;
+  const note=$('rs-note')?.value||'Rescheduled';
+
+  if(!newPrinc||!finalDate||!pay){
+    $('rs-msg').innerHTML='<div class="msg-err">Fill in payment, new principal and final date.</div>';return;
+  }
+
+  const warn=`Reschedule ${l.name} (${lid})?\n\nPayment: ${fmt(pay)} (${fmt(intPaid)} interest + ${fmt(princPaid)} principal)\nNew principal: ${fmt(newPrinc)} @ ${newRatePct}%/mo\nFinal date: ${finalDate}\n\nThis will be recorded permanently.`;
+  if(!confirm(warn))return;
+
+  // Record the reschedule payment
   D.payments.push({
-    id:'p'+Date.now(),
-    date:todayISOHarare(),
-    lid,
-    amt:pay,
-    amount:pay,
-    expected:arrears,
+    id:'rs'+Date.now(),
+    date:rsDate,lid,
+    amt:pay,amount:pay,
+    expected:pay,
     type:'reschedule',
-    notes:note,
+    notes:note+' [reschedule]',
     intPaid:r2(intPaid),
     princPaid:r2(princPaid)
   });
 
-  l.reschedules=l.reschedules||[];
+  // Record reschedule on loan
+  l.reschedules=Array.isArray(l.reschedules)?l.reschedules:[];
   l.reschedules.push({
-    date:todayISOHarare(),
-    oldPrincipal:+(l.book??l.principal??l.disbursed??0),
+    id:'rs'+Date.now(),
+    date:rsDate,
     payment:pay,
     interestPaid:r2(intPaid),
     principalPaid:r2(princPaid),
-    newPrincipal:newP,
-    finalDate:final,
-    note
+    oldPrincipal:+(l.book||l.principal||l.disbursed||0),
+    newPrincipal:newPrinc,
+    newRate,
+    finalDate,
+    notes:note
   });
 
-  l._origPrincipal=newP;
-  l.disbursed=newP;
-  l.principal=newP;
-  l.book=newP;
-  const months=Math.max(1,Math.round((parseISODateLocal(final)-getHarareNow())/2592000000));
-  l.term=months;
-  l.interest=r2(newP*(+l.rate||0)*months);
-  l.intExp=r2(newP*(+l.rate||0));
-  l.arrears=0;
-  l.status='Current';
-  l.notes=(l.notes||'')+' | Rescheduled '+todayISOHarare()+': '+note;
+  // Update loan to reflect new position
+  // Keep original disbursed; update book/principal to new balance
+  l._origPrincipal=+(l.disbursed||l._origPrincipal||0); // keep for history
+  l.book=newPrinc;
+  l.principal=newPrinc;
+  // Recompute interest going forward: new monthly × remaining months
+  const fDate=parseISODateLocal(finalDate);
+  const rsD=parseISODateLocal(rsDate);
+  let moCount=0;
+  let cur=new Date(rsD.getFullYear(),rsD.getMonth()+1,1);
+  while(cur<=fDate){moCount++;cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+  l.interest=r2(newPrinc*newRate*moCount);
+  l.intExp=r2(newPrinc*newRate);
+  l.rate=newRate;
+  l.arrears=0;l.status='Current';l.dpd=0;l.par1=0;l.par30=0;
+  l.notes=(l.notes?l.notes+' | ':'')+`Rescheduled ${rsDate}: ${note}`;
+
+  D.cashAtHand=r2(D.cashAtHand+pay);
+  if($('cah-input'))$('cah-input').value=D.cashAtHand||'';
+  recalcAllLiveBalances();
   save();
-  $('rs-msg').innerHTML='<div class="msg-ok">Reschedule applied to '+selectedName+' and saved.</div>';
+  $('rs-msg').innerHTML=`<div class="msg-ok">✓ Reschedule applied for ${l.name}. New principal ${fmt(newPrinc)}, monthly interest ${fmt(l.intExp)}.</div>`;
+  renderRescheduleHistory();
+  // Reset form
+  $('rs-pay').value='';$('rs-int-paid').value='';$('rs-new-princ').value='';$('rs-note').value='';
   renderReschedulePreview();
 }
+
+function renderRescheduleHistory(){
+  const box=$('rs-history');if(!box)return;
+  const rescheduled=(D.loans||[]).filter(l=>Array.isArray(l.reschedules)&&l.reschedules.length>0);
+  if(!rescheduled.length){box.innerHTML='<div class="empty">No rescheduled loans yet.</div>';return;}
+  box.innerHTML=rescheduled.map(l=>{
+    const last=l.reschedules[l.reschedules.length-1];
+    const newMonthly=r2(+(last.newPrincipal||0)*+(last.newRate||0.10));
+    return`<div class="lc cur">
+      <div class="lh">
+        <div><div class="ln">${l.name}</div><div class="li">${l.lid} · Rescheduled ${last.date}</div></div>
+        <span class="bdg b-b">Rescheduled</span>
+      </div>
+      <div class="lg">
+        <div class="ls"><div class="lsl">New principal</div><div class="lsv" style="color:var(--p)">${fmt(last.newPrincipal)}</div></div>
+        <div class="ls"><div class="lsl">New monthly</div><div class="lsv" style="color:var(--g)">${fmt(newMonthly)}</div></div>
+        <div class="ls"><div class="lsl">Final date</div><div class="lsv">${last.finalDate}</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">
+        Reschedule payment: ${fmt(last.payment)} (${fmt(last.interestPaid)} interest + ${fmt(last.principalPaid)} principal cleared)
+        ${l.reschedules.length>1?`<br><strong>${l.reschedules.length} reschedules total</strong>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Old function alias kept for any existing callers
+function applyRescheduleFromTab(){ applyReschedule(); }
+
 document.addEventListener('click',function(e){
   const tab=e.target.closest?.('[data-pg="reschedule"]');
   if(tab){
     setTimeout(populateRescheduleSelect,150);
-    setTimeout(populateRescheduleSelect,700);
+    setTimeout(renderRescheduleHistory,200);
   }
 });
 
