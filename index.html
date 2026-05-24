@@ -1467,55 +1467,87 @@ function recalcAllLiveBalances(){
 }
 
 function allocateInterestFirstTimeline(){
-  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const target=Object.fromEntries(months.map(m=>[m,0]));
-  const actual=Object.fromEntries(months.map(m=>[m,0]));
-  const loanTargets={};
-  const loanActuals={};
+  /*
+    MICROFINANCE INTEREST ACCOUNTING — single source of truth
+    ─────────────────────────────────────────────────────────
+    Rule 1: Monthly interest due = disbursed × rate  (loanMonthlyInterest)
+    Rule 2: Interest-first — each payment covers interest before principal
+    Rule 3: NEVER trust stored intPaid — always recompute fresh so stale
+            cloud/localStorage data cannot corrupt the numbers
+    Rule 4: Target = sum of all monthly interest dues in 2026 for that loan
+    Rule 5: Actual = sum of interest portions of payments received in 2026
+  */
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const target  = Object.fromEntries(MONTHS.map(m=>[m,0]));
+  const actual  = Object.fromEntries(MONTHS.map(m=>[m,0]));
+  const loanTargets = {};
+  const loanActuals = {};
 
-  const dues=getInterestDueSchedule();
+  // ── Step 1: build per-loan, per-month interest DUE targets ──────────────
+  (D.loans||[]).forEach(loan=>{
+    const lid     = loan.lid;
+    const term    = +(loan.term||0);
+    const start   = parseISODateLocal(loan.date);
+    const monthly = loanMonthlyInterest(loan); // disbursed × rate
+    if(!term || !monthly) return;
 
-  dues.forEach(d=>{
-    if(d.year===2026){
-      target[d.month]=r2(target[d.month]+d.amount);
-      loanTargets[d.lid]=loanTargets[d.lid]||Object.fromEntries(months.map(m=>[m,0]));
-      loanTargets[d.lid][d.month]=r2((loanTargets[d.lid][d.month]||0)+d.amount);
+    loanTargets[lid] = Object.fromEntries(MONTHS.map(m=>[m,0]));
+
+    for(let i=1; i<=term; i++){
+      const dueDate = addMonthsLocal(start, i);
+      if(dueDate.getFullYear() !== 2026) continue;
+      const mo = dueDate.toLocaleDateString('en-GB',{month:'long'});
+      loanTargets[lid][mo] = r2((loanTargets[lid][mo]||0) + monthly);
+      target[mo]           = r2(target[mo] + monthly);
     }
   });
 
-  const paymentsByLoanMonth={};
-  (D.payments||[]).forEach(p=>{
-    const loan=(D.loans||[]).find(l=>l.lid===p.lid);
-    if(!loan || !p.date) return;
-    const payDate=parseISODateLocal(p.date);
-    if(payDate.getFullYear()!==2026) return;
-    const payMonth=payDate.toLocaleDateString('en-GB',{month:'long'});
-    // Use stored intPaid if set, else full payment (will be capped to due below)
-    const intContrib = (p.intPaid!=null) ? r2(+p.intPaid) : r2(getPaymentAmount(p));
-    loanActuals[loan.lid]=loanActuals[loan.lid]||Object.fromEntries(months.map(m=>[m,0]));
-    loanActuals[loan.lid][payMonth]=r2((loanActuals[loan.lid][payMonth]||0)+intContrib);
-    actual[payMonth]=r2(actual[payMonth]+intContrib);
-    // Also track total payment by loan/month for fallback split
-    paymentsByLoanMonth[p.lid]=paymentsByLoanMonth[p.lid]||Object.fromEntries(months.map(m=>[m,0]));
-    paymentsByLoanMonth[p.lid][payMonth]=r2((paymentsByLoanMonth[p.lid][payMonth]||0)+getPaymentAmount(p));
+  // ── Step 2: allocate actual payments → interest (interest-first, fresh) ─
+  // Group all payments by loan then process chronologically
+  (D.loans||[]).forEach(loan=>{
+    const lid = loan.lid;
+    loanActuals[lid] = Object.fromEntries(MONTHS.map(m=>[m,0]));
+
+    // Get this loan's payments in date order
+    const loanPays = (D.payments||[])
+      .filter(p => p.lid === lid && p.date)
+      .sort((a,b)=> String(a.date).localeCompare(String(b.date)));
+
+    // Track how much interest has already been collected per month
+    // so multiple payments in same month don't double-count
+    const intCollectedPerMonth = Object.fromEntries(MONTHS.map(m=>[m,0]));
+
+    loanPays.forEach(p=>{
+      const payDate = parseISODateLocal(p.date);
+      if(payDate.getFullYear() !== 2026) return;
+      const mo  = payDate.toLocaleDateString('en-GB',{month:'long'});
+      const amt = getPaymentAmount(p);
+
+      // Interest due this month for this loan
+      const monthlyDue = r2((loanTargets[lid]||{})[mo] || 0);
+      // How much interest is still uncollected this month
+      const intStillDue = r2(Math.max(0, monthlyDue - intCollectedPerMonth[mo]));
+      // This payment covers up to the remaining interest due
+      const intThisPay  = r2(Math.min(amt, intStillDue));
+      const princThisPay = r2(Math.max(0, amt - intThisPay));
+
+      // Write back clean split to the payment object
+      p.intPaid   = intThisPay;
+      p.princPaid = princThisPay;
+
+      intCollectedPerMonth[mo] = r2(intCollectedPerMonth[mo] + intThisPay);
+      loanActuals[lid][mo]     = r2((loanActuals[lid][mo]||0) + intThisPay);
+      actual[mo]               = r2(actual[mo] + intThisPay);
+    });
   });
 
-  // For payments without stored intPaid, cap actuals at due (interest-first rule)
-  (D.payments||[]).forEach(p=>{
-    if(p.intPaid!=null) return; // already handled above
-    const loan=(D.loans||[]).find(l=>l.lid===p.lid);
-    if(!loan || !p.date) return;
-    const payDate=parseISODateLocal(p.date);
-    if(payDate.getFullYear()!==2026) return;
-    const payMonth=payDate.toLocaleDateString('en-GB',{month:'long'});
-    const due=r2((loanTargets[loan.lid]||{})[payMonth]||0);
-    const amt=getPaymentAmount(p);
-    p.intPaid=r2(Math.min(amt,due));
-    p.princPaid=r2(Math.max(0,amt-p.intPaid));
-  });
-
-  const series=months.map(m=>({m,target:r2(target[m]),actual:r2(actual[m]),variance:r2(actual[m]-target[m])}));
-  return {months,series,loanTargets,loanActuals};
+  const series = MONTHS.map(m=>({
+    m,
+    target:   r2(target[m]),
+    actual:   r2(actual[m]),
+    variance: r2(actual[m] - target[m])
+  }));
+  return {months:MONTHS, series, loanTargets, loanActuals};
 }
 function getLoanInterestStats(lid){
   const loan=(D.loans||[]).find(l=>l.lid===lid);
@@ -1846,96 +1878,111 @@ function getMonthExpenses(moName){
 }
 function renderProfit(){
   const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const moSel=$('pl-mo-sel')?.value||'all';
   const showAll=moSel==='all';
   const selMoIdx=showAll?-1:parseInt(moSel);
 
-  // Use live interest engine — revenue = interest actually collected from payments
+  // ── Revenue: interest actually collected, per month (always fresh) ──────
   const calc=allocateInterestFirstTimeline();
 
-  // PAR provision per month: arrears attributed to the month the loan first went overdue
-  const parByMonth=Object.fromEntries(D.monthly.map(m=>[m.m,0]));
+  // ── PAR provision: put arrears cost in the month the loan first missed ──
+  // Use the loan's first due date that is past today AND unpaid
+  const parByMonth=Object.fromEntries(MONTHS.map(m=>[m,0]));
+  const today=getHarareNow();
   (D.loans||[]).forEach(l=>{
     if((l.arrears||0)<=0) return;
     const start=parseISODateLocal(l.date);
-    const today=getHarareNow();
-    for(let i=1;i<=(+(l.term||0));i++){
-      const due=addMonthsLocal(start,i);
-      if(due<=today && due.getFullYear()===2026){
-        const mo=due.toLocaleDateString('en-GB',{month:'long'});
-        if(parByMonth[mo]!=null) parByMonth[mo]=r2(parByMonth[mo]+(l.arrears||0));
+    const term=+(l.term||0);
+    const monthly=loanMonthlyInterest(l);
+    const loanPays=(D.payments||[]).filter(p=>p.lid===l.lid);
+    const totalPaid=r2(loanPays.reduce((s,p)=>s+getPaymentAmount(p),0));
+    // Find the first month where cumulative due exceeded cumulative paid
+    let cumDue=0;
+    for(let i=1;i<=term;i++){
+      const dueDate=addMonthsLocal(start,i);
+      if(dueDate>today) break;
+      cumDue=r2(cumDue+monthly);
+      if(cumDue>totalPaid && dueDate.getFullYear()===2026){
+        const mo=dueDate.toLocaleDateString('en-GB',{month:'long'});
+        parByMonth[mo]=r2((parByMonth[mo]||0)+(l.arrears||0));
         break;
       }
     }
   });
 
-  // Build rows using live data
-  const rows=D.monthly.map((m,i)=>{
-    const actInt=r2(calc.series[i]?.actual||0);
-    const intTarget=r2(calc.series[i]?.target||0);
-    const parCost=r2(parByMonth[m.m]||0);
-    const manualExps=D.expenses.filter(e=>parseISODateLocal(e.date).toLocaleDateString('en-GB',{month:'long'})===m.m);
-    const manualTotal=r2(manualExps.reduce((s,e)=>s+e.amt,0));
-    const totalCost=r2(parCost+manualTotal);
-    const net=r2(actInt-totalCost);
-    return{...m,actInt,intTarget,parCost,manualTotal,totalCost,net,idx:i};
+  // ── Build monthly P&L rows ───────────────────────────────────────────────
+  const rows=MONTHS.map((mName,i)=>{
+    const actInt    = r2(calc.series[i]?.actual   || 0);
+    const intTarget = r2(calc.series[i]?.target   || 0);
+    const parCost   = r2(parByMonth[mName]         || 0);
+    const manualExps= D.expenses.filter(e=>
+      parseISODateLocal(e.date).toLocaleDateString('en-GB',{month:'long'})===mName);
+    const manualTotal = r2(manualExps.reduce((s,e)=>s+e.amt,0));
+    const totalCost = r2(parCost+manualTotal);
+    const net       = r2(actInt-totalCost);
+    const disb      = D.monthly[i]?.disb||0;
+    return{m:mName,disb,actInt,intTarget,parCost,manualTotal,totalCost,net,idx:i};
   });
 
-  // Filter to selected month if needed
   const viewRows=showAll?rows:rows.filter(r=>r.idx===selMoIdx);
 
-  // Aggregates for the view
-  const totRev=r2(viewRows.reduce((s,r)=>s+r.actInt,0));
-  const totPAR=r2(viewRows.reduce((s,r)=>s+r.parCost,0));
-  const totOther=r2(viewRows.reduce((s,r)=>s+r.manualTotal,0));
-  const totCost=r2(totPAR+totOther);
-  const totNet=r2(totRev-totCost);
-  const margin=totRev>0?(totNet/totRev)*100:0;
-  const activeMonths=viewRows.filter(r=>r.actInt>0).length;
-  const runRate=activeMonths>0?r2((totNet/activeMonths)*12):0;
+  // ── KPI cards ────────────────────────────────────────────────────────────
+  const totRev   = r2(viewRows.reduce((s,r)=>s+r.actInt,0));
+  const totPAR   = r2(viewRows.reduce((s,r)=>s+r.parCost,0));
+  const totOther = r2(viewRows.reduce((s,r)=>s+r.manualTotal,0));
+  const totCost  = r2(totPAR+totOther);
+  const totNet   = r2(totRev-totCost);
+  const totTgt   = r2(viewRows.reduce((s,r)=>s+r.intTarget,0));
+  const margin   = totRev>0?(totNet/totRev)*100:0;
+  const collRate = totTgt>0?(totRev/totTgt)*100:0;
+  const activeMos= viewRows.filter(r=>r.actInt>0).length;
+  const runRate  = activeMos>0?r2((totNet/activeMos)*12):0;
 
-  $('pl-rev').textContent=fmt(totRev);
-  $('pl-exp-tot').textContent=fmt(totCost);
-  $('pl-par-exp').textContent=fmt(totPAR);
-  $('pl-other-exp').textContent=fmt(totOther);
-  $('pl-net').textContent=(totNet>=0?'+':'')+fmt(totNet);
-  $('pl-net').style.color=totNet>=0?'var(--g)':'var(--r)';
-  $('pl-margin-sub').textContent=fmtp(margin)+' margin';
-  $('pl-runrate').textContent=fmt(runRate);
+  $('pl-rev').textContent        = fmt(totRev);
+  $('pl-exp-tot').textContent    = fmt(totCost);
+  $('pl-par-exp').textContent    = fmt(totPAR);
+  $('pl-other-exp').textContent  = fmt(totOther);
+  $('pl-net').textContent        = (totNet>=0?'+':'')+fmt(totNet);
+  $('pl-net').style.color        = totNet>=0?'var(--g)':'var(--r)';
+  $('pl-margin-sub').textContent = fmtp(margin)+' margin · '+fmtp(collRate)+' collected';
+  $('pl-runrate').textContent    = fmt(runRate);
 
-  // Charts: filtered view for bar, always full year for cumulative line
+  // ── Bar chart (respects filter) ──────────────────────────────────────────
   const chartRows=showAll?rows:viewRows;
-  const netArr=chartRows.map(r=>r.net);
   mkChart('ch-pl-bar',{type:'bar',data:{labels:chartRows.map(r=>r.m.slice(0,3)),datasets:[
-    {label:'Int. collected', data:chartRows.map(r=>r.actInt),      backgroundColor:'rgba(3,152,85,.55)', borderWidth:0,borderRadius:2},
-    {label:'Int. target',    data:chartRows.map(r=>r.intTarget),   backgroundColor:'rgba(29,78,216,.2)', borderWidth:0,borderRadius:2},
-    {label:'PAR provision',  data:chartRows.map(r=>r.parCost),     backgroundColor:'rgba(220,104,3,.55)',borderWidth:0,borderRadius:2},
-    {label:'Other expenses', data:chartRows.map(r=>r.manualTotal), backgroundColor:'rgba(217,45,32,.4)', borderWidth:0,borderRadius:2},
-    {label:'Net profit',     data:netArr,type:'line',borderColor:'#6941C6',borderWidth:2,pointRadius:3,tension:.3,fill:false}
+    {label:'Int. collected', data:chartRows.map(r=>r.actInt),       backgroundColor:'rgba(3,152,85,.6)',  borderWidth:0,borderRadius:2},
+    {label:'Int. target',    data:chartRows.map(r=>r.intTarget),    backgroundColor:'rgba(29,78,216,.2)', borderWidth:0,borderRadius:2},
+    {label:'PAR provision',  data:chartRows.map(r=>r.parCost),      backgroundColor:'rgba(220,104,3,.6)', borderWidth:0,borderRadius:2},
+    {label:'Expenses',       data:chartRows.map(r=>r.manualTotal),  backgroundColor:'rgba(217,45,32,.45)',borderWidth:0,borderRadius:2},
+    {label:'Net profit',     data:chartRows.map(r=>r.net),
+      type:'line',borderColor:'#6941C6',backgroundColor:'transparent',
+      borderWidth:2,pointRadius:3,tension:.3,fill:false}
   ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
 
-  // Cumulative line
+  // ── Cumulative line (always full year) ───────────────────────────────────
   let cum=0;
   const cumArr=rows.map(r=>{cum=r2(cum+r.net);return cum;});
-  mkChart('ch-pl-line',{type:'line',data:{labels:rows.map(r=>r.m),datasets:[{
+  mkChart('ch-pl-line',{type:'line',data:{labels:rows.map(r=>r.m.slice(0,3)),datasets:[{
     data:cumArr,borderColor:'#039855',backgroundColor:'rgba(3,152,85,.07)',
     fill:true,borderWidth:2,tension:.4,pointRadius:3,
     pointBackgroundColor:cumArr.map(v=>v>=0?'#039855':'#D92D20')
   }]},options:{...bo()}});
 
-  // P&L statement rows
+  // ── P&L table rows ───────────────────────────────────────────────────────
   let tRev=0,tPAR=0,tOth=0,tCst=0,tNet=0;
   $('pl-rows').innerHTML=viewRows.map(r=>{
     const has=r.actInt>0||r.totalCost>0;
-    tRev=r2(tRev+r.actInt);tPAR=r2(tPAR+r.parCost);tOth=r2(tOth+r.manualTotal);tCst=r2(tCst+r.totalCost);tNet=r2(tNet+r.net);
+    tRev=r2(tRev+r.actInt);tPAR=r2(tPAR+r.parCost);
+    tOth=r2(tOth+r.manualTotal);tCst=r2(tCst+r.totalCost);tNet=r2(tNet+r.net);
     return`<div class="mr ${has&&r.net>0?'profit':''}" style="grid-template-columns:44px 1fr 1fr 1fr 1fr 1fr;opacity:${has?1:.32}">
-      <div style="color:var(--muted);font-weight:500">${r.m}</div>
+      <div style="color:var(--muted);font-weight:500">${r.m.slice(0,3)}</div>
       <div style="color:var(--g)">${r.actInt>0?fmt(r.actInt):'—'}</div>
       <div style="color:${r.parCost>0?'var(--a)':'var(--muted)'}">${r.parCost>0?fmt(r.parCost):'—'}</div>
       <div style="color:${r.manualTotal>0?'var(--r)':'var(--muted)'}">${r.manualTotal>0?fmt(r.manualTotal):'—'}</div>
       <div style="color:${r.totalCost>0?'var(--r)':'var(--muted)'}">${r.totalCost>0?fmt(r.totalCost):'—'}</div>
-      <div style="font-weight:600;color:${!has?'var(--muted)':r.net>=0?'var(--g)':'var(--r)'}">${has?(r.net>=0?'+':'')+fmt(r.net):'—'}</div>
+      <div style="font-weight:600;color:${!has?'var(--muted)':r.net>=0?'var(--g)':'var(--r)'}">
+        ${has?(r.net>=0?'+':'')+fmt(r.net):'—'}
+      </div>
     </div>`;
   }).join('');
 
@@ -3409,12 +3456,24 @@ function normalizeMonthly(monthly){
   return base;
 }
 function applyState(saved){
-  if(!saved)return false;
-  if(saved.loans&&saved.loans.length)D.loans=saved.loans;
-  D.payments=Array.isArray(saved.payments)?saved.payments:[];
-  D.monthly=normalizeMonthly(saved.monthly);
-  D.expenses=Array.isArray(saved.expenses)?saved.expenses:[];
-  D.cashAtHand=typeof saved.cashAtHand==='number'?saved.cashAtHand:(parseFloat(saved.cashAtHand)||0);
+  if(!saved) return false;
+  if(saved.loans && saved.loans.length) D.loans = saved.loans;
+  D.payments   = Array.isArray(saved.payments) ? saved.payments : [];
+  D.monthly    = normalizeMonthly(saved.monthly);
+  D.expenses   = Array.isArray(saved.expenses) ? saved.expenses : [];
+  D.cashAtHand = typeof saved.cashAtHand==='number' ? saved.cashAtHand : (parseFloat(saved.cashAtHand)||0);
+
+  // Always recompute intExp = disbursed × rate on every load.
+  // This defeats any stale intExp values that may be saved in Supabase or localStorage
+  // (e.g. Brian was saved with intExp:173 instead of 260).
+  (D.loans||[]).forEach(l => {
+    // Preserve original disbursed principal for interest calculation
+    if(l._origPrincipal == null) l._origPrincipal = +(l.disbursed ?? l.principal ?? 0);
+    const base = +(l._origPrincipal || 0);
+    const rate = +(l.rate || 0);
+    if(base > 0 && rate > 0) l.intExp = r2(base * rate);
+  });
+
   recalcAllLiveBalances();
   return true;
 }
