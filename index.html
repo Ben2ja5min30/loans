@@ -1092,18 +1092,18 @@ function mkChart(id,cfg){
 const D={
   cashAtHand: 0,
   loans:[
-    {lid:'LN-001',name:'Fosirai Gadhi',   phone:'',date:'2026-03-31',term:5, rate:0.10,rt:0,principal:350, interest:175, disbursed:350, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:350, cumDue:0,   cumColl:0,   intExp:35,  rank:1, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-001',name:'Fosirai Gadhi',   phone:'',date:'2026-03-01',term:5, rate:0.10,rt:0,principal:350, interest:175, disbursed:350, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:350, cumDue:0,   cumColl:0,   intExp:35,  rank:1, up7:false,upAmt:0,  status:'Current'},
     {lid:'LN-002',name:'Gift Manyengavana',phone:'',date:'2025-11-01',term:6, rate:0.10,rt:0,principal:0,   interest:250, disbursed:2500,notes:'Paid off',arrears:0,  dpd:0,par1:0,  par30:0,book:0,   cumDue:2500,cumColl:2500,intExp:250, rank:2, up7:false,upAmt:0,  status:'Current'},
     {lid:'LN-003',name:'Gororo',           phone:'',date:'2026-01-01',term:12,rate:0.10,rt:1,principal:700, interest:840, disbursed:700, notes:'Int-only; bal rescheduled Apr-2026',arrears:0,dpd:0,par1:0,par30:0,book:700,cumDue:280,cumColl:280,intExp:70,rank:3,up7:false,upAmt:0,status:'Current'},
-    {lid:'LN-004',name:'Barber Adolf',     phone:'',date:'2026-03-30',term:3, rate:0.10,rt:0,principal:400, interest:120, disbursed:400, notes:'',arrears:400,dpd:5,par1:400,par30:0,book:400, cumDue:0,   cumColl:0,   intExp:40,  rank:4, up7:false,upAmt:0,  status:'PAR 1'},
-    {lid:'LN-005',name:'Hare TVS',         phone:'',date:'2026-04-10',term:2, rate:0.10,rt:1,principal:400, interest:80,  disbursed:400, notes:'Int then balloon',arrears:400,dpd:5,par1:400,par30:0,book:400,cumDue:0,cumColl:0,intExp:40,rank:5,up7:false,upAmt:0,status:'PAR 1'},
+    {lid:'LN-004',name:'Barber Adolf',     phone:'',date:'2026-03-30',term:2, rate:0.10,rt:0,principal:1000,interest:200, disbursed:1000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:1000,cumDue:0,   cumColl:0,   intExp:100, rank:4, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-005',name:'Hare TVS',         phone:'',date:'2026-04-10',term:2, rate:0.10,rt:1,principal:400, interest:80,  disbursed:400, notes:'Int-only then balloon; missed month 1',arrears:40,dpd:30,par1:400,par30:400,book:400,cumDue:40,cumColl:0,intExp:40,rank:5,up7:false,upAmt:440,status:'PAR 1'},
     {lid:'LN-006',name:'Ziwani Mukoma',    phone:'',date:'2026-11-16',term:6, rate:0.10,rt:0,principal:1000,interest:600, disbursed:1000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:1000,cumDue:0,   cumColl:0,   intExp:100, rank:6, up7:false,upAmt:0,  status:'Current'},
-    {lid:'LN-007',name:'Pukuta Mhoiki',    phone:'',date:'2026-03-01',term:3, rate:0.10,rt:0,principal:120, interest:36,  disbursed:120, notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:120, cumDue:12,  cumColl:12,  intExp:12,  rank:7, up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-007',name:'Pukuta Mhoiki',    phone:'',date:'2026-03-01',term:3, rate:0.20,rt:0,principal:350, interest:210, disbursed:350, notes:'20% flat',arrears:0,  dpd:0,par1:0,  par30:0,book:350, cumDue:0,   cumColl:0,   intExp:70,  rank:7, up7:false,upAmt:0,  status:'Current'},
     {lid:'LN-008',name:'Ororo Chamhanya',  phone:'',date:'2026-03-11',term:2, rate:0.30,rt:1,principal:300, interest:180, disbursed:300, notes:'Int then balloon',arrears:0,dpd:0,par1:0,par30:0,book:300,cumDue:0,cumColl:0,intExp:90,rank:8,up7:true,upAmt:390,status:'Current'},
     {lid:'LN-009',name:'Mamhanya',         phone:'',date:'2026-02-01',term:2, rate:0.10,rt:0,principal:195, interest:78,  disbursed:390, notes:'Flat; 50% paid',arrears:0,  dpd:0,par1:0,  par30:0,book:195, cumDue:390, cumColl:195, intExp:39, rank:9, up7:false,upAmt:0,  status:'Current'},
     {lid:'LN-010',name:'Harare Brian',     phone:'',date:'2026-02-21',term:3, rate:0.10,rt:0,principal:0,   interest:780, disbursed:2600,notes:'Fully paid',arrears:0,dpd:0,par1:0,par30:0,book:0,   cumDue:3380,cumColl:3380,intExp:260, rank:10,up7:false,upAmt:0,  status:'Paid'},
     {lid:'LN-011',name:'Tagaza Puru',      phone:'',date:'2026-03-04',term:2, rate:0.10,rt:0,principal:900, interest:180, disbursed:900, notes:'PAR',arrears:900,dpd:5,par1:900,par30:0,book:900,cumDue:900,cumColl:0,   intExp:90,  rank:11,up7:false,upAmt:0,  status:'PAR 1'},
-    {lid:'LN-012',name:'Mzukuru Makupa',   phone:'',date:'2026-04-01',term:3, rate:0.10,rt:0,principal:2000,interest:600, disbursed:2000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:2000,cumDue:0,   cumColl:0,   intExp:200, rank:12,up7:false,upAmt:0,  status:'Current'},
+    {lid:'LN-012',name:'Mzukuru Makupa',   phone:'',date:'2026-04-01',term:6, rate:0.10,rt:0,principal:2000,interest:1600, disbursed:2000,notes:'',arrears:0,  dpd:0,par1:0,  par30:0,book:2000,cumDue:0,   cumColl:0,   intExp:200, rank:12,up7:false,upAmt:0,  status:'Current'},
     {lid:'LN-013',name:'Pukuta Mhoiki 2',  phone:'',date:'2026-05-01',term:3, rate:0.10,rt:1,principal:500, interest:150, disbursed:500, notes:'Int-only',arrears:0,  dpd:0,par1:0,  par30:0,book:500, cumDue:0,   cumColl:0,   intExp:50,  rank:13,up7:false,upAmt:0,  status:'Current'}
   ],
   payments:[
@@ -1112,26 +1112,26 @@ const D={
     {id:'p3b',date:'2026-04-21',lid:'LN-010',amt:1128, expected:1128, type:'both',    notes:'Brian month 3 final (260 int + 868 princ)',intPaid:260,princPaid:868},
     {id:'p3', date:'2026-04-01',lid:'LN-002',amt:2750, expected:2750, type:'both',    notes:'Gift full repayment (2500 princ + 250 int)',intPaid:250,princPaid:2500},
     {id:'p4', date:'2026-04-05',lid:'LN-009',amt:195,  expected:195,  type:'both',    notes:'Mamhanya month 1',intPaid:39,princPaid:156},
-    {id:'p5', date:'2026-04-01',lid:'LN-007',amt:52,   expected:52,   type:'both',    notes:'Pukuta month 1 (12 int + 40 princ)',intPaid:12,princPaid:40},
+    {id:'p5', date:'2026-04-01',lid:'LN-007',amt:186.67,expected:186.67, type:'both',    notes:'Pukuta month 1 (70 int + 116.67 princ)',intPaid:70,princPaid:116.67},
     {id:'p6', date:'2026-01-31',lid:'LN-003',amt:70,   expected:70,   type:'interest',notes:'Gororo Jan interest',intPaid:70,princPaid:0},
     {id:'p7', date:'2026-02-28',lid:'LN-003',amt:70,   expected:70,   type:'interest',notes:'Gororo Feb interest',intPaid:70,princPaid:0},
     {id:'p8', date:'2026-03-31',lid:'LN-003',amt:70,   expected:70,   type:'interest',notes:'Gororo Mar interest',intPaid:70,princPaid:0},
     {id:'p9', date:'2026-04-30',lid:'LN-003',amt:70,   expected:70,   type:'interest',notes:'Gororo Apr interest',intPaid:70,princPaid:0}
   ],
-  // monthly: disb=disbursed that month. actInt/parCost computed live from payments + loans engine.
+  // monthly: disb=disbursed that month. expColl computed from live loan schedule.
   monthly:[
-    {m:'January',   disb:700,  expColl:70,   actColl:70,   expInt:70,  actInt:70,  parCost:0},
-    {m:'February',  disb:3290, expColl:396,  actColl:1196, expInt:330, actInt:330, parCost:0},
-    {m:'March',     disb:0,    expColl:856,  actColl:1196, expInt:470, actInt:470, parCost:0},
-    {m:'April',     disb:2000, expColl:1100, actColl:4270, expInt:811, actInt:811, parCost:840},
-    {m:'May',       disb:500,  expColl:662,  actColl:0,    expInt:662, actInt:0,   parCost:0},
-    {m:'June',      disb:0,    expColl:562,  actColl:0,    expInt:562, actInt:0,   parCost:0},
-    {m:'July',      disb:0,    expColl:562,  actColl:0,    expInt:562, actInt:0,   parCost:0},
-    {m:'August',    disb:0,    expColl:562,  actColl:0,    expInt:562, actInt:0,   parCost:0},
-    {m:'September', disb:0,    expColl:562,  actColl:0,    expInt:562, actInt:0,   parCost:0},
-    {m:'October',   disb:0,    expColl:562,  actColl:0,    expInt:562, actInt:0,   parCost:0},
-    {m:'November',  disb:1000, expColl:662,  actColl:0,    expInt:662, actInt:0,   parCost:0},
-    {m:'December',  disb:0,    expColl:562,  actColl:0,    expInt:562, actInt:0,   parCost:0}
+    {m:'January',   disb:700,  expColl:458,  actColl:458,  expInt:250, actInt:0, parCost:0},
+    {m:'February',  disb:3290, expColl:528,  actColl:0,    expInt:320, actInt:0, parCost:0},
+    {m:'March',     disb:0,    expColl:1889, actColl:0,    expInt:619, actInt:0, parCost:0},
+    {m:'April',     disb:2000, expColl:3411, actColl:0,    expInt:1004,actInt:0, parCost:0},
+    {m:'May',       disb:500,  expColl:4117, actColl:0,    expInt:1205,actInt:0, parCost:0},
+    {m:'June',      disb:0,    expColl:1452, actColl:0,    expInt:465, actInt:0, parCost:0},
+    {m:'July',      disb:0,    expColl:825,  actColl:0,    expInt:355, actInt:0, parCost:0},
+    {m:'August',    disb:0,    expColl:1325, actColl:0,    expInt:355, actInt:0, parCost:0},
+    {m:'September', disb:0,    expColl:670,  actColl:0,    expInt:270, actInt:0, parCost:0},
+    {m:'October',   disb:0,    expColl:670,  actColl:0,    expInt:270, actInt:0, parCost:0},
+    {m:'November',  disb:1000, expColl:70,   actColl:0,    expInt:70,  actInt:0, parCost:0},
+    {m:'December',  disb:0,    expColl:337,  actColl:0,    expInt:170, actInt:0, parCost:0}
   ],
   // Manual expenses — PAR is computed separately from loans data
   expenses:[
@@ -1468,77 +1468,58 @@ function recalcAllLiveBalances(){
 
 function allocateInterestFirstTimeline(){
   /*
-    MICROFINANCE INTEREST ACCOUNTING — single source of truth
-    ─────────────────────────────────────────────────────────
-    Rule 1: Monthly interest due = disbursed × rate  (loanMonthlyInterest)
-    Rule 2: Interest-first — each payment covers interest before principal
-    Rule 3: NEVER trust stored intPaid — always recompute fresh so stale
-            cloud/localStorage data cannot corrupt the numbers
-    Rule 4: Target = sum of all monthly interest dues in 2026 for that loan
-    Rule 5: Actual = sum of interest portions of payments received in 2026
+    MICROFINANCE INTEREST ACCOUNTING — disbursed × rate
+    ────────────────────────────────────────────────────
+    intPaid  = min(payment, loanMonthlyInterest)   ← disbursed × rate
+    princPaid = payment - intPaid
+    Target = contractual schedule due dates.
+    Actual = credited to the month cash was received.
+    NEVER read stored p.intPaid — always recompute fresh.
   */
   const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const target  = Object.fromEntries(MONTHS.map(m=>[m,0]));
-  const actual  = Object.fromEntries(MONTHS.map(m=>[m,0]));
+  const target      = Object.fromEntries(MONTHS.map(m=>[m,0]));
+  const actual      = Object.fromEntries(MONTHS.map(m=>[m,0]));
   const loanTargets = {};
   const loanActuals = {};
 
-  // ── Step 1: build per-loan, per-month interest DUE targets ──────────────
+  // ── Targets by contractual due date ──────────────────────────────────────
   (D.loans||[]).forEach(loan=>{
     const lid     = loan.lid;
     const term    = +(loan.term||0);
     const start   = parseISODateLocal(loan.date);
-    const monthly = loanMonthlyInterest(loan); // disbursed × rate
+    const monthly = loanMonthlyInterest(loan);
     if(!term || !monthly) return;
-
     loanTargets[lid] = Object.fromEntries(MONTHS.map(m=>[m,0]));
-
+    loanActuals[lid] = Object.fromEntries(MONTHS.map(m=>[m,0]));
     for(let i=1; i<=term; i++){
-      const dueDate = addMonthsLocal(start, i);
-      if(dueDate.getFullYear() !== 2026) continue;
-      const mo = dueDate.toLocaleDateString('en-GB',{month:'long'});
+      const due = addMonthsLocal(start, i);
+      if(due.getFullYear() !== 2026) continue;
+      const mo = due.toLocaleDateString('en-GB',{month:'long'});
       loanTargets[lid][mo] = r2((loanTargets[lid][mo]||0) + monthly);
       target[mo]           = r2(target[mo] + monthly);
     }
   });
 
-  // ── Step 2: allocate actual payments → interest (interest-first, fresh) ─
-  // Group all payments by loan then process chronologically
-  (D.loans||[]).forEach(loan=>{
-    const lid = loan.lid;
-    loanActuals[lid] = Object.fromEntries(MONTHS.map(m=>[m,0]));
+  // ── Actuals: min(payment, monthly) = interest per payment ────────────────
+  (D.payments||[]).forEach(p=>{
+    const loan = (D.loans||[]).find(l => l.lid === p.lid);
+    if(!loan || !p.date) return;
+    const lid     = loan.lid;
+    const payDate = parseISODateLocal(p.date);
+    if(payDate.getFullYear() !== 2026) return;
+    const mo      = payDate.toLocaleDateString('en-GB',{month:'long'});
+    const amt     = r2(+(p.amt ?? p.amount ?? 0));
+    const monthly = loanMonthlyInterest(loan);
 
-    // Get this loan's payments in date order
-    const loanPays = (D.payments||[])
-      .filter(p => p.lid === lid && p.date)
-      .sort((a,b)=> String(a.date).localeCompare(String(b.date)));
+    const intThisPay   = r2(Math.min(amt, monthly));
+    const princThisPay = r2(Math.max(0, amt - intThisPay));
 
-    // Track how much interest has already been collected per month
-    // so multiple payments in same month don't double-count
-    const intCollectedPerMonth = Object.fromEntries(MONTHS.map(m=>[m,0]));
+    p.intPaid   = intThisPay;
+    p.princPaid = princThisPay;
 
-    loanPays.forEach(p=>{
-      const payDate = parseISODateLocal(p.date);
-      if(payDate.getFullYear() !== 2026) return;
-      const mo  = payDate.toLocaleDateString('en-GB',{month:'long'});
-      const amt = getPaymentAmount(p);
-
-      // Interest due this month for this loan
-      const monthlyDue = r2((loanTargets[lid]||{})[mo] || 0);
-      // How much interest is still uncollected this month
-      const intStillDue = r2(Math.max(0, monthlyDue - intCollectedPerMonth[mo]));
-      // This payment covers up to the remaining interest due
-      const intThisPay  = r2(Math.min(amt, intStillDue));
-      const princThisPay = r2(Math.max(0, amt - intThisPay));
-
-      // Write back clean split to the payment object
-      p.intPaid   = intThisPay;
-      p.princPaid = princThisPay;
-
-      intCollectedPerMonth[mo] = r2(intCollectedPerMonth[mo] + intThisPay);
-      loanActuals[lid][mo]     = r2((loanActuals[lid][mo]||0) + intThisPay);
-      actual[mo]               = r2(actual[mo] + intThisPay);
-    });
+    if(!loanActuals[lid]) loanActuals[lid] = Object.fromEntries(MONTHS.map(m=>[m,0]));
+    loanActuals[lid][mo] = r2((loanActuals[lid][mo]||0) + intThisPay);
+    actual[mo]           = r2(actual[mo] + intThisPay);
   });
 
   const series = MONTHS.map(m=>({
@@ -1549,6 +1530,7 @@ function allocateInterestFirstTimeline(){
   }));
   return {months:MONTHS, series, loanTargets, loanActuals};
 }
+
 function getLoanInterestStats(lid){
   const loan=(D.loans||[]).find(l=>l.lid===lid);
   if(!loan) return {paid:0,remaining:0,target:0,monthly:0};
@@ -2048,56 +2030,94 @@ function popColLoanSelect(){
 function renderCollections(){
   popColLoanSelect();
   const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const MNAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const moSel=$('col-mo-sel')?.value||'all';
   const loanSel=$('col-loan-sel')?.value||'all';
   const showAll=moSel==='all';
   const selMoIdx=showAll?-1:parseInt(moSel);
   const selMoName=selMoIdx>=0?MONTHS[selMoIdx]:'';
 
-  // Filter payments
-  const pays=D.payments.filter(p=>{
-    const moMatch=showAll||parseISODateLocal(p.date).toLocaleDateString('en-GB',{month:'long'})===selMoName;
-    const loanMatch=loanSel==='all'||p.lid===loanSel;
-    return moMatch&&loanMatch;
+  // ── Helper: compute expected collections for a loan in a given month ────
+  // Uses the actual contractual schedule — NOT stale D.monthly or l.intExp
+  function loanDueInMonth(loan, moName){
+    const term    = +(loan.term||0);
+    const start   = parseISODateLocal(loan.date);
+    const monthly = loanMonthlyInterest(loan);  // disbursed × rate
+    const totalInt= +(loan.interest||0);
+    const disb    = +(loan.disbursed||loan.principal||0);
+    let due = 0;
+    for(let i=1; i<=term; i++){
+      const dueDate = addMonthsLocal(start, i);
+      const dueMo   = dueDate.toLocaleDateString('en-GB',{month:'long'});
+      if(dueMo !== moName) continue;
+      if(+loan.rt === 1){
+        // Interest-only: monthly interest + principal balloon on final month
+        due += r2(monthly + (i === term ? disb : 0));
+      } else {
+        // Standard flat loan: equal instalments = (principal + totalInterest) / term
+        const instalment = r2((disb + totalInt) / term);
+        due += instalment;
+      }
+    }
+    return r2(due);
+  }
+
+  // ── Compute total expected for the filter ────────────────────────────────
+  function computeExpected(moName, lid){
+    const loansToCheck = lid === 'all' ? D.loans : D.loans.filter(l => l.lid === lid);
+    if(moName === ''){
+      // All months: sum entire contractual obligation (principal + interest)
+      return r2(loansToCheck.reduce((s,l)=>s + r2(+(l.disbursed||0) + +(l.interest||0)), 0));
+    }
+    return r2(loansToCheck.reduce((s,l) => s + loanDueInMonth(l, moName), 0));
+  }
+
+  // ── Filter payments ──────────────────────────────────────────────────────
+  const pays = D.payments.filter(p=>{
+    const moMatch  = showAll || parseISODateLocal(p.date).toLocaleDateString('en-GB',{month:'long'}) === selMoName;
+    const loanMatch= loanSel==='all' || p.lid===loanSel;
+    return moMatch && loanMatch;
   });
 
-  // KPIs
-  const totAct=r2(pays.reduce((s,p)=>s+p.amt,0));
-  // Expected: sum relevant monthly expColl or per-loan intExp
-  let totExp=0;
-  if(showAll){totExp=D.monthly.reduce((s,m)=>s+m.expColl,0);}
-  else{
-    const mo=D.monthly.find(m=>m.m===selMoName);
-    totExp=mo?mo.expColl:0;
-    if(loanSel!=='all'){const l=D.loans.find(x=>x.lid===loanSel);totExp=l?l.intExp:0;}
-  }
-  const sf=r2(totExp-totAct);
-  const rate=totExp>0?(totAct/totExp)*100:0;
+  // ── KPIs ─────────────────────────────────────────────────────────────────
+  const totAct = r2(pays.reduce((s,p)=>s+getPaymentAmount(p), 0));
+  const totExp = computeExpected(selMoName, loanSel);
+  const sf     = r2(totExp - totAct);
+  const rate   = totExp > 0 ? (totAct / totExp) * 100 : 0;
 
-  $('col-exp').textContent=fmt(totExp);
-  $('col-act').textContent=fmt(totAct);
-  $('col-sf').textContent=fmt(Math.abs(sf));
-  $('col-sf').style.color=sf>0?'var(--r)':'var(--g)';
-  $('col-rate').textContent=fmtp(rate);$('col-rate').style.color=rate>=95?'var(--g)':rate>=80?'var(--a)':'var(--r)';
-  $('col-npay').textContent=pays.filter(p=>p.amt>0).length;
-  $('col-list-title').textContent=showAll?'All payment entries':(MNAMES[selMoIdx]||'')+' payment entries';
-  $('col-loan-title').textContent=loanSel==='all'?'Per-loan collection summary':'Loan detail';
+  $('col-exp').textContent  = fmt(totExp);
+  $('col-act').textContent  = fmt(totAct);
+  $('col-sf').textContent   = fmt(Math.abs(sf));
+  $('col-sf').style.color   = sf > 0 ? 'var(--r)' : 'var(--g)';
+  $('col-rate').textContent = fmtp(rate);
+  $('col-rate').style.color = rate>=95?'var(--g)':rate>=80?'var(--a)':'var(--r)';
+  $('col-npay').textContent = pays.filter(p=>p.amt>0).length;
+  $('col-list-title').textContent = showAll ? 'All payment entries' : (MONTHS[selMoIdx]||'') + ' payment entries';
+  $('col-loan-title').textContent = loanSel==='all' ? 'Per-loan collection summary' : 'Loan detail';
 
-  // Chart (all months)
+  // ── Chart: live expected vs live collected per month ─────────────────────
   const cc=$('col-chart-card');
-  if(showAll&&loanSel==='all'){
+  if(showAll && loanSel==='all'){
     cc.style.display='block';
-    mkChart('ch-col',{type:'bar',data:{labels:D.monthly.map(m=>m.m),datasets:[
-      {label:'Expected',data:D.monthly.map(m=>m.expColl),backgroundColor:'rgba(29,78,216,.3)',borderWidth:0,borderRadius:2},
-      {label:'Actual collected',data:D.monthly.map(m=>m.actColl),backgroundColor:'rgba(3,152,85,.55)',borderWidth:0,borderRadius:2}
+    // Live collected per month from actual payments
+    const liveCollByMonth = Object.fromEntries(MONTHS.map(m=>[m,0]));
+    D.payments.forEach(p=>{
+      if(!p.date) return;
+      const mo = parseISODateLocal(p.date).toLocaleDateString('en-GB',{month:'long'});
+      if(liveCollByMonth[mo] != null) liveCollByMonth[mo] = r2(liveCollByMonth[mo] + getPaymentAmount(p));
+    });
+    // Live expected per month from loan schedules
+    const liveExpByMonth = MONTHS.map(mo => computeExpected(mo, 'all'));
+    mkChart('ch-col',{type:'bar',data:{labels:MONTHS.map(m=>m.slice(0,3)),datasets:[
+      {label:'Expected', data:liveExpByMonth,                         backgroundColor:'rgba(29,78,216,.3)', borderWidth:0,borderRadius:2},
+      {label:'Collected',data:MONTHS.map(m=>liveCollByMonth[m]||0),   backgroundColor:'rgba(3,152,85,.55)',  borderWidth:0,borderRadius:2}
     ]},options:{...bo({leg:{display:true,labels:{color:TC,font:{size:10},boxWidth:8}}})}});
   } else { cc.style.display='none'; }
 
-  // Payment list
-  $('col-pay-list').innerHTML=pays.length?pays.map(p=>{
-    const l=D.loans.find(x=>x.lid===p.lid)||{};
-    const v=r2(getPaymentAmount(p)-(p.expected||0));
+  // ── Payment list ─────────────────────────────────────────────────────────
+  $('col-pay-list').innerHTML = pays.length ? pays.map(p=>{
+    const l = D.loans.find(x=>x.lid===p.lid)||{};
+    const exp = loanDueInMonth(l, parseISODateLocal(p.date).toLocaleDateString('en-GB',{month:'long'}));
+    const v = r2(getPaymentAmount(p) - exp);
     return`<div class="pi">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600">${l.name||p.lid}</div>
@@ -2108,16 +2128,19 @@ function renderCollections(){
         <div style="font-size:11px;color:${v>=0?'var(--g)':'var(--r)'}">${v>=0?'+':''}${fmtd(v)} vs exp</div>
       </div>
     </div>`;
-  }).join(''):`<div class="empty">No payments for selected filter.</div>`;
+  }).join('') : `<div class="empty">No payments for selected filter.</div>`;
 
-  // Per-loan summary
-  const loansToShow=loanSel==='all'?D.loans:D.loans.filter(l=>l.lid===loanSel);
-  $('col-loan-list').innerHTML=loansToShow.map(l=>{
-    const lPays=pays.filter(p=>p.lid===l.lid);
-    const lAct=r2(lPays.reduce((s,p)=>s+p.amt,0));
-    const lExp=showAll?l.cumDue:l.intExp;
-    const lEff=lExp>0?(lAct/lExp)*100:null;
-    const lSf=r2(lExp-lAct);
+  // ── Per-loan summary ──────────────────────────────────────────────────────
+  const loansToShow = loanSel==='all' ? D.loans : D.loans.filter(l=>l.lid===loanSel);
+  $('col-loan-list').innerHTML = loansToShow.map(l=>{
+    const lPays = pays.filter(p=>p.lid===l.lid);
+    const lAct  = r2(lPays.reduce((s,p)=>s+getPaymentAmount(p),0));
+    // Expected for this loan in selected period
+    const lExp  = showAll
+      ? r2(+(l.disbursed||0) + +(l.interest||0))   // full contract value
+      : loanDueInMonth(l, selMoName);               // just this month's due
+    const lEff  = lExp>0 ? (lAct/lExp)*100 : null;
+    const lSf   = r2(lExp - lAct);
     return`<div class="lc ${scls(l.status)}">
       <div class="lh"><div><div class="ln">${l.name}</div><div class="li">${l.lid} · ${rtl(l)}</div></div>${sbadge(l.status)}</div>
       <div class="lg">
@@ -2129,7 +2152,7 @@ function renderCollections(){
         Efficiency: <strong>${lEff!==null?fmtp(lEff):'—'}</strong> · ${lPays.length} payment(s)
       </div>
     </div>`;
-  }).join('')||`<div class="empty">No data.</div>`;
+  }).join('') || `<div class="empty">No data.</div>`;
 }
 
 /* ══════════════════════════════════════
@@ -3847,5 +3870,9 @@ document.addEventListener('click',function(e){
 });
 
 </script>
+
+
+
+
 </body>
 </html>
