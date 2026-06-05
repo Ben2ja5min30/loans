@@ -1170,8 +1170,12 @@ function getLoanDueTotal(l){ return calcLiveLoanBalance(l).totalDue; }
 function getLoanPositionStatus(l){ const b=calcLiveLoanBalance(l); return {totalDue:b.totalDue, paid:b.totalPaid, remaining:b.totalRemaining, over:b.overpayment, met:b.obligationsMet}; }
 function getRemainingInterest(l){ return calcLiveLoanBalance(l).remainingInterest; }
 function renderPosition(){
+  // recalcAllLiveBalances() is called by renderPage() before this, so l.book and
+  // l.remainingInterest are already fresh from calcLiveLoanBalance.
   const loans=D.loans||[];
-  const principal=r2(loans.reduce((s,l)=>s+(+l.book||+l.principal||+l.disbursed||0),0));
+  // Principal: sum of live outstanding principals (l.book set by recalcAllLiveBalances)
+  const principal=r2(loans.reduce((s,l)=>s+(+l.book||0),0));
+  // Interest: sum of remaining contractual interest per loan (0 for fully-paid loans)
   const interest=r2(loans.reduce((s,l)=>s+getRemainingInterest(l),0));
   const cash=r2(+D.cashAtHand||0);
   const total=r2(principal+interest+cash);
@@ -1192,6 +1196,7 @@ function renderPosition(){
     <div class="rr"><span class="rr-lbl">Total cash position</span><span class="rr-val">${fmt(cash)}</span></div>
     <div class="rr total"><span>Total position</span><span>${fmt(total)}</span></div>`;
   if($('pos-loans'))$('pos-loans').innerHTML=rows.map(x=>{
+    const ri=getRemainingInterest(x.loan);
     const label=x.over>0?'Overpaid':(x.met?'Obligations met':'Outstanding');
     const badge=x.over>0?'b-a':(x.met?'b-g':'b-r');
     return `<div class="lc ${x.met?'cur':'p1'}">
@@ -1200,6 +1205,10 @@ function renderPosition(){
         <div class="ls"><div class="lsl">Paid</div><div class="lsv">${fmt(x.paid)}</div></div>
         <div class="ls"><div class="lsl">Remaining</div><div class="lsv" style="color:${x.remaining>0?'var(--r)':'var(--g)'}">${fmt(x.remaining)}</div></div>
         <div class="ls"><div class="lsl">Overpayment</div><div class="lsv" style="color:${x.over>0?'var(--a)':'var(--muted)'}">${fmt(x.over)}</div></div>
+      </div>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--muted);padding:4px 0 2px">
+        <span>Principal: <strong style="color:var(--txt)">${fmt(+x.loan.book||0)}</strong></span>
+        <span>Int. remaining: <strong style="color:${ri>0?'var(--g)':'var(--muted)'}">${fmt(ri)}</strong></span>
       </div>
     </div>`;
   }).join('')||'<div class="empty">No loan data loaded.</div>';
@@ -1365,23 +1374,61 @@ function calcLiveLoanBalance(loan){
   // Mark arrears only if required due up to today is more than actual paid.
   const arrears = r2(Math.max(0, dueToDate - totalPaid));
 
-  // Allocate paid amounts: monthly interest first, then principal.
-  // For live principal, only accrued interest up to today is deducted before principal.
-  const interestAccruedToDate = (+loan.rt === 1)
-    ? r2(dueCountToday * monthlyInterest)
-    : r2(Math.min(contractualInterest, dueCountToday * monthlyInterest));
-
-  const interestPaid = r2(Math.min(totalPaid, interestAccruedToDate));
-  const principalPaid = r2(Math.max(0, totalPaid - interestPaid));
-  const outstandingPrincipal = r2(Math.max(0, originalPrincipal - principalPaid));
-
-  // Remaining full contractual interest still expected over life of loan.
-  const remainingInterest = r2(Math.max(0, contractualInterest - interestPaid));
+  // Allocate paid amounts: interest first, then principal.
+  //
+  // FIX 1 (interest-only loans): a borrower may pay interest BEFORE its due date
+  // (e.g. Gororo pays Apr interest on Apr-30 even though the due date is May-1).
+  // Using only dueCountToday×monthly as the interest cap causes that extra payment
+  // to be mis-classified as principal repayment, wrongly reducing the balloon.
+  // Solution: for rt=1 loans cap accrued interest by min(totalPaid, contractualInterest)
+  // so every dollar up to the full contractual interest is treated as interest.
+  //
+  // FIX 2 (fully-settled loans): remainingInterest must be 0 once totalPaid >= totalDue,
+  // even when the final instalment due-date has not yet passed on the calendar.
+  // Without this fix Brian (fully paid) still shows $260 "interest to receive".
 
   const totalDue = r2(originalPrincipal + contractualInterest);
+
+  // Interest accrued / attributable to date.
+  //
+  // FIX 3: respect p.type when splitting payments into interest vs principal.
+  // A payment typed 'principal' must never count toward interest paid, and a
+  // payment typed 'interest' must never count toward principal paid.
+  // We compute explicitIntPaid / explicitPrincPaid first, then apply interest-first
+  // only for untyped/'both'/'partial' payments.
+  let explicitIntPaid   = 0;
+  let explicitPrincPaid = 0;
+  let unallocatedAmt    = 0;
+  payments.forEach(p => {
+    const pAmt  = getPaymentAmount(p);
+    const pType = (p.type || '').toLowerCase();
+    if(pType === 'principal'){
+      explicitPrincPaid = r2(explicitPrincPaid + pAmt);
+    } else if(pType === 'interest'){
+      explicitIntPaid   = r2(explicitIntPaid   + pAmt);
+    } else {
+      unallocatedAmt    = r2(unallocatedAmt    + pAmt);
+    }
+  });
+  // Apply interest-first to the unallocated ('both'/'partial'/unset) payments
+  const interestAccruedToDate = (+loan.rt === 1)
+    ? r2(Math.min(unallocatedAmt, contractualInterest))       // FIX 1: honour early payments
+    : r2(Math.min(contractualInterest, dueCountToday * monthlyInterest));
+  const unallocatedIntPaid    = r2(Math.min(unallocatedAmt, interestAccruedToDate));
+  const unallocatedPrincPaid  = r2(Math.max(0, unallocatedAmt - unallocatedIntPaid));
+
+  const interestPaid   = r2(explicitIntPaid + unallocatedIntPaid);
+  const principalPaid  = r2(explicitPrincPaid + unallocatedPrincPaid);
+  const outstandingPrincipal = r2(Math.max(0, originalPrincipal - principalPaid));
+
   const totalRemaining = r2(Math.max(0, totalDue - totalPaid));
   const overpayment = r2(Math.max(0, totalPaid - totalDue));
   const obligationsMet = totalRemaining <= 0.005;
+
+  // FIX 2: once a loan is fully settled there is nothing left to receive
+  const remainingInterest = obligationsMet
+    ? 0
+    : r2(Math.max(0, contractualInterest - interestPaid));
 
   // DPD only counts if there is a real shortfall.
   let dpd = 0;
@@ -1500,7 +1547,20 @@ function allocateInterestFirstTimeline(){
     }
   });
 
-  // ── Actuals: min(payment, monthly) = interest per payment ────────────────
+  // ── Actuals: respect payment type, then interest-first for unspecified ─────
+  //
+  // FIX: previously this loop ignored p.type entirely, forcing min(amt,monthly)
+  // as interest even on payments explicitly typed 'principal'. A principal-only
+  // payment (e.g. clearing an outstanding balance) must NOT appear as interest
+  // income on the Interest tab.
+  //
+  // Priority order:
+  //   1. type === 'principal'  → 100% principal, 0 interest
+  //   2. type === 'interest'   → 100% interest (up to monthly due), 0 principal
+  //   3. type === 'both' / 'partial' / anything else
+  //      → interest-first: min(amt, monthly) interest, remainder principal
+  //      BUT only if contractual interest hasn't already been fully paid;
+  //      once interest is fully cleared, treat excess as principal.
   (D.payments||[]).forEach(p=>{
     const loan = (D.loans||[]).find(l => l.lid === p.lid);
     if(!loan || !p.date) return;
@@ -1510,9 +1570,32 @@ function allocateInterestFirstTimeline(){
     const mo      = payDate.toLocaleDateString('en-GB',{month:'long'});
     const amt     = r2(+(p.amt ?? p.amount ?? 0));
     const monthly = loanMonthlyInterest(loan);
+    const pType   = (p.type || '').toLowerCase();
 
-    const intThisPay   = r2(Math.min(amt, monthly));
-    const princThisPay = r2(Math.max(0, amt - intThisPay));
+    let intThisPay, princThisPay;
+    if(pType === 'principal'){
+      // Explicit principal-only payment — zero interest
+      intThisPay   = 0;
+      princThisPay = amt;
+    } else if(pType === 'interest'){
+      // Explicit interest-only payment — cap at monthly due
+      intThisPay   = r2(Math.min(amt, monthly));
+      princThisPay = r2(Math.max(0, amt - intThisPay));
+    } else {
+      // 'both', 'partial', or unset — interest-first, but respect already-paid interest
+      // so we don't over-count interest once the contractual total is reached
+      const contractInt   = +(loan.interest ?? 0);
+      const intAlreadyPaid = r2((D.payments||[])
+        .filter(x => x.lid === lid && x !== p && parseISODateLocal(x.date||'') < payDate)
+        .reduce((s,x)=>{
+          const xt=(x.type||'').toLowerCase();
+          if(xt==='principal') return s;
+          return s + r2(Math.min(+(x.amt??x.amount??0), loanMonthlyInterest(loan)));
+        }, 0));
+      const intRemaining  = r2(Math.max(0, contractInt - intAlreadyPaid));
+      intThisPay   = r2(Math.min(amt, Math.min(monthly, intRemaining)));
+      princThisPay = r2(Math.max(0, amt - intThisPay));
+    }
 
     p.intPaid   = intThisPay;
     p.princPaid = princThisPay;
